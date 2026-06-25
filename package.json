@@ -1,0 +1,54 @@
+{
+  "name": "tp-automation-crm",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3100",
+    "build": "next build",
+    "start": "next start -p 3100",
+    "db:migrate": "prisma migrate dev",
+    "db:generate": "prisma generate",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:reset": "prisma migrate reset --force",
+    "test:import": "tsx scripts/test-import-logic.ts",
+    "bot": "tsx scripts/bot.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.2.1",
+    "@resvg/resvg-js": "^2.6.2",
+    "bcryptjs": "^2.4.3",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "dotenv": "^17.4.2",
+    "eslint-config-next": "^15.5.19",
+    "grammy": "^1.44.0",
+    "jose": "^5.9.6",
+    "lucide-react": "^0.468.0",
+    "next": "^15.5.19",
+    "node-cron": "^4.5.0",
+    "pdf-lib": "^1.17.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^2.6.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.10.7",
+    "@types/node-cron": "^3.0.11",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.10",
+    "prisma": "^6.2.1",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  },
+  "overrides": {
+    "postcss": "^8.5.10"
+  }
+}

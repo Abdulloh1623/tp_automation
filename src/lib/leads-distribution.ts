@@ -3,6 +3,7 @@ import { endOfDay } from "date-fns";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { ACTIVE_STAGES, LEAD_LIMITS } from "@/lib/constants";
+import { splitRoundRobin } from "@/lib/distribute-util";
 
 export type DistributeResult = { assigned: number; operators: number; error?: string };
 
@@ -33,12 +34,11 @@ export async function distributeLeadsCore(): Promise<DistributeResult> {
     [ids[i], ids[j]] = [ids[j], ids[i]];
   }
 
-  const capacity = operators.length * LEAD_LIMITS.daily;
-  const selected = ids.slice(0, capacity);
-  const overflow = ids.slice(capacity);
-
-  const buckets = new Map<string, string[]>(operators.map((o) => [o.id, []]));
-  selected.forEach((id, i) => buckets.get(operators[i % operators.length].id)!.push(id));
+  const { byOp: buckets, overflow } = splitRoundRobin(
+    ids,
+    operators.map((o) => o.id),
+    LEAD_LIMITS.daily,
+  );
 
   let assigned = 0;
   for (const [opId, list] of buckets) {

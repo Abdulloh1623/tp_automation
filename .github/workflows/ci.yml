@@ -18,10 +18,12 @@ jobs:
 
     # Build/tsc uchun placeholder qiymatlar — CI'da real baza/sirlar kerak emas
     # (auth sahifalari dynamic, Prisma client query paytida ulanadi).
+    # MUHIM: NODE_ENV bu yerda "production" QILINMAYDI — aks holda `npm ci`
+    # devDependencies'ni (vitest, typescript, prisma, tailwind...) o'rnatmaydi.
+    # `next build` o'zi production rejimini qo'yadi.
     env:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
       SESSION_SECRET: ci-placeholder-secret-not-used-in-production
-      NODE_ENV: production
 
     steps:
       - name: Checkout

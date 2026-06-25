@@ -1,0 +1,170 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  LayoutDashboard,
+  PhoneCall,
+  PackageCheck,
+  Users,
+  UserX,
+  CreditCard,
+  Wrench,
+  AlertTriangle,
+  Warehouse,
+  HardHat,
+  BarChart3,
+  Activity,
+  UserCog,
+  ScrollText,
+  Upload,
+  LogOut,
+  Building2,
+} from "lucide-react";
+import { logout } from "@/actions/auth";
+import { Toaster } from "@/components/toaster";
+import { cn } from "@/lib/utils";
+import { userRoleLabel } from "@/lib/constants";
+import type { Role } from "@/lib/rbac";
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  roles: Role[];
+};
+
+const NAV: NavItem[] = [
+  { href: "/", label: "Boshqaruv paneli", icon: LayoutDashboard, roles: ["ADMIN"] },
+  { href: "/lidlar", label: "Kunlik ish", icon: PhoneCall, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
+  { href: "/ombor", label: "Ombor", icon: Warehouse, roles: ["ADMIN", "MANAGER"] },
+  { href: "/ustalar", label: "Ustalar", icon: HardHat, roles: ["ADMIN", "MANAGER"] },
+  { href: "/mijozlar", label: "Mijozlar", icon: Users, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
+  { href: "/toldirilmagan", label: "To'ldirilmagan", icon: UserX, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
+  { href: "/tolovlar", label: "To'lovlar", icon: CreditCard, roles: ["ADMIN", "MANAGER"] },
+  { href: "/muammolar", label: "Muammolar", icon: Wrench, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
+  { href: "/eskalatsiya", label: "Eskalatsiya", icon: AlertTriangle, roles: ["ADMIN", "MANAGER"] },
+  { href: "/qaytarish", label: "Qaytarish", icon: PackageCheck, roles: ["ADMIN", "MANAGER"] },
+  { href: "/analitika", label: "Jonli analitika", icon: Activity, roles: ["ADMIN", "MANAGER"] },
+  { href: "/hisobot", label: "Hisobot", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
+  { href: "/foydalanuvchilar", label: "Foydalanuvchilar", icon: UserCog, roles: ["ADMIN"] },
+  { href: "/audit", label: "Audit", icon: ScrollText, roles: ["ADMIN"] },
+  { href: "/import", label: "Import", icon: Upload, roles: ["ADMIN"] },
+];
+
+export function AppShell({
+  user,
+  children,
+}: {
+  user: { name: string; role: string };
+  children: React.ReactNode;
+}) {
+  const pathname = usePathname();
+  const nav = NAV.filter((i) => i.roles.includes(user.role as Role));
+
+  return (
+    <div className="flex min-h-screen">
+      {/* Sidebar */}
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
+        <div className="flex items-center gap-2 px-5 py-5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white">
+            <Building2 className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-slate-900">POS CRM</div>
+            <div className="text-xs text-slate-500">TP Automation</div>
+          </div>
+        </div>
+
+        <nav className="flex-1 space-y-1 px-3 py-2">
+          {nav.map((item) => {
+            const active =
+              item.href === "/"
+                ? pathname === "/"
+                : pathname.startsWith(item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-slate-600 hover:bg-slate-100",
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="border-t border-slate-200 p-3">
+          <div className="mb-2 px-2">
+            <div className="text-sm font-medium text-slate-900">{user.name}</div>
+            <div className="text-xs text-slate-500">
+              {userRoleLabel(user.role)}
+            </div>
+          </div>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600"
+            >
+              <LogOut className="h-4 w-4" />
+              Chiqish
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Mobile top bar */}
+        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:hidden">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+              <Building2 className="h-4 w-4" />
+            </div>
+            <span className="text-sm font-semibold">POS CRM</span>
+          </div>
+          <form action={logout}>
+            <button type="submit" className="text-slate-500">
+              <LogOut className="h-5 w-5" />
+            </button>
+          </form>
+        </header>
+
+        {/* Mobile nav — gorizontal skroll (rollar ko'p element ko'rsatadi) */}
+        <nav className="flex gap-1 overflow-x-auto border-b border-slate-200 bg-white px-2 py-2 md:hidden">
+          {nav.map((item) => {
+            const active =
+              item.href === "/"
+                ? pathname === "/"
+                : pathname.startsWith(item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex shrink-0 min-w-[60px] flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-xs font-medium",
+                  active ? "bg-blue-50 text-blue-700" : "text-slate-600",
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <main className="flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
+      </div>
+
+      <Toaster />
+    </div>
+  );
+}

@@ -1,0 +1,150 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Check, X, AlertCircle, Phone, Wrench, PackageCheck } from "lucide-react";
+import {
+  approveReturnRequest,
+  rejectReturnRequest,
+  confirmReturnCollected,
+} from "@/actions/equipment";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { normalizePhone } from "@/lib/utils";
+
+export type ReturnQueueItem = {
+  id: string;
+  status: string; // PENDING | APPROVED
+  restaurantName: string;
+  fullName: string;
+  phone: string;
+  region: string | null;
+  note: string | null;
+  byName: string | null;
+  ustaName: string | null; // biriktirilgan (APPROVED)
+  matchedUstaId: string | null; // viloyat bo'yicha taklif (PENDING)
+};
+
+export type UstaOpt = { id: string; name: string };
+
+export function ReturnQueue({
+  items,
+  ustalar,
+}: {
+  items: ReturnQueueItem[];
+  ustalar: UstaOpt[];
+}) {
+  const [err, setErr] = useState<string | null>(null);
+
+  if (items.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-400">
+        Qaytariladigan uskunalar navbati bo'sh
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {err && (
+        <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 shrink-0" /> {err}
+        </div>
+      )}
+      {items.map((r) => (
+        <Row key={r.id} r={r} ustalar={ustalar} onError={setErr} />
+      ))}
+    </div>
+  );
+}
+
+function Row({
+  r,
+  ustalar,
+  onError,
+}: {
+  r: ReturnQueueItem;
+  ustalar: UstaOpt[];
+  onError: (e: string | null) => void;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [ustaId, setUstaId] = useState<string>(r.matchedUstaId ?? "");
+
+  function run(fn: () => Promise<{ ok: boolean; error?: string }>) {
+    onError(null);
+    start(async () => {
+      const res = await fn();
+      if (res.ok) router.refresh();
+      else onError(res.error ?? "Xatolik");
+    });
+  }
+
+  const approved = r.status === "APPROVED";
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-slate-900">{r.restaurantName || r.fullName || "—"}</span>
+            <Badge tone="slate">{r.region ?? "viloyatsiz"}</Badge>
+            {approved && <Badge tone="amber">Ustada</Badge>}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-slate-500">
+            <span>{r.fullName}</span>
+            <a href={`tel:${normalizePhone(r.phone)}`} className="inline-flex items-center gap-1 text-blue-600">
+              <Phone className="h-3 w-3" /> {r.phone}
+            </a>
+            <span>· Ariza: {r.byName ?? "—"}</span>
+          </div>
+          {r.note && <p className="mt-1 text-sm text-slate-600">{r.note}</p>}
+          {approved && (
+            <p className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-700">
+              <Wrench className="h-3 w-3" /> Usta: {r.ustaName ?? "—"}
+            </p>
+          )}
+        </div>
+
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          {approved ? (
+            <Button size="sm" disabled={pending} onClick={() => run(() => confirmReturnCollected(r.id))}>
+              <PackageCheck className="h-4 w-4" /> Bajarildi (olib keldi)
+            </Button>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <select
+                  value={ustaId}
+                  onChange={(e) => setUstaId(e.target.value)}
+                  className="h-9 rounded-lg border border-slate-300 bg-white px-2 text-sm"
+                >
+                  <option value="">Usta tanlang (yoki viloyat bo'yicha)</option>
+                  {ustalar.map((u) => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+                <Button
+                  size="sm"
+                  disabled={pending}
+                  onClick={() => run(() => approveReturnRequest(r.id, ustaId || undefined))}
+                >
+                  <Check className="h-4 w-4" /> Biriktirish
+                </Button>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-red-300 text-red-700"
+                disabled={pending}
+                onClick={() => run(() => rejectReturnRequest(r.id))}
+              >
+                <X className="h-4 w-4" /> Rad etish
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

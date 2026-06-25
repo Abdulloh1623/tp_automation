@@ -1,0 +1,251 @@
+// POS CRM — Prisma sxema (SQLite)
+// Eslatma: SQLite enum'ni qo'llamaydi, shuning uchun status maydonlari String.
+// Ruxsat etilgan qiymatlar src/lib/constants.ts da belgilangan.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(cuid())
+  name            String
+  username        String   @unique
+  passwordHash    String
+  phone           String?
+  role            String   @default("OPERATOR") // ADMIN | OPERATOR | INSTALLER
+  region          String? // birlamchi viloyat (eski; regions[0])
+  regions         String? // usta/xodim qoplaydigan viloyatlar — vergulli ro'yxat (ko'p viloyat)
+  isActive        Boolean  @default(true)
+  telegramId      String?  @unique // Telegram bot ruxsati/DM uchun
+  dailyLeadTarget Int      @default(20) // kunlik lid soni
+  createdAt       DateTime @default(now())
+
+  assignedClients Client[]         @relation("AssignedOperator")
+  ustaClients     Client[]         @relation("AssignedUsta")
+  specialNotes    Client[]         @relation("SpecialNoteAuthor")
+  callLogs        CallLog[]
+  payments        Payment[]
+  tickets         Ticket[]
+  dailyGrants     DailyLeadGrant[]
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  userName  String?
+  action    String // inson o'qiy oladigan amal nomi
+  entity    String? // Client | User | Payment | Ticket
+  entityId  String?
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model DailyLeadGrant {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date        DateTime // o'sha kun (00:00, UTC+5)
+  extraCount  Int      @default(0)
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([date])
+}
+
+model Client {
+  id              String    @id @default(cuid())
+  fullName        String
+  restaurantName  String
+  region          String?
+  phone           String
+  contractNumber  String?
+  contractDate    DateTime?
+  installerName   String?
+  monoblokCount   Int       @default(1)
+  equipment       String?
+  equipmentMode   String    @default("PROGRAM_ONLY") // RENTAL | SOLD | PROGRAM_ONLY
+  status          String    @default("ACTIVE") // ACTIVE | INACTIVE | PENDING
+  monthlyAmount   Float     @default(0)
+  currency        String    @default("USD") // USD | UZS
+  nextPaymentDate DateTime?
+  notes           String?
+  assignedToId    String?
+  assignedTo      User?     @relation("AssignedOperator", fields: [assignedToId], references: [id])
+
+  // Ustaga biriktirish (eskalatsiya/o'rnatish)
+  assignedUstaId String?
+  assignedUsta   User?   @relation("AssignedUsta", fields: [assignedUstaId], references: [id])
+  ustaStatus     String? // USTA_STATUS: ASSIGNED|EN_ROUTE|ARRIVED|DONE|FAILED|REVISIT
+
+  // Maxsus (doimiy) izoh — mijoz nomi yonida qo'ng'iroqcha bilan
+  specialNote     String?
+  specialNoteById String?
+  specialNoteBy   User?     @relation("SpecialNoteAuthor", fields: [specialNoteById], references: [id])
+  specialNoteAt   DateTime?
+
+  // Lid workflow (kunlik qo'ng'iroq jarayoni)
+  stage           String    @default("NEW") // LEAD_STAGE: NEW|NO_ANSWER|LATER|AWAITING_PAYMENT|FORWARDED|RESOLVED|DEACTIVATED
+  pendingStage    String? // bugun yozilgan natija bo'yicha kun-yakuni maqsad bo'lim
+  nextContactDate DateTime? // qachon qayta aloqa (kunlik ro'yxat shu bo'yicha)
+  lastOutcome     String? // oxirgi yozilgan natija (LEAD_OUTCOME)
+  lastContactedAt DateTime? // oxirgi aloqa vaqti
+  missedCallCount Int       @default(0) // ketma-ket ko'tarilmagan qo'ng'iroqlar (3+ da avtomatik ustaga)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payments       Payment[]
+  callLogs       CallLog[]
+  tickets        Ticket[]
+  equipmentItems ClientEquipment[]
+  returnRequests EquipmentReturnRequest[]
+  phones         ClientPhone[]
+
+  @@index([status])
+  @@index([nextPaymentDate])
+  @@index([assignedToId, stage])
+  @@index([assignedToId, nextContactDate])
+  @@index([assignedUstaId])
+}
+
+model ClientPhone {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  label     String // Egasi | Menejer | Kassir | Buxgalter | ...
+  number    String
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
+}
+
+model Payment {
+  id           String    @id @default(cuid())
+  clientId     String
+  client       Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  amount       Float
+  currency     String    @default("USD")
+  paidAt       DateTime  @default(now())
+  periodStart  DateTime?
+  periodEnd    DateTime?
+  receiptNote  String?
+  receiptPath  String? // saqlangan chek rasmi yo'li (uploads/receipts/...)
+  recordedById String?
+  recordedBy   User?     @relation(fields: [recordedById], references: [id])
+  createdAt    DateTime  @default(now())
+
+  @@index([clientId])
+  @@index([paidAt])
+}
+
+model CallLog {
+  id               String    @id @default(cuid())
+  clientId         String
+  client           Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  calledAt         DateTime  @default(now())
+  result           String // NO_ANSWER | PHONE_OFF | BUSY | TALKED | SMS_SENT | TELEGRAM_SENT | RESOLVED
+  note             String?
+  operatorId       String?
+  operator         User?     @relation(fields: [operatorId], references: [id])
+  nextFollowUpDate DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([clientId])
+  @@index([calledAt])
+  @@index([nextFollowUpDate])
+}
+
+model Ticket {
+  id             String    @id @default(cuid())
+  clientId       String
+  client         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  title          String
+  type           String    @default("TECHNICAL") // TECHNICAL | FEATURE | PAYMENT | TAX
+  status         String    @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED
+  priority       String    @default("MEDIUM") // LOW | MEDIUM | HIGH
+  assignedToId   String?
+  assignedTo     User?     @relation(fields: [assignedToId], references: [id])
+  resolutionNote String?
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+
+  @@index([clientId])
+  @@index([status])
+}
+
+// --- Ombor (inventar) ---
+
+model EquipmentType {
+  id          String  @id @default(cuid())
+  name        String  @unique // Printer | Monoblok | WiFi router
+  rentalPrice Float   @default(0) // ijara (oylik) narxi
+  salePrice   Float   @default(0) // sotuv narxi
+  minStock    Int     @default(0) // kam zaxira chegarasi (ogohlantirish uchun)
+  isActive    Boolean @default(true) // faolsizlantirilgan tur formalarda ko'rinmaydi
+
+  stock           InventoryStock[]
+  clientEquipment ClientEquipment[]
+}
+
+model InventoryStock {
+  id              String        @id @default(cuid())
+  locationType    String // WAREHOUSE | USTA
+  locationId      String // "WAREHOUSE" yoki ustaId
+  equipmentTypeId String
+  equipmentType   EquipmentType @relation(fields: [equipmentTypeId], references: [id])
+  quantity        Int           @default(0)
+
+  @@unique([locationType, locationId, equipmentTypeId])
+  @@index([locationType, locationId])
+}
+
+model ClientEquipment {
+  id              String        @id @default(cuid())
+  clientId        String
+  client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  equipmentTypeId String
+  equipmentType   EquipmentType @relation(fields: [equipmentTypeId], references: [id])
+  quantity        Int           @default(0)
+  ownership       String // RENTAL | SOLD
+
+  @@unique([clientId, equipmentTypeId, ownership])
+  @@index([clientId])
+}
+
+model EquipmentMovement {
+  id              String   @id @default(cuid())
+  equipmentTypeId String
+  quantity        Int
+  fromType        String? // WAREHOUSE | USTA | CLIENT | BRAK
+  fromId          String?
+  toType          String? // WAREHOUSE | USTA | CLIENT | BRAK
+  toId            String?
+  reason          String?
+  note            String? // ombor→usta va →brak da majburiy
+  byUserId        String?
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model EquipmentReturnRequest {
+  id         String    @id @default(cuid())
+  clientId   String
+  client     Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  byUserId   String? // arizani bergan operator
+  note       String?
+  status     String    @default("PENDING") // PENDING | APPROVED | REJECTED | DONE
+  ustaId     String? // tasdiqlangach biriktirilgan usta
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([status])
+}

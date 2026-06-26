@@ -8,6 +8,7 @@ import { guardRole } from "@/lib/auth";
 import { canMutateClient, resolveAssignee } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { normalizeRegion } from "@/lib/constants";
+import { clientStatusEnum, currencyEnum, noteString } from "@/lib/validation";
 
 const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
 
@@ -26,11 +27,11 @@ const clientSchema = z.object({
   installerName: z.string().optional(),
   monoblokCount: z.coerce.number().int().min(0).default(1),
   equipment: z.string().optional(),
-  status: z.string().default("ACTIVE"),
+  status: clientStatusEnum.default("ACTIVE"),
   monthlyAmount: z.coerce.number().min(0).default(0),
-  currency: z.string().default("USD"),
+  currency: currencyEnum.default("USD"),
   nextPaymentDate: z.string().optional(),
-  notes: z.string().optional(),
+  notes: noteString.optional(),
   assignedToId: z.string().optional(),
 });
 

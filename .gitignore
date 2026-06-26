@@ -37,3 +37,12 @@ next-env.d.ts
 
 # zaxira nusxalar
 /backups
+
+# Playwright (E2E) artefaktlari
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# bir martalik yordamchi skriptlar
+/scripts/_*.ps1

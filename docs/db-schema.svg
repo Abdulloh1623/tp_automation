@@ -1,0 +1,199 @@
+<svg viewBox="0 0 1440 1030" xmlns="http://www.w3.org/2000/svg" font-family="Arial, Helvetica, sans-serif">
+<title>TP Automation ma'lumotlar bazasi sxemasi — 13 jadval va bog'lanishlar</title>
+
+<defs>
+<marker id="aB" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L7,3 L0,6 Z" fill="#3D8BDC"/></marker>
+<marker id="aG" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L7,3 L0,6 Z" fill="#1EB37F"/></marker>
+<marker id="aA" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L7,3 L0,6 Z" fill="#E0A23A"/></marker>
+<marker id="aGr" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L7,3 L0,6 Z" fill="#8a8f98"/></marker>
+</defs>
+
+<rect x="0" y="0" width="1440" height="1030" fill="#0e1a16"/>
+
+<text x="40" y="30" font-size="19" font-weight="700" fill="#eef2f0">TP Automation — DB sxemasi</text>
+<text x="40" y="50" font-size="12" fill="#9bb0a8">PostgreSQL · Prisma · 13 jadval</text>
+
+<g font-size="10.5" fill="#9bb0a8">
+<line x1="690" y1="22" x2="722" y2="22" stroke="#8a8f98" stroke-width="1.6" marker-end="url(#aGr)"/>
+<text x="728" y="25">FK bog'lanish (1 → N)</text>
+<line x1="690" y1="42" x2="722" y2="42" stroke="#8a8f98" stroke-width="1.4" stroke-dasharray="6 4"/>
+<text x="728" y="45">Bo'sh havola (by-id, FK'siz) ⇢</text>
+<text x="900" y="25">⊗  Cascade o'chirish</text>
+<circle cx="908" cy="41" r="5" fill="#3D8BDC"/><text x="918" y="45">User</text>
+<circle cx="978" cy="41" r="5" fill="#1EB37F"/><text x="988" y="45">Client</text>
+<circle cx="1052" cy="41" r="5" fill="#E0A23A"/><text x="1062" y="45">Ombor</text>
+<circle cx="1128" cy="41" r="5" fill="#8a8f98"/><text x="1138" y="45">Audit/Grant</text>
+</g>
+
+<g fill="none" stroke-width="1.6">
+<path d="M290,235 C 360,340 400,400 468,480" stroke="#3D8BDC" marker-end="url(#aB)"/>
+<path d="M290,108 C 480,55 680,60 816,150" stroke="#3D8BDC" marker-end="url(#aB)"/>
+<path d="M290,170 C 500,210 640,305 816,357" stroke="#3D8BDC" marker-end="url(#aB)"/>
+<path d="M290,225 C 520,300 660,305 720,332 S 810,520 816,576" stroke="#3D8BDC" marker-end="url(#aB)"/>
+<path d="M175,318 L175,274" stroke="#3D8BDC" marker-end="url(#aB)"/>
+<path d="M130,480 C 55,445 38,380 58,260" stroke="#8a8f98" stroke-dasharray="6 4" stroke-width="1.4" marker-end="url(#aGr)"/>
+
+<path d="M478,480 C 510,400 540,300 555,234" stroke="#1EB37F" marker-end="url(#aG)"/>
+<path d="M700,500 C 762,400 782,250 816,160" stroke="#1EB37F" marker-end="url(#aG)"/>
+<path d="M700,548 C 752,520 772,382 816,361" stroke="#1EB37F" marker-end="url(#aG)"/>
+<path d="M700,618 C 760,605 782,585 816,581" stroke="#1EB37F" marker-end="url(#aG)"/>
+<path d="M700,700 C 762,742 782,782 816,790" stroke="#1EB37F" marker-end="url(#aG)"/>
+<path d="M560,770 L560,816" stroke="#1EB37F" marker-end="url(#aG)"/>
+
+<path d="M1255,632 L1255,676" stroke="#E0A23A" marker-end="url(#aA)"/>
+<path d="M1140,545 C 1100,605 1092,762 1064,790" stroke="#E0A23A" marker-end="url(#aA)"/>
+<path d="M1255,322 L1255,466" stroke="#E0A23A" stroke-dasharray="6 4" stroke-width="1.4" marker-end="url(#aA)"/>
+</g>
+
+<g font-size="9.5" font-style="italic" fill="#7FB4E6">
+<text x="352" y="402">×3: assignedTo · assignedUsta · specialNoteBy</text>
+<text x="470" y="86">operatorId</text>
+<text x="486" y="232">recordedById</text>
+<text x="430" y="318">assignedToId</text>
+</g>
+
+<g font-size="11" fill="#1EB37F" font-weight="700">
+<text x="544" y="238">⊗</text><text x="800" y="150">⊗</text><text x="800" y="352">⊗</text>
+<text x="800" y="572">⊗</text><text x="800" y="782">⊗</text><text x="566" y="812">⊗</text>
+</g>
+<text x="186" y="312" font-size="11" fill="#3D8BDC" font-weight="700">⊗</text>
+
+<g font-size="10.5">
+
+<rect x="60" y="70" width="230" height="205" rx="11" fill="#3D8BDC" fill-opacity="0.10" stroke="#3D8BDC" stroke-opacity="0.6" stroke-width="1.4"/>
+<text x="74" y="92" font-size="12.5" font-weight="700" fill="#5AA0E8">User  ·  xodim / usta</text>
+<line x1="68" y1="100" x2="282" y2="100" stroke="#3D8BDC" stroke-opacity="0.35"/>
+<text x="74" y="118" fill="#dde3e0">◆ id   · PK</text>
+<text x="74" y="134" fill="#dde3e0">name · phone</text>
+<text x="74" y="150" fill="#dde3e0">username  (unique)</text>
+<text x="74" y="166" fill="#dde3e0">role  (ADMIN/OPERATOR/…)</text>
+<text x="74" y="182" fill="#dde3e0">region · regions</text>
+<text x="74" y="198" fill="#dde3e0">telegramId  (unique)</text>
+<text x="74" y="214" fill="#dde3e0">dailyLeadTarget · isActive</text>
+<text x="74" y="230" fill="#9bb0a8">createdAt</text>
+<text x="74" y="252" font-size="9.5" font-style="italic" fill="#9bb0a8">↘ ko'p jadval shu jadvalga bog'lanadi</text>
+
+<rect x="60" y="320" width="230" height="118" rx="11" fill="#8a8f98" fill-opacity="0.10" stroke="#8a8f98" stroke-opacity="0.6" stroke-width="1.4"/>
+<text x="74" y="342" font-size="12.5" font-weight="700" fill="#aab0b8">DailyLeadGrant</text>
+<line x1="68" y1="350" x2="282" y2="350" stroke="#8a8f98" stroke-opacity="0.35"/>
+<text x="74" y="368" fill="#dde3e0">◆ id   · PK</text>
+<text x="74" y="384" fill="#5AA0E8">▸ userId → User  ⊗</text>
+<text x="74" y="400" fill="#dde3e0">date · extraCount</text>
+<text x="74" y="416" fill="#7FB4E6">▹ createdById ⇢ User</text>
+<text x="74" y="431" font-size="9.5" font-style="italic" fill="#9bb0a8">unique(userId, date)</text>
+
+<rect x="60" y="480" width="230" height="140" rx="11" fill="#8a8f98" fill-opacity="0.10" stroke="#8a8f98" stroke-opacity="0.6" stroke-width="1.4"/>
+<text x="74" y="502" font-size="12.5" font-weight="700" fill="#aab0b8">AuditLog</text>
+<line x1="68" y1="510" x2="282" y2="510" stroke="#8a8f98" stroke-opacity="0.35"/>
+<text x="74" y="528" fill="#dde3e0">◆ id   · PK</text>
+<text x="74" y="544" fill="#7FB4E6">▹ userId ⇢ User</text>
+<text x="74" y="560" fill="#dde3e0">action · entity</text>
+<text x="74" y="576" fill="#dde3e0">entityId · detail</text>
+<text x="74" y="592" fill="#9bb0a8">createdAt</text>
+<text x="74" y="608" font-size="9.5" font-style="italic" fill="#9bb0a8">FK constraintsiz (yumshoq havola)</text>
+
+<rect x="430" y="120" width="250" height="110" rx="11" fill="#1EB37F" fill-opacity="0.10" stroke="#1EB37F" stroke-opacity="0.6" stroke-width="1.4"/>
+<text x="444" y="142" font-size="12.5" font-weight="700" fill="#3FCF9A">ClientPhone</text>
+<line x1="438" y1="150" x2="672" y2="150" stroke="#1EB37F" stroke-opacity="0.35"/>
+<text x="444" y="168" fill="#dde3e0">◆ id   · PK</text>
+<text x="444" y="184" fill="#3FCF9A">▸ clientId → Client  ⊗</text>
+<text x="444" y="200" fill="#dde3e0">label  (Egasi / Kassir…)</text>
+<text x="444" y="216" fill="#dde3e0">number</text>
+
+<rect x="430" y="470" width="270" height="300" rx="12" fill="#1EB37F" fill-opacity="0.13" stroke="#1EB37F" stroke-opacity="0.75" stroke-width="1.8"/>
+<text x="444" y="493" font-size="13.5" font-weight="700" fill="#3FCF9A">Client  ·  mijoz   ★ MARKAZ</text>
+<line x1="438" y1="501" x2="692" y2="501" stroke="#1EB37F" stroke-opacity="0.4"/>
+<text x="444" y="519" fill="#dde3e0">◆ id   · PK</text>
+<text x="444" y="535" fill="#dde3e0">fullName · restaurantName</text>
+<text x="444" y="551" fill="#dde3e0">region · phone</text>
+<text x="444" y="567" fill="#dde3e0">equipmentMode · status</text>
+<text x="444" y="583" fill="#dde3e0">monthlyAmount · currency</text>
+<text x="444" y="599" fill="#dde3e0">stage · nextContactDate</text>
+<text x="444" y="615" fill="#dde3e0">lastOutcome · missedCallCount</text>
+<text x="444" y="631" fill="#5AA0E8">▸ assignedToId → User</text>
+<text x="444" y="647" fill="#5AA0E8">▸ assignedUstaId → User</text>
+<text x="444" y="663" fill="#5AA0E8">▸ specialNoteById → User</text>
+<text x="444" y="681" font-size="9.5" font-style="italic" fill="#9bb0a8">… +14 boshqa maydon (notes, contract…)</text>
+<text x="444" y="700" font-size="9.5" font-style="italic" fill="#9bb0a8">6 jadvalning ota-onasi (Cascade)</text>
+
+<rect x="430" y="820" width="270" height="150" rx="11" fill="#E07A45" fill-opacity="0.11" stroke="#E07A45" stroke-opacity="0.6" stroke-width="1.4"/>
+<text x="444" y="842" font-size="12.5" font-weight="700" fill="#EE9468">EquipmentReturnRequest</text>
+<line x1="438" y1="850" x2="692" y2="850" stroke="#E07A45" stroke-opacity="0.35"/>
+<text x="444" y="868" fill="#dde3e0">◆ id   · PK</text>
+<text x="444" y="884" fill="#3FCF9A">▸ clientId → Client  ⊗</text>
+<text x="444" y="900" fill="#7FB4E6">▹ byUserId ⇢ User</text>
+<text x="444" y="916" fill="#7FB4E6">▹ ustaId ⇢ User</text>
+<text x="444" y="932" fill="#dde3e0">status  (PENDING/APPROVED…)</text>
+<text x="444" y="948" fill="#9bb0a8">note · resolvedAt</text>
+
+<rect x="820" y="70" width="240" height="175" rx="11" fill="#1EB37F" fill-opacity="0.10" stroke="#1EB37F" stroke-opacity="0.6" stroke-width="1.4"/>
+<text x="834" y="92" font-size="12.5" font-weight="700" fill="#3FCF9A">CallLog</text>
+<line x1="828" y1="100" x2="1052" y2="100" stroke="#1EB37F" stroke-opacity="0.35"/>
+<text x="834" y="118" fill="#dde3e0">◆ id   · PK</text>
+<text x="834" y="134" fill="#3FCF9A">▸ clientId → Client  ⊗</text>
+<text x="834" y="150" fill="#5AA0E8">▸ operatorId → User</text>
+<text x="834" y="166" fill="#dde3e0">result · note</text>
+<text x="834" y="182" fill="#dde3e0">calledAt</text>
+<text x="834" y="198" fill="#dde3e0">nextFollowUpDate</text>
+
+<rect x="820" y="290" width="240" height="170" rx="11" fill="#1EB37F" fill-opacity="0.10" stroke="#1EB37F" stroke-opacity="0.6" stroke-width="1.4"/>
+<text x="834" y="312" font-size="12.5" font-weight="700" fill="#3FCF9A">Payment</text>
+<line x1="828" y1="320" x2="1052" y2="320" stroke="#1EB37F" stroke-opacity="0.35"/>
+<text x="834" y="338" fill="#dde3e0">◆ id   · PK</text>
+<text x="834" y="354" fill="#3FCF9A">▸ clientId → Client  ⊗</text>
+<text x="834" y="370" fill="#5AA0E8">▸ recordedById → User</text>
+<text x="834" y="386" fill="#dde3e0">amount · currency</text>
+<text x="834" y="402" fill="#dde3e0">paidAt · periodStart/End</text>
+<text x="834" y="418" fill="#dde3e0">receiptPath · note</text>
+
+<rect x="820" y="510" width="240" height="160" rx="11" fill="#1EB37F" fill-opacity="0.10" stroke="#1EB37F" stroke-opacity="0.6" stroke-width="1.4"/>
+<text x="834" y="532" font-size="12.5" font-weight="700" fill="#3FCF9A">Ticket  ·  muammo</text>
+<line x1="828" y1="540" x2="1052" y2="540" stroke="#1EB37F" stroke-opacity="0.35"/>
+<text x="834" y="558" fill="#dde3e0">◆ id   · PK</text>
+<text x="834" y="574" fill="#3FCF9A">▸ clientId → Client  ⊗</text>
+<text x="834" y="590" fill="#5AA0E8">▸ assignedToId → User</text>
+<text x="834" y="606" fill="#dde3e0">title · type</text>
+<text x="834" y="622" fill="#dde3e0">status · priority</text>
+<text x="834" y="642" fill="#9bb0a8">resolutionNote · resolvedAt</text>
+
+<rect x="820" y="720" width="240" height="150" rx="11" fill="#E0A23A" fill-opacity="0.11" stroke="#E0A23A" stroke-opacity="0.6" stroke-width="1.4"/>
+<text x="834" y="742" font-size="12.5" font-weight="700" fill="#EBB658">ClientEquipment</text>
+<line x1="828" y1="750" x2="1052" y2="750" stroke="#E0A23A" stroke-opacity="0.35"/>
+<text x="834" y="768" fill="#dde3e0">◆ id   · PK</text>
+<text x="834" y="784" fill="#3FCF9A">▸ clientId → Client  ⊗</text>
+<text x="834" y="800" fill="#EBB658">▸ equipmentTypeId → EqType</text>
+<text x="834" y="816" fill="#dde3e0">quantity · ownership</text>
+<text x="834" y="836" font-size="9.5" font-style="italic" fill="#9bb0a8">2 ota-ona: Client + EquipmentType</text>
+
+<rect x="1140" y="120" width="230" height="200" rx="11" fill="#E0A23A" fill-opacity="0.11" stroke="#E0A23A" stroke-opacity="0.6" stroke-width="1.4"/>
+<text x="1154" y="142" font-size="12.5" font-weight="700" fill="#EBB658">EquipmentMovement</text>
+<line x1="1148" y1="150" x2="1362" y2="150" stroke="#E0A23A" stroke-opacity="0.35"/>
+<text x="1154" y="168" fill="#dde3e0">◆ id   · PK</text>
+<text x="1154" y="184" fill="#EBB658">▹ equipmentTypeId ⇢ EqType</text>
+<text x="1154" y="200" fill="#dde3e0">fromType · fromId</text>
+<text x="1154" y="216" fill="#dde3e0">toType · toId</text>
+<text x="1154" y="232" fill="#7FB4E6">▹ byUserId ⇢ User</text>
+<text x="1154" y="248" fill="#dde3e0">reason · note</text>
+<text x="1154" y="264" fill="#9bb0a8">createdAt</text>
+<text x="1154" y="284" font-size="9.5" font-style="italic" fill="#9bb0a8">WAREHOUSE↔USTA↔CLIENT↔BRAK</text>
+
+<rect x="1140" y="470" width="230" height="160" rx="12" fill="#E0A23A" fill-opacity="0.14" stroke="#E0A23A" stroke-opacity="0.75" stroke-width="1.8"/>
+<text x="1154" y="493" font-size="13" font-weight="700" fill="#EBB658">EquipmentType  ★</text>
+<line x1="1148" y1="501" x2="1362" y2="501" stroke="#E0A23A" stroke-opacity="0.4"/>
+<text x="1154" y="519" fill="#dde3e0">◆ id   · PK</text>
+<text x="1154" y="535" fill="#dde3e0">name  (unique)</text>
+<text x="1154" y="551" fill="#dde3e0">rentalPrice · salePrice</text>
+<text x="1154" y="567" fill="#dde3e0">minStock · isActive</text>
+<text x="1154" y="589" font-size="9.5" font-style="italic" fill="#9bb0a8">Printer · Monoblok · WiFi router</text>
+
+<rect x="1140" y="680" width="230" height="140" rx="11" fill="#E0A23A" fill-opacity="0.11" stroke="#E0A23A" stroke-opacity="0.6" stroke-width="1.4"/>
+<text x="1154" y="702" font-size="12.5" font-weight="700" fill="#EBB658">InventoryStock</text>
+<line x1="1148" y1="710" x2="1362" y2="710" stroke="#E0A23A" stroke-opacity="0.35"/>
+<text x="1154" y="728" fill="#dde3e0">◆ id   · PK</text>
+<text x="1154" y="744" fill="#EBB658">▸ equipmentTypeId → EqType</text>
+<text x="1154" y="760" fill="#dde3e0">locationType · locationId</text>
+<text x="1154" y="776" fill="#dde3e0">quantity</text>
+<text x="1154" y="796" font-size="9.5" font-style="italic" fill="#9bb0a8">unique(loc, loc, type)</text>
+
+</g>
+</svg>

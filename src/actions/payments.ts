@@ -10,6 +10,7 @@ import { logAudit } from "@/lib/audit";
 import { saveReceipt } from "@/lib/receipts";
 import { sendPaymentToChannel, escapeHtml } from "@/lib/telegram";
 import { formatMoney, formatDate } from "@/lib/utils";
+import { currencyEnum, noteString } from "@/lib/validation";
 import type { SessionPayload } from "@/lib/session";
 
 // Mijoz/to'lov bilan ishlovchi xodimlar (usta — INSTALLER taqiqlanadi)
@@ -22,10 +23,10 @@ function s(v: FormDataEntryValue | null): string | undefined {
 
 const paymentSchema = z.object({
   amount: z.coerce.number().positive("Summani kiriting"),
-  currency: z.string().default("USD"),
+  currency: currencyEnum.default("USD"),
   paidAt: z.string().optional(),
   months: z.coerce.number().int().min(1).max(24).default(1),
-  receiptNote: z.string().optional(),
+  receiptNote: noteString.optional(),
 });
 
 export type PaymentFormState = { error?: string; ok?: boolean };

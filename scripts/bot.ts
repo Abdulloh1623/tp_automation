@@ -12,6 +12,7 @@ import { createBackup } from "../src/lib/backup";
 import { startBot } from "../src/lib/bot";
 import { sendDailyReminders, sendOperatorReminders } from "../src/lib/reminders";
 import { distributeLeadsCore } from "../src/lib/leads-distribution";
+import { reportError } from "../src/lib/error-report";
 
 const TZ = "Asia/Tashkent";
 
@@ -38,6 +39,7 @@ async function sendReport(kind: ReportKind) {
       log(`hisobot[${kind}] matn →`, t.mode, t.ok ? "ok" : t.error);
     } catch (e2) {
       log(`hisobot[${kind}] matn ham XATO:`, e2 instanceof Error ? e2.message : e2);
+      await reportError(e2, { source: "worker", path: `report/${kind}` });
     }
   }
 }
@@ -47,9 +49,13 @@ async function runBackup() {
   try {
     const res = await createBackup();
     if (res.ok) log(`backup → ${res.name} · ${res.sizeKb}KB · cheklar:${res.receipts} · Telegram:${res.telegram}`);
-    else log("backup XATO:", res.error);
+    else {
+      log("backup XATO:", res.error);
+      await reportError(new Error(res.error ?? "backup muvaffaqiyatsiz"), { source: "worker", path: "backup" });
+    }
   } catch (e) {
     log("backup XATO:", e instanceof Error ? e.message : e);
+    await reportError(e, { source: "worker", path: "backup" });
   }
 }
 
@@ -61,6 +67,7 @@ async function runDistribute() {
     else log(`taqsimot → ${r.assigned} mijoz ${r.operators} operatorga`);
   } catch (e) {
     log("taqsimot XATO:", e instanceof Error ? e.message : e);
+    await reportError(e, { source: "worker", path: "distribute" });
   }
 }
 
@@ -79,6 +86,7 @@ async function runReminders(operatorsOnly = false) {
     }
   } catch (e) {
     log("eslatma XATO:", e instanceof Error ? e.message : e);
+    await reportError(e, { source: "worker", path: "reminders" });
   }
 }
 
@@ -92,6 +100,7 @@ async function dailyRollover() {
     log(`kun yangilandi — eski grantlar o'chirildi: ${removed.count}`);
   } catch (e) {
     log("kun yangilanishi XATO:", e instanceof Error ? e.message : e);
+    await reportError(e, { source: "worker", path: "rollover" });
   }
 }
 
@@ -147,7 +156,12 @@ async function main() {
   await startBot();
 }
 
-main().catch((e) => {
+main().catch(async (e) => {
   console.error("Worker halokati:", e);
+  try {
+    await reportError(e, { source: "worker", path: "main/startup" });
+  } catch {
+    // xato qayd etishning o'zi xato bersa — e'tiborsiz
+  }
   process.exit(1);
 });

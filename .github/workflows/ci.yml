@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   build-and-test:
-    name: Tekshirish (tsc + test + build)
+    name: Tekshirish (lint + tsc + test + build)
     runs-on: ubuntu-latest
 
     # Build/tsc uchun placeholder qiymatlar — CI'da real baza/sirlar kerak emas
@@ -41,11 +41,80 @@ jobs:
       - name: Prisma client generatsiya
         run: npx prisma generate
 
+      - name: Lint (ESLint)
+        run: npm run lint
+
       - name: TypeScript tekshiruvi
         run: npx tsc --noEmit
 
       - name: Unit testlar
         run: npm test
 
+      - name: Xavfsizlik auditi (informatsion)
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
       - name: Production build
         run: npm run build
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tp
+          POSTGRES_PASSWORD: tp
+          POSTGRES_DB: tp_automation
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://tp:tp@localhost:5432/tp_automation?schema=public
+      SESSION_SECRET: ci-e2e-secret-not-used-in-production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js o'rnatish
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Bog'liqliklarni o'rnatish
+        run: npm ci
+
+      - name: Prisma client generatsiya
+        run: npx prisma generate
+
+      - name: Migratsiyalarni qo'llash
+        run: npx prisma migrate deploy
+
+      - name: Test ma'lumotlarini seed qilish
+        run: npm run db:seed
+
+      - name: Playwright brauzerini o'rnatish
+        run: npx playwright install --with-deps chromium
+
+      - name: Production build
+        run: npm run build
+
+      - name: E2E testlar
+        run: npm run test:e2e
+
+      - name: Playwright hisobotini saqlash (xato bo'lsa)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

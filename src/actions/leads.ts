@@ -17,6 +17,7 @@ import {
   OUTCOME_TO_STAGE,
   type LeadOutcome,
 } from "@/lib/constants";
+import { isLeadOutcome, isLeadStage, noteString } from "@/lib/validation";
 
 function s(v: FormDataEntryValue | null): string | undefined {
   const str = typeof v === "string" ? v.trim() : "";
@@ -24,8 +25,11 @@ function s(v: FormDataEntryValue | null): string | undefined {
 }
 
 const outcomeSchema = z.object({
-  outcome: z.string().min(1, "Natijani tanlang"),
-  note: z.string().optional(),
+  outcome: z
+    .string()
+    .min(1, "Natijani tanlang")
+    .refine(isLeadOutcome, "Noto'g'ri natija"),
+  note: noteString.optional(),
 });
 
 export type LeadOutcomeState = { error?: string };
@@ -76,10 +80,8 @@ export async function recordLeadOutcome(
     return { error: parsed.error.issues[0]?.message ?? "Maʼlumotlar noto'g'ri" };
   }
 
+  // outcome validligi sxemada (refine isLeadOutcome) kafolatlangan
   const { outcome } = parsed.data;
-  if (!(outcome in LEAD_OUTCOME)) {
-    return { error: "Noto'g'ri natija" };
-  }
 
   const client = await db.client.findUnique({ where: { id: clientId } });
   if (!client) return { error: "Lid topilmadi" };
@@ -209,7 +211,7 @@ export async function moveLeadStage(
 ): Promise<void> {
   const g = await guardRole(STAFF);
   if (!g.ok) return;
-  if (!(stage in LEAD_STAGE)) return;
+  if (!isLeadStage(stage)) return;
   if (!(await canMutateClient(g.session, clientId))) return;
   try {
     await db.client.update({
@@ -246,7 +248,7 @@ export async function saveLeadCell(
   const g = await guardRole(STAFF);
   if (!g.ok) return { error: g.error };
   const session = g.session;
-  if (!(outcome in LEAD_OUTCOME)) return { error: "Noto'g'ri natija" };
+  if (!isLeadOutcome(outcome)) return { error: "Noto'g'ri natija" };
   if (!(await canMutateClient(session, clientId))) {
     return { error: "Bu mijoz sizga biriktirilmagan" };
   }

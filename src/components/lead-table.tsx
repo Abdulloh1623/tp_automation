@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   Phone,
   Bell,
@@ -99,6 +99,20 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
   const [payTarget, setPayTarget] = useState<PayTarget | null>(null);
   const [pending, startTransition] = useTransition();
   const [finishing, setFinishing] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // "/" tugmasi qidiruvni fokuslaydi (input/textarea ichida bo'lmasa)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -273,9 +287,11 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
+              ref={searchRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Qidirish…"
+              placeholder="Qidirish… ( / )"
+              aria-label="Lidlarni qidirish"
               className="h-9 w-44 pl-8"
             />
           </div>
@@ -502,6 +518,9 @@ function JoriyTable({
                 <Input
                   defaultValue={r.todayNote ?? ""}
                   onBlur={(e) => onNoteSave(r, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur(); // Enter → saqlash
+                  }}
                   placeholder="izoh…"
                   className="h-8 text-xs"
                 />
@@ -611,6 +630,9 @@ function JoriyTable({
             <Input
               defaultValue={r.todayNote ?? ""}
               onBlur={(e) => onNoteSave(r, e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur(); // Enter → saqlash
+              }}
               placeholder="izoh…"
               className="h-8 text-xs"
             />

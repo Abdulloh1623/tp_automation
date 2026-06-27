@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { z } from "zod";
 import {
   currencyEnum,
   clientStatusEnum,
@@ -10,6 +11,7 @@ import {
   isClientStatus,
   isLeadOutcome,
   isLeadStage,
+  toFieldErrors,
 } from "./validation";
 import {
   CURRENCY,
@@ -83,6 +85,30 @@ describe("lead stage validatsiya", () => {
   it("prototip / soxta stage rad etiladi", () => {
     expect(isLeadStage("toString")).toBe(false);
     expect(isLeadStage("XXX")).toBe(false);
+  });
+});
+
+describe("toFieldErrors", () => {
+  const schema = z.object({
+    fullName: z.string().min(1, "FIO kiriting"),
+    amount: z.coerce.number().positive("Summa musbat bo'lsin"),
+  });
+  it("har maydon uchun birinchi xabarni qaytaradi", () => {
+    const res = schema.safeParse({ fullName: "", amount: -5 });
+    expect(res.success).toBe(false);
+    if (!res.success) {
+      const fe = toFieldErrors(res.error);
+      expect(fe.fullName).toBe("FIO kiriting");
+      expect(fe.amount).toBe("Summa musbat bo'lsin");
+    }
+  });
+  it("xato yo'q maydonlar map'da bo'lmaydi", () => {
+    const res = schema.safeParse({ fullName: "Ali", amount: -5 });
+    if (!res.success) {
+      const fe = toFieldErrors(res.error);
+      expect(fe.fullName).toBeUndefined();
+      expect(fe.amount).toBeDefined();
+    }
   });
 });
 

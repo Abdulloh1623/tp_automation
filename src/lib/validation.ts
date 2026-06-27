@@ -30,6 +30,16 @@ export const noteString = z
 // Predikatlar — FormData bo'lmagan (to'g'ridan-to'g'ri argument) joylar uchun.
 // MUHIM: `key in OBJECT` ishlatmaslik kerak — u prototip xossalarini ham
 // (masalan "toString") true qaytaradi; enum.safeParse faqat haqiqiy kalitni qabul qiladi.
+/** Zod xatosini { maydon: birinchi_xabar } ko'rinishiga aylantiradi (forma UI uchun). */
+export function toFieldErrors(err: z.ZodError): Record<string, string> {
+  const flat = err.flatten().fieldErrors;
+  const out: Record<string, string> = {};
+  for (const [key, msgs] of Object.entries(flat)) {
+    if (msgs && msgs.length > 0) out[key] = msgs[0] as string;
+  }
+  return out;
+}
+
 export const isCurrency = (v: unknown): boolean => currencyEnum.safeParse(v).success;
 export const isClientStatus = (v: unknown): boolean => clientStatusEnum.safeParse(v).success;
 export const isLeadOutcome = (v: unknown): boolean => leadOutcomeEnum.safeParse(v).success;

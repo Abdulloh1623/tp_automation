@@ -12,6 +12,7 @@ import {
   ClientPhonesField,
   type PhoneValue,
 } from "@/components/client-phones-field";
+import { FieldError } from "@/components/field-error";
 import {
   CLIENT_STATUS,
   CURRENCY,
@@ -55,6 +56,7 @@ export function ClientForm({
 }) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const v = defaultValues;
+  const fe = state.fieldErrors ?? {};
 
   return (
     <form action={formAction} className="space-y-6">
@@ -68,7 +70,8 @@ export function ClientForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="fullName">FIO *</Label>
-          <Input id="fullName" name="fullName" defaultValue={v.fullName ?? ""} required />
+          <Input id="fullName" name="fullName" defaultValue={v.fullName ?? ""} required aria-invalid={!!fe.fullName} />
+          <FieldError message={fe.fullName} />
         </div>
         <div>
           <Label htmlFor="restaurantName">Restoran nomi *</Label>
@@ -77,11 +80,14 @@ export function ClientForm({
             name="restaurantName"
             defaultValue={v.restaurantName ?? ""}
             required
+            aria-invalid={!!fe.restaurantName}
           />
+          <FieldError message={fe.restaurantName} />
         </div>
         <div>
           <Label htmlFor="phone">Asosiy telefon *</Label>
-          <Input id="phone" name="phone" defaultValue={v.phone ?? ""} required />
+          <Input id="phone" name="phone" defaultValue={v.phone ?? ""} required aria-invalid={!!fe.phone} />
+          <FieldError message={fe.phone} />
         </div>
         <div>
           <Label htmlFor="region">Viloyat</Label>
@@ -168,7 +174,9 @@ export function ClientForm({
             min={0}
             step="0.01"
             defaultValue={v.monthlyAmount ?? 0}
+            aria-invalid={!!fe.monthlyAmount}
           />
+          <FieldError message={fe.monthlyAmount} />
         </div>
         <div>
           <Label htmlFor="currency">Valyuta</Label>
@@ -211,7 +219,8 @@ export function ClientForm({
 
       <div>
         <Label htmlFor="notes">Izoh</Label>
-        <Textarea id="notes" name="notes" defaultValue={v.notes ?? ""} />
+        <Textarea id="notes" name="notes" defaultValue={v.notes ?? ""} aria-invalid={!!fe.notes} />
+        <FieldError message={fe.notes} />
       </div>
 
       <div className="flex gap-3">

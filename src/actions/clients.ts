@@ -8,7 +8,7 @@ import { guardRole } from "@/lib/auth";
 import { canMutateClient, resolveAssignee } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { normalizeRegion } from "@/lib/constants";
-import { clientStatusEnum, currencyEnum, noteString } from "@/lib/validation";
+import { clientStatusEnum, currencyEnum, noteString, toFieldErrors } from "@/lib/validation";
 
 const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
 
@@ -35,7 +35,7 @@ const clientSchema = z.object({
   assignedToId: z.string().optional(),
 });
 
-export type ClientFormState = { error?: string };
+export type ClientFormState = { error?: string; fieldErrors?: Record<string, string> };
 
 /** Formadagi takrorlanuvchi phoneLabel/phoneNumber juftliklarini o'qiydi. */
 function parsePhones(formData: FormData): { label: string; number: string }[] {
@@ -100,7 +100,10 @@ export async function createClient(
   if (!g.ok) return { error: g.error };
   const parsed = parseForm(formData);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Maʼlumotlar noto'g'ri" };
+    return {
+      error: "Maʼlumotlarni tekshiring",
+      fieldErrors: toFieldErrors(parsed.error),
+    };
   }
   const phones = parsePhones(formData);
   // assignedToId xavfsiz aniqlanadi (OPERATOR doimo o'ziga; ADMIN/MANAGER validatsiya bilan)
@@ -129,7 +132,10 @@ export async function updateClient(
   }
   const parsed = parseForm(formData);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Maʼlumotlar noto'g'ri" };
+    return {
+      error: "Maʼlumotlarni tekshiring",
+      fieldErrors: toFieldErrors(parsed.error),
+    };
   }
   const phones = parsePhones(formData);
   const assignedToId = await resolveAssignee(g.session, parsed.data.assignedToId);

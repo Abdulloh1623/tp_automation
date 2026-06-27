@@ -6,11 +6,15 @@ import {
   leadOutcomeEnum,
   leadStageEnum,
   equipmentModeEnum,
+  ticketTypeEnum,
+  ticketPriorityEnum,
+  ticketStatusEnum,
   noteString,
   isCurrency,
   isClientStatus,
   isLeadOutcome,
   isLeadStage,
+  isTicketStatus,
   toFieldErrors,
 } from "./validation";
 import {
@@ -19,6 +23,9 @@ import {
   LEAD_OUTCOME,
   LEAD_STAGE,
   EQUIPMENT_MODE,
+  TICKET_TYPE,
+  TICKET_PRIORITY,
+  TICKET_STATUS,
 } from "./constants";
 
 describe("enum sxemalari constants bilan mos (yagona manba)", () => {
@@ -36,6 +43,24 @@ describe("enum sxemalari constants bilan mos (yagona manba)", () => {
   });
   it("equipmentModeEnum = EQUIPMENT_MODE kalitlari", () => {
     expect([...equipmentModeEnum.options].sort()).toEqual(Object.keys(EQUIPMENT_MODE).sort());
+  });
+  it("ticketTypeEnum = TICKET_TYPE kalitlari", () => {
+    expect([...ticketTypeEnum.options].sort()).toEqual(Object.keys(TICKET_TYPE).sort());
+  });
+  it("ticketPriorityEnum = TICKET_PRIORITY kalitlari", () => {
+    expect([...ticketPriorityEnum.options].sort()).toEqual(Object.keys(TICKET_PRIORITY).sort());
+  });
+  it("ticketStatusEnum = TICKET_STATUS kalitlari", () => {
+    expect([...ticketStatusEnum.options].sort()).toEqual(Object.keys(TICKET_STATUS).sort());
+  });
+});
+
+describe("isTicketStatus — prototip teshigi yopilgan", () => {
+  it("haqiqiy status qabul, prototip/soxta rad", () => {
+    expect(isTicketStatus("OPEN")).toBe(true);
+    expect(isTicketStatus("RESOLVED")).toBe(true);
+    expect(isTicketStatus("toString")).toBe(false);
+    expect(isTicketStatus("BLAH")).toBe(false);
   });
 });
 

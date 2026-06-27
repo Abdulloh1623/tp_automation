@@ -51,7 +51,7 @@ export function ClientPhonesField({
           <button
             type="button"
             onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}
-            className="shrink-0 rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50"
+            className="shrink-0 rounded-lg border border-red-200 dark:border-red-900 p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40"
             title="O'chirish"
           >
             <Trash2 className="h-4 w-4" />
@@ -62,7 +62,7 @@ export function ClientPhonesField({
       <button
         type="button"
         onClick={() => setRows((rs) => [...rs, { key: counter++, label: "", number: "" }])}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
       >
         <Plus className="h-4 w-4" /> Telefon qo'shish
       </button>

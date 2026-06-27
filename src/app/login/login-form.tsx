@@ -52,7 +52,7 @@ export function LoginForm() {
         </div>
 
         {state.error && (
-          <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
             <AlertCircle className="h-4 w-4 shrink-0" />
             {state.error}
           </div>
@@ -65,8 +65,8 @@ export function LoginForm() {
 
       {/* Test akkauntlari — FAQAT dev rejimida ko'rinadi (production'da maxfiy) */}
       {process.env.NODE_ENV !== "production" && (
-      <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3">
-        <div className="mb-2 text-xs font-medium text-slate-500">
+      <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 p-3">
+        <div className="mb-2 text-xs font-medium text-slate-500 dark:text-slate-400">
           Test akkauntlari (bosib to'ldiring):
         </div>
         <div className="grid grid-cols-2 gap-1.5">
@@ -78,15 +78,15 @@ export function LoginForm() {
                 setUsername(d.username);
                 setPassword(DEMO_PASS);
               }}
-              className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-left text-xs transition-colors hover:border-blue-400 hover:bg-blue-50"
+              className="rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-2 py-1.5 text-left text-xs transition-colors hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40"
             >
-              <div className="font-medium text-slate-800">{d.role}</div>
-              <div className="text-slate-500">{d.username} / {DEMO_PASS}</div>
+              <div className="font-medium text-slate-800 dark:text-slate-100">{d.role}</div>
+              <div className="text-slate-500 dark:text-slate-400">{d.username} / {DEMO_PASS}</div>
             </button>
           ))}
         </div>
-        <div className="mt-2 text-[11px] text-slate-400">
-          Barcha foydalanuvchilar paroli: <b className="text-slate-600">parol123</b>{" "}
+        <div className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
+          Barcha foydalanuvchilar paroli: <b className="text-slate-600 dark:text-slate-300">parol123</b>{" "}
           · boshqa operatorlar: biloliddin, javohir, mehroj
         </div>
       </div>

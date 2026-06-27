@@ -77,7 +77,7 @@ export function ReceiptInput({
           <img
             src={preview}
             alt="chek"
-            className="max-h-48 rounded-lg border border-slate-200"
+            className="max-h-48 rounded-lg border border-slate-200 dark:border-slate-800"
           />
           <button
             type="button"
@@ -87,16 +87,16 @@ export function ReceiptInput({
           >
             <X className="h-3.5 w-3.5" />
           </button>
-          <div className="mt-1 text-xs text-slate-500">{name}</div>
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{name}</div>
         </div>
       ) : (
         <div
           tabIndex={0}
           onPaste={onPaste}
           onClick={() => inputRef.current?.click()}
-          className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500 hover:border-blue-400 focus:border-blue-500 focus:outline-none"
+          className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400 hover:border-blue-400 focus:border-blue-500 focus:outline-none"
         >
-          <ImageIcon className="h-6 w-6 text-slate-400" />
+          <ImageIcon className="h-6 w-6 text-slate-400 dark:text-slate-500" />
           <span>Chek rasmini yuklang yoki bu yerga paste qiling (Ctrl+V)</span>
         </div>
       )}
@@ -105,20 +105,20 @@ export function ReceiptInput({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
         >
           <Upload className="h-4 w-4" /> Fayl yuklash
         </button>
         <button
           type="button"
           onClick={pasteFromClipboard}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
         >
           <ClipboardPaste className="h-4 w-4" /> Clipboarddan
         </button>
       </div>
 
-      {hint && <p className="text-xs text-amber-600">{hint}</p>}
+      {hint && <p className="text-xs text-amber-600 dark:text-amber-400">{hint}</p>}
 
       <input
         ref={inputRef}

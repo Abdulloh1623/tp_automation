@@ -22,7 +22,7 @@ export function BarList({
   const max = Math.max(1, ...items.map((i) => i.value));
 
   if (items.length === 0) {
-    return <p className="text-sm text-slate-400">Ma'lumot yo'q</p>;
+    return <p className="text-sm text-slate-400 dark:text-slate-500">Ma'lumot yo'q</p>;
   }
 
   return (
@@ -32,12 +32,12 @@ export function BarList({
         return (
           <div key={i.label}>
             <div className="mb-1 flex items-center justify-between text-sm">
-              <span className="text-slate-700">{i.label}</span>
-              <span className="font-medium text-slate-900">
+              <span className="text-slate-700 dark:text-slate-200">{i.label}</span>
+              <span className="font-medium text-slate-900 dark:text-slate-100">
                 {format ? format(i.value) : i.value}
               </span>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
               <div
                 className={cn("h-full rounded-full", colorMap[color])}
                 style={{ width: `${pct}%` }}

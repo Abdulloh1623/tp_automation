@@ -118,7 +118,7 @@ export function InventoryManager({
         <div
           className={
             "flex items-center gap-2 rounded-lg px-3 py-2 text-sm " +
-            (err ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700")
+            (err ? "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300" : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300")
           }
         >
           {err ? <AlertCircle className="h-4 w-4" /> : <Check className="h-4 w-4" />}
@@ -138,7 +138,7 @@ export function InventoryManager({
           <div className="overflow-x-auto">
             <table className="w-full min-w-[680px] text-sm">
               <thead>
-                <tr className="border-y border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr className="border-y border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   <th className="px-4 py-3 font-medium">Texnika</th>
                   <th className="px-4 py-3 font-medium">Ijara narx</th>
                   <th className="px-4 py-3 font-medium">Sotuv narx</th>
@@ -154,10 +154,10 @@ export function InventoryManager({
                   const saveField = (data: { rentalPrice?: number; salePrice?: number; minStock?: number }) =>
                     run(() => updateEquipmentType(t.id, data), `${t.name} yangilandi`);
                   return (
-                    <tr key={t.id} className={"border-b border-slate-100 last:border-0 " + (t.isActive ? "" : "opacity-50")}>
-                      <td className="px-4 py-2.5 font-medium text-slate-900">
+                    <tr key={t.id} className={"border-b border-slate-100 dark:border-slate-800 last:border-0 " + (t.isActive ? "" : "opacity-50")}>
+                      <td className="px-4 py-2.5 font-medium text-slate-900 dark:text-slate-100">
                         {t.name}
-                        {!t.isActive && <span className="ml-2 text-xs text-slate-400">(nofaol)</span>}
+                        {!t.isActive && <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">(nofaol)</span>}
                       </td>
                       <td className="px-4 py-2.5">
                         <Input type="number" min={0} value={f.r}
@@ -178,18 +178,18 @@ export function InventoryManager({
                           className="h-8 w-20 text-sm" />
                       </td>
                       <td className="px-4 py-2.5 text-center">
-                        <span className={"font-medium " + (low ? "text-red-600" : "text-slate-700")}>
+                        <span className={"font-medium " + (low ? "text-red-600 dark:text-red-400" : "text-slate-700 dark:text-slate-200")}>
                           {t.warehouse}
                         </span>
                         {low && (
-                          <span className="ml-1 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                          <span className="ml-1 rounded-full bg-red-100 dark:bg-red-950 px-1.5 py-0.5 text-[10px] font-semibold text-red-700 dark:text-red-300">
                             kam
                           </span>
                         )}
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <Button variant="ghost" size="sm"
-                          className={"h-7 px-2 text-xs " + (t.isActive ? "text-amber-600" : "text-emerald-600")}
+                          className={"h-7 px-2 text-xs " + (t.isActive ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400")}
                           disabled={pending}
                           onClick={() => run(() => setEquipmentTypeActive(t.id, !t.isActive), t.isActive ? "Faolsizlantirildi" : "Yoqildi")}>
                           <Power className="h-3.5 w-3.5" /> {t.isActive ? "Faolsiz" : "Yoqish"}
@@ -311,7 +311,7 @@ export function InventoryManager({
                   placeholder={`hozir: ${ivCurrent}`} />
               </div>
             </div>
-            <p className="text-xs text-slate-400">Hozirgi qoldiq: {ivCurrent} dona. Farq jurnalga yoziladi.</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">Hozirgi qoldiq: {ivCurrent} dona. Farq jurnalga yoziladi.</p>
             <Button variant="outline" disabled={pending || ivQty === ""}
               onClick={() => run(() => adjustInventory(ivType, Number(ivQty)), "Sanoq saqlandi")}>
               <ClipboardCheck className="h-4 w-4" /> Saqlash
@@ -347,7 +347,7 @@ export function InventoryManager({
               <Input value={brNote} onChange={(e) => setBrNote(e.target.value)} placeholder="sabab" />
             </div>
           </div>
-          <Button variant="outline" className="border-red-300 text-red-700" disabled={pending}
+          <Button variant="outline" className="border-red-300 dark:border-red-700 text-red-700 dark:text-red-300" disabled={pending}
             onClick={() => {
               const isUsta = brSource.startsWith("USTA:");
               run(() => scrapToBrak(brType, isUsta ? "USTA" : "WAREHOUSE", isUsta ? brSource.slice(5) : "WAREHOUSE", Number(brQty), brNote), "Brakka chiqarildi");
@@ -355,8 +355,8 @@ export function InventoryManager({
             <Trash2 className="h-4 w-4" /> Brakka chiqarish
           </Button>
           {brak.length > 0 && (
-            <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-100 pt-2 text-sm text-slate-600">
-              <span className="font-medium text-slate-500">Brakda:</span>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-100 dark:border-slate-800 pt-2 text-sm text-slate-600 dark:text-slate-300">
+              <span className="font-medium text-slate-500 dark:text-slate-400">Brakda:</span>
               {brak.map((b) => <span key={b.name}>{b.name}: <b>{b.quantity}</b></span>)}
             </div>
           )}
@@ -368,16 +368,16 @@ export function InventoryManager({
         <CardHeader><CardTitle>Usta zaxiralari</CardTitle></CardHeader>
         <CardContent>
           {ustaStock.length === 0 ? (
-            <p className="text-sm text-slate-400">Ustalarda zaxira yo'q</p>
+            <p className="text-sm text-slate-400 dark:text-slate-500">Ustalarda zaxira yo'q</p>
           ) : (
             <div className="space-y-3">
               {ustaStock.map((u) => (
-                <div key={u.ustaId} className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-100 pb-2 last:border-0">
-                  <span className="font-medium text-slate-800">{u.ustaName}</span>
+                <div key={u.ustaId} className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-slate-100 dark:border-slate-800 pb-2 last:border-0">
+                  <span className="font-medium text-slate-800 dark:text-slate-100">{u.ustaName}</span>
                   {u.items.length === 0 ? (
-                    <span className="text-sm text-slate-400">—</span>
+                    <span className="text-sm text-slate-400 dark:text-slate-500">—</span>
                   ) : (
-                    u.items.map((i) => <span key={i.name} className="text-sm text-slate-600">{i.name}: <b>{i.quantity}</b></span>)
+                    u.items.map((i) => <span key={i.name} className="text-sm text-slate-600 dark:text-slate-300">{i.name}: <b>{i.quantity}</b></span>)
                   )}
                 </div>
               ))}
@@ -389,10 +389,10 @@ export function InventoryManager({
       {/* Yangi tur modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowCreate(false)}>
-          <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-5 shadow-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-lg" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-base font-semibold">Yangi texnika turi</h3>
-              <button onClick={() => setShowCreate(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+              <button onClick={() => setShowCreate(false)} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"><X className="h-5 w-5" /></button>
             </div>
             <div className="space-y-3">
               <div>

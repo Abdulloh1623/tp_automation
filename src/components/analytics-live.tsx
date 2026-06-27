@@ -99,8 +99,8 @@ export function AnalyticsLive({ initial }: { initial: Analytics }) {
       {/* Sarlavha + jonli indikator */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Jonli analitika</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Jonli analitika</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Operatorlar faolligi va mijozlar holati — real vaqtda
           </p>
         </div>
@@ -116,7 +116,7 @@ export function AnalyticsLive({ initial }: { initial: Analytics }) {
           <Tv className="h-4 w-4" />
           Televizor ko'rinishi
         </a>
-        <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs">
+        <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs dark:border-slate-800 dark:bg-slate-900">
           <span className="relative flex h-2.5 w-2.5">
             {live && (
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -128,11 +128,11 @@ export function AnalyticsLive({ initial }: { initial: Analytics }) {
               }
             />
           </span>
-          <span className="font-medium text-slate-700">
+          <span className="font-medium text-slate-700 dark:text-slate-200">
             {live ? "Jonli" : "Ulanish yo'q"}
           </span>
           {updatedAt && (
-            <span className="text-slate-400">
+            <span className="text-slate-400 dark:text-slate-500">
               · {updatedAt.toLocaleTimeString("ru-RU")}
             </span>
           )}
@@ -145,25 +145,25 @@ export function AnalyticsLive({ initial }: { initial: Analytics }) {
         <Card className="p-5">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm text-slate-500">Jami mijozlar</div>
-              <div className="mt-1 text-3xl font-semibold text-slate-900">
+              <div className="text-sm text-slate-500 dark:text-slate-400">Jami mijozlar</div>
+              <div className="mt-1 text-3xl font-semibold text-slate-900 dark:text-slate-100">
                 {c.total}
               </div>
             </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400">
               <Users className="h-5 w-5" />
             </div>
           </div>
-          <div className="mt-2 text-xs text-slate-400">
+          <div className="mt-2 text-xs text-slate-400 dark:text-slate-500">
             {c.assigned} biriktirilgan · {c.unassigned} biriktirilmagan
           </div>
         </Card>
 
         {c.byStatus.map((s) => (
           <Card key={s.key} className="p-5">
-            <div className="text-sm text-slate-500">{s.label}</div>
+            <div className="text-sm text-slate-500 dark:text-slate-400">{s.label}</div>
             <div className="mt-1 flex items-end gap-2">
-              <div className="text-3xl font-semibold text-slate-900">{s.count}</div>
+              <div className="text-3xl font-semibold text-slate-900 dark:text-slate-100">{s.count}</div>
               <Badge tone={statusTone[s.key] ?? "neutral"} className="mb-1">
                 {c.total ? Math.round((s.count / c.total) * 100) : 0}%
               </Badge>
@@ -176,12 +176,12 @@ export function AnalyticsLive({ initial }: { initial: Analytics }) {
       <div className="grid gap-4 sm:grid-cols-3">
         {teamCards.map((tc) => (
           <Card key={tc.label} className="p-5">
-            <div className="text-sm text-slate-500">{tc.label}</div>
+            <div className="text-sm text-slate-500 dark:text-slate-400">{tc.label}</div>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-3xl font-semibold text-slate-900">{tc.talked}</span>
-              <span className="text-sm text-slate-400">gaplashildi</span>
+              <span className="text-3xl font-semibold text-slate-900 dark:text-slate-100">{tc.talked}</span>
+              <span className="text-sm text-slate-400 dark:text-slate-500">gaplashildi</span>
             </div>
-            <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
+            <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
               <PhoneCall className="h-3.5 w-3.5" />
               {tc.calls} qo'ng'iroq
             </div>
@@ -193,10 +193,10 @@ export function AnalyticsLive({ initial }: { initial: Analytics }) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-slate-400" />
+            <MessageSquare className="h-4 w-4 text-slate-400 dark:text-slate-500" />
             Operatorlar — gaplashgan lidlar
           </CardTitle>
-          <div className="flex gap-1 rounded-lg bg-slate-100 p-0.5">
+          <div className="flex gap-1 rounded-lg bg-slate-100 p-0.5 dark:bg-slate-800">
             {PERIODS.map((p) => (
               <button
                 key={p.key}
@@ -205,8 +205,8 @@ export function AnalyticsLive({ initial }: { initial: Analytics }) {
                 className={
                   "rounded-md px-3 py-1 text-xs font-medium transition-colors " +
                   (period === p.key
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700")
+                    ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100"
+                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200")
                 }
               >
                 {p.label}
@@ -216,7 +216,7 @@ export function AnalyticsLive({ initial }: { initial: Analytics }) {
         </CardHeader>
         <CardContent className="space-y-2">
           {ops.length === 0 && (
-            <p className="py-6 text-center text-sm text-slate-400">Operator yo'q</p>
+            <p className="py-6 text-center text-sm text-slate-400 dark:text-slate-500">Operator yo'q</p>
           )}
           {ops.map((o, i) => {
             const v = periodVals(o, period);
@@ -228,28 +228,28 @@ export function AnalyticsLive({ initial }: { initial: Analytics }) {
                 className={
                   "rounded-xl border p-3 transition-colors duration-700 " +
                   (isFlash
-                    ? "border-emerald-300 bg-emerald-50"
-                    : "border-slate-200 bg-white")
+                    ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40"
+                    : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900")
                 }
               >
                 <div className="mb-1.5 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-500">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                       {i + 1}
                     </span>
-                    <span className="font-medium text-slate-800">{o.name}</span>
-                    <span className="text-xs text-slate-400">
+                    <span className="font-medium text-slate-800 dark:text-slate-100">{o.name}</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500">
                       · {o.assigned} mijoz
                     </span>
                   </div>
                   <div className="flex items-baseline gap-2 text-sm">
-                    <span className="text-lg font-semibold text-emerald-600">
+                    <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
                       {v.talked}
                     </span>
-                    <span className="text-xs text-slate-400">/ {v.calls} qo'ng'iroq</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500">/ {v.calls} qo'ng'iroq</span>
                   </div>
                 </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                   <div
                     className="h-full rounded-full bg-emerald-500 transition-all duration-500"
                     style={{ width: `${pct}%` }}
@@ -267,7 +267,7 @@ export function AnalyticsLive({ initial }: { initial: Analytics }) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Wifi className="h-4 w-4 text-slate-400" />
+                <Wifi className="h-4 w-4 text-slate-400 dark:text-slate-500" />
                 Mijozlar holati bo'yicha
               </CardTitle>
             </CardHeader>

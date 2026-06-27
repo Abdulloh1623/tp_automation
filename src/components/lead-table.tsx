@@ -32,6 +32,7 @@ import {
 import { LEAD_OUTCOME, leadOutcomeLabel, leadStageLabel } from "@/lib/constants";
 import { formatMoney, formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 import { buildCsv, downloadCsv } from "@/lib/csv-export";
+import { confirmDialog } from "@/components/confirm-dialog";
 
 export type LeadHistory = {
   date: string; // YYYY-MM-DD
@@ -143,8 +144,14 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
     });
   }
 
-  function onEscalate(row: LeadRow) {
-    if (!confirm(`"${row.restaurantName}" boshliqqa yo'naltirilsinmi?`)) return;
+  async function onEscalate(row: LeadRow) {
+    const ok = await confirmDialog({
+      title: "Boshliqqa yo'naltirilsinmi?",
+      message: `"${row.restaurantName}" lidi eskalatsiya navbatiga o'tadi.`,
+      confirmLabel: "Yo'naltirish",
+      variant: "primary",
+    });
+    if (!ok) return;
     startTransition(async () => {
       const res = await escalateLead(row.id);
       if (res.ok) setRows((prev) => prev.filter((r) => r.id !== row.id));

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Toaster } from "@/components/toaster";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { userRoleLabel } from "@/lib/constants";
 import type { Role } from "@/lib/rbac";
@@ -165,6 +166,7 @@ export function AppShell({
       </div>
 
       <Toaster />
+      <ConfirmDialog />
     </div>
   );
 }

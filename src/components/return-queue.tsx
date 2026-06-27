@@ -10,6 +10,7 @@ import {
 } from "@/actions/equipment";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { confirmDialog } from "@/components/confirm-dialog";
 import { normalizePhone } from "@/lib/utils";
 
 export type ReturnQueueItem = {
@@ -137,7 +138,14 @@ function Row({
                 variant="outline"
                 className="border-red-300 text-red-700"
                 disabled={pending}
-                onClick={() => run(() => rejectReturnRequest(r.id))}
+                onClick={async () => {
+                  const ok = await confirmDialog({
+                    title: "Arizani rad etish",
+                    message: `"${r.restaurantName || r.fullName}" uchun qaytarish arizasi rad etilsinmi?`,
+                    confirmLabel: "Rad etish",
+                  });
+                  if (ok) run(() => rejectReturnRequest(r.id));
+                }}
               >
                 <X className="h-4 w-4" /> Rad etish
               </Button>

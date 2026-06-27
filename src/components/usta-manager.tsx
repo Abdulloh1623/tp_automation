@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { RegionMultiSelect } from "@/components/region-multi-select";
+import { confirmDialog } from "@/components/confirm-dialog";
 import { parseRegions } from "@/lib/constants";
 
 export type ManagedUsta = {
@@ -125,8 +126,13 @@ export function UstaManager({ ustalar }: { ustalar: ManagedUsta[] }) {
                     <Button
                       variant="ghost" size="sm" className="h-7 px-2 text-xs text-red-600"
                       disabled={pending}
-                      onClick={() => {
-                        if (confirm(`"${u.name}" o'chirilsinmi?`)) act(() => deleteUsta(u.id), false);
+                      onClick={async () => {
+                        const ok = await confirmDialog({
+                          title: "Ustani o'chirish",
+                          message: `"${u.name}" ro'yxatdan o'chirilsinmi? Bu amalni qaytarib bo'lmaydi.`,
+                          confirmLabel: "O'chirish",
+                        });
+                        if (ok) act(() => deleteUsta(u.id), false);
                       }}
                     >
                       <Trash2 className="h-3.5 w-3.5" /> O'chir

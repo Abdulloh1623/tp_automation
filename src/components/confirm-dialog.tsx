@@ -68,24 +68,26 @@ export function ConfirmDialog() {
       aria-labelledby="confirm-title"
     >
       <div
-        className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"
+        className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl dark:bg-slate-900"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3">
           <div
             className={cn(
               "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-              danger ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600",
+              danger
+                ? "bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400"
+                : "bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400",
             )}
           >
             <AlertTriangle className="h-5 w-5" />
           </div>
           <div className="flex-1">
-            <h2 id="confirm-title" className="text-base font-semibold text-slate-900">
+            <h2 id="confirm-title" className="text-base font-semibold text-slate-900 dark:text-slate-100">
               {pending.title}
             </h2>
             {pending.message && (
-              <p className="mt-1 text-sm text-slate-600">{pending.message}</p>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{pending.message}</p>
             )}
           </div>
         </div>

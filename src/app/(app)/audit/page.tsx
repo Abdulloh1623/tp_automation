@@ -16,8 +16,8 @@ export default async function AuditPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Audit jurnali</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Audit jurnali</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Oxirgi {logs.length} ta amal — kim, nima, qachon
           </p>
         </div>
@@ -28,7 +28,7 @@ export default async function AuditPage() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[700px] text-sm">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 <th className="px-4 py-3 font-medium">Vaqt</th>
                 <th className="px-4 py-3 font-medium">Foydalanuvchi</th>
                 <th className="px-4 py-3 font-medium">Amal</th>
@@ -39,7 +39,7 @@ export default async function AuditPage() {
             <tbody>
               {logs.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
+                  <td colSpan={5} className="px-4 py-10 text-center text-slate-400 dark:text-slate-500">
                     Jurnal bo'sh
                   </td>
                 </tr>
@@ -47,21 +47,21 @@ export default async function AuditPage() {
               {logs.map((l) => (
                 <tr
                   key={l.id}
-                  className="border-b border-slate-100 last:border-0"
+                  className="border-b border-slate-100 dark:border-slate-800 last:border-0"
                 >
-                  <td className="whitespace-nowrap px-4 py-2.5 text-slate-500">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-slate-500 dark:text-slate-400">
                     {formatDateTime(l.createdAt)}
                   </td>
-                  <td className="px-4 py-2.5 text-slate-700">
+                  <td className="px-4 py-2.5 text-slate-700 dark:text-slate-200">
                     {l.userName ?? "—"}
                   </td>
-                  <td className="px-4 py-2.5 font-medium text-slate-900">
+                  <td className="px-4 py-2.5 font-medium text-slate-900 dark:text-slate-100">
                     {l.action}
                   </td>
-                  <td className="px-4 py-2.5 text-slate-500">
+                  <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">
                     {l.entity ?? "—"}
                   </td>
-                  <td className="px-4 py-2.5 text-slate-600">
+                  <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300">
                     {l.detail ?? "—"}
                   </td>
                 </tr>

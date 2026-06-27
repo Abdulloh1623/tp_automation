@@ -62,8 +62,8 @@ export default async function TicketsPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Muammolar</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Muammolar</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           {tickets.length} ta muammo · {openCount} ta ochiq
         </p>
       </div>
@@ -73,7 +73,7 @@ export default async function TicketsPage({
           <Card className="p-4">
             <form className="flex flex-wrap items-end gap-3" method="get">
               <div className="w-40">
-                <label className="mb-1.5 block text-xs font-medium text-slate-500">
+                <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
                   Holat
                 </label>
                 <Select name="status" defaultValue={status ?? ""}>
@@ -86,7 +86,7 @@ export default async function TicketsPage({
                 </Select>
               </div>
               <div className="w-40">
-                <label className="mb-1.5 block text-xs font-medium text-slate-500">
+                <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
                   Turi
                 </label>
                 <Select name="type" defaultValue={type ?? ""}>
@@ -99,7 +99,7 @@ export default async function TicketsPage({
                 </Select>
               </div>
               <div className="w-40">
-                <label className="mb-1.5 block text-xs font-medium text-slate-500">
+                <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
                   Ustuvorlik
                 </label>
                 <Select name="priority" defaultValue={priority ?? ""}>
@@ -119,7 +119,7 @@ export default async function TicketsPage({
 
           <div className="space-y-3">
             {tickets.length === 0 && (
-              <Card className="p-10 text-center text-sm text-slate-400">
+              <Card className="p-10 text-center text-sm text-slate-400 dark:text-slate-500">
                 Muammo topilmadi
               </Card>
             )}
@@ -127,14 +127,14 @@ export default async function TicketsPage({
               <Card key={t.id} className="p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="font-medium text-slate-900">{t.title}</div>
+                    <div className="font-medium text-slate-900 dark:text-slate-100">{t.title}</div>
                     <Link
                       href={`/mijozlar/${t.client.id}`}
-                      className="text-sm text-blue-600 hover:text-blue-700"
+                      className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700"
                     >
                       {t.client.restaurantName}
                     </Link>
-                    <span className="text-sm text-slate-400">
+                    <span className="text-sm text-slate-400 dark:text-slate-500">
                       {" "}
                       · {t.client.fullName}
                     </span>
@@ -146,13 +146,13 @@ export default async function TicketsPage({
                   </div>
                 </div>
 
-                <div className="mt-2 text-xs text-slate-400">
+                <div className="mt-2 text-xs text-slate-400 dark:text-slate-500">
                   {formatDate(t.createdAt)}
                   {t.assignedTo ? ` · mas'ul: ${t.assignedTo.name}` : ""}
                 </div>
 
                 {t.resolutionNote && (
-                  <div className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                  <div className="mt-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300">
                     Yechim: {t.resolutionNote}
                   </div>
                 )}

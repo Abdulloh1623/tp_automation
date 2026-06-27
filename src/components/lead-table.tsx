@@ -33,6 +33,7 @@ import { LEAD_OUTCOME, leadOutcomeLabel, leadStageLabel } from "@/lib/constants"
 import { formatMoney, formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 import { buildCsv, downloadCsv } from "@/lib/csv-export";
 import { confirmDialog } from "@/components/confirm-dialog";
+import { EmptyState } from "@/components/empty-state";
 
 export type LeadHistory = {
   date: string; // YYYY-MM-DD
@@ -306,9 +307,15 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-400">
-          Bugun bajariladigan lid yo'q
-        </div>
+        <EmptyState
+          icon={CalendarCheck}
+          title={query ? "Hech narsa topilmadi" : "Bugun bajariladigan lid yo'q"}
+          hint={
+            query
+              ? "Boshqa kalit so'z bilan qidirib ko'ring."
+              : "Hammasi joyida — bugungi ish yakunlangan yoki yangi lid yo'q."
+          }
+        />
       ) : mode === "joriy" ? (
         <JoriyTable
           rows={filtered}
@@ -451,6 +458,7 @@ function JoriyTable({
                   {r.specialNote && (
                     <button
                       title="Maxsus izoh"
+                      aria-label="Maxsus izohni ko'rish"
                       onClick={() => onBell(r)}
                       className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-700"
                     >

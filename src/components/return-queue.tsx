@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { confirmDialog } from "@/components/confirm-dialog";
+import { EmptyState } from "@/components/empty-state";
 import { normalizePhone } from "@/lib/utils";
 
 export type ReturnQueueItem = {
@@ -39,9 +40,11 @@ export function ReturnQueue({
 
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-400">
-        Qaytariladigan uskunalar navbati bo'sh
-      </div>
+      <EmptyState
+        icon={PackageCheck}
+        title="Qaytariladigan uskunalar navbati bo'sh"
+        hint="Operator lid holatini «Uskuna qaytarish kerak» qilsa, bu yerda paydo bo'ladi."
+      />
     );
   }
 

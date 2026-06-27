@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { FieldError } from "@/components/field-error";
 import { TICKET_PRIORITY, TICKET_TYPE } from "@/lib/constants";
 
 type ClientOption = { id: string; restaurantName: string; fullName: string };
@@ -25,6 +26,7 @@ export function TicketForm({
     initialState,
   );
   const formRef = useRef<HTMLFormElement>(null);
+  const fe = state.fieldErrors ?? {};
 
   useEffect(() => {
     if (!state.error) formRef.current?.reset();
@@ -64,7 +66,9 @@ export function TicketForm({
           name="title"
           placeholder="masalan: soliq cheki chiqmayapti"
           required
+          aria-invalid={!!fe.title}
         />
+        <FieldError message={fe.title} />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">

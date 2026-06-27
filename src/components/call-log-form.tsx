@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { FieldError } from "@/components/field-error";
 import { CALL_RESULT } from "@/lib/constants";
 
 const initialState: CallLogFormState = {};
@@ -16,6 +17,7 @@ export function CallLogForm({ clientId }: { clientId: string }) {
   const action = addCallLog.bind(null, clientId);
   const [state, formAction, pending] = useActionState(action, initialState);
   const formRef = useRef<HTMLFormElement>(null);
+  const fe = state.fieldErrors ?? {};
 
   useEffect(() => {
     if (!state.error) formRef.current?.reset();
@@ -52,7 +54,9 @@ export function CallLogForm({ clientId }: { clientId: string }) {
           name="note"
           placeholder="Suhbat natijasi, kelishuv..."
           className="min-h-[60px]"
+          aria-invalid={!!fe.note}
         />
+        <FieldError message={fe.note} />
       </div>
       <Button type="submit" size="sm" disabled={pending}>
         <PhoneCall className="h-4 w-4" />

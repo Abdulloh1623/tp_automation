@@ -7,6 +7,12 @@ import { guardRole } from "@/lib/auth";
 import { canMutateClient } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { TICKET_STATUS } from "@/lib/constants";
+import {
+  ticketTypeEnum,
+  ticketPriorityEnum,
+  isTicketStatus,
+  toFieldErrors,
+} from "@/lib/validation";
 
 const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
 
@@ -17,12 +23,12 @@ function s(v: FormDataEntryValue | null): string | undefined {
 
 const ticketSchema = z.object({
   clientId: z.string().min(1, "Mijoz tanlanmagan"),
-  title: z.string().min(1, "Muammo sarlavhasini kiriting"),
-  type: z.string().default("TECHNICAL"),
-  priority: z.string().default("MEDIUM"),
+  title: z.string().min(1, "Muammo sarlavhasini kiriting").max(300, "Sarlavha juda uzun"),
+  type: ticketTypeEnum.default("TECHNICAL"),
+  priority: ticketPriorityEnum.default("MEDIUM"),
 });
 
-export type TicketFormState = { error?: string };
+export type TicketFormState = { error?: string; fieldErrors?: Record<string, string> };
 
 function revalidateTicket(clientId: string) {
   revalidatePath(`/mijozlar/${clientId}`);
@@ -45,7 +51,7 @@ export async function createTicket(
     priority: s(formData.get("priority")) ?? "MEDIUM",
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Maʼlumotlar noto'g'ri" };
+    return { error: "Maʼlumotlarni tekshiring", fieldErrors: toFieldErrors(parsed.error) };
   }
 
   const client = await db.client.findUnique({
@@ -87,7 +93,8 @@ export async function setTicketStatus(
   if (!g.ok) return; // ruxsatsiz — jimgina
 
   // status faqat ruxsat etilgan qiymatlardan biri bo'lishi shart
-  if (!(status in TICKET_STATUS)) return;
+  // (`in` prototip kalitlarini ham true qaytaradi — enum predikat ishlatamiz)
+  if (!isTicketStatus(status)) return;
 
   // Egalik: OPERATOR faqat o'z mijozining muammosini o'zgartira oladi
   const owner = await db.ticket.findUnique({

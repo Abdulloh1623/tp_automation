@@ -45,10 +45,10 @@ function InfoRow({
 }) {
   return (
     <div className="flex items-start gap-3 py-2">
-      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
       <div className="min-w-0">
-        <div className="text-xs text-slate-500">{label}</div>
-        <div className="text-sm text-slate-800">{value || "—"}</div>
+        <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
+        <div className="text-sm text-slate-800 dark:text-slate-100">{value || "—"}</div>
       </div>
     </div>
   );
@@ -122,14 +122,14 @@ export default async function ClientDetailPage({
       <div>
         <Link
           href="/mijozlar"
-          className="mb-2 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
+          className="mb-2 inline-flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
         >
           <ArrowLeft className="h-4 w-4" />
           Mijozlar ro'yxati
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold text-slate-900">
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
               {client.restaurantName}
             </h1>
             <ClientStatusBadge status={client.status} />
@@ -141,7 +141,7 @@ export default async function ClientDetailPage({
             </Button>
           </Link>
         </div>
-        <p className="mt-1 text-sm text-slate-500">{client.fullName}</p>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{client.fullName}</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -156,7 +156,7 @@ export default async function ClientDetailPage({
                 icon={Phone}
                 label="Asosiy telefon"
                 value={
-                  <a href={`tel:${normalizePhone(client.phone)}`} className="text-blue-600">
+                  <a href={`tel:${normalizePhone(client.phone)}`} className="text-blue-600 dark:text-blue-400">
                     {formatPhone(client.phone)}
                   </a>
                 }
@@ -167,7 +167,7 @@ export default async function ClientDetailPage({
                   icon={Phone}
                   label={p.label}
                   value={
-                    <a href={`tel:${normalizePhone(p.number)}`} className="text-blue-600">
+                    <a href={`tel:${normalizePhone(p.number)}`} className="text-blue-600 dark:text-blue-400">
                       {formatPhone(p.number)}
                     </a>
                   }
@@ -217,38 +217,38 @@ export default async function ClientDetailPage({
               <CardTitle>Qo'ng'iroq jurnali</CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-4">
                 <CallLogForm clientId={client.id} />
               </div>
 
               <div className="space-y-3">
                 {client.callLogs.length === 0 && (
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-slate-400 dark:text-slate-500">
                     Hali qo'ng'iroq yozuvi yo'q
                   </p>
                 )}
                 {client.callLogs.map((log) => (
                   <div
                     key={log.id}
-                    className="flex gap-3 border-b border-slate-100 pb-3 last:border-0"
+                    className="flex gap-3 border-b border-slate-100 dark:border-slate-800 pb-3 last:border-0"
                   >
                     <div className="flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <CallResultBadge result={log.result} />
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-slate-400 dark:text-slate-500">
                           {formatDateTime(log.calledAt)}
                         </span>
                         {log.operator && (
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-slate-500 dark:text-slate-400">
                             · {log.operator.name}
                           </span>
                         )}
                       </div>
                       {log.note && (
-                        <p className="mt-1 text-sm text-slate-700">{log.note}</p>
+                        <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">{log.note}</p>
                       )}
                       {log.nextFollowUpDate && (
-                        <p className="mt-1 text-xs text-amber-600">
+                        <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
                           Keyingi qo'ng'iroq: {formatDate(log.nextFollowUpDate)}
                         </p>
                       )}
@@ -264,23 +264,23 @@ export default async function ClientDetailPage({
               <CardTitle>Muammolar</CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-4">
                 <TicketForm clientId={client.id} />
               </div>
 
               <div className="space-y-3">
                 {client.tickets.length === 0 && (
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-slate-400 dark:text-slate-500">
                     Ochiq muammo yo'q
                   </p>
                 )}
                 {client.tickets.map((t) => (
                   <div
                     key={t.id}
-                    className="border-b border-slate-100 pb-3 last:border-0"
+                    className="border-b border-slate-100 dark:border-slate-800 pb-3 last:border-0"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="font-medium text-slate-800">
+                      <div className="font-medium text-slate-800 dark:text-slate-100">
                         {t.title}
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -289,11 +289,11 @@ export default async function ClientDetailPage({
                         <TicketStatusBadge status={t.status} />
                       </div>
                     </div>
-                    <div className="mt-1 text-xs text-slate-400">
+                    <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                       {formatDate(t.createdAt)}
                     </div>
                     {t.resolutionNote && (
-                      <div className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                      <div className="mt-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300">
                         Yechim: {t.resolutionNote}
                       </div>
                     )}
@@ -315,35 +315,35 @@ export default async function ClientDetailPage({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-600">
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
                   Oylik to'lov
                 </span>
-                <span className="text-lg font-semibold text-slate-900">
+                <span className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                   {formatMoney(client.monthlyAmount, client.currency)}
                 </span>
               </div>
               {equipmentMonthly > 0 && equipmentMonthly <= client.monthlyAmount && (
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-slate-400 dark:text-slate-500">
                     shundan uskuna ijarasi
                   </span>
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-slate-400 dark:text-slate-500">
                     {formatMoney(equipmentMonthly, client.currency)}
                   </span>
                 </div>
               )}
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500">Keyingi to'lov</span>
-                <span className="text-sm font-medium text-slate-800">
+                <span className="text-sm text-slate-500 dark:text-slate-400">Keyingi to'lov</span>
+                <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
                   {formatDate(client.nextPaymentDate)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500">Holat</span>
+                <span className="text-sm text-slate-500 dark:text-slate-400">Holat</span>
                 <PaymentStatusBadge nextPaymentDate={client.nextPaymentDate} />
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-4">
                 <PaymentForm
                   clientId={client.id}
                   defaultAmount={effectiveMonthly}
@@ -375,26 +375,26 @@ export default async function ClientDetailPage({
             </CardHeader>
             <CardContent>
               {client.payments.length === 0 ? (
-                <p className="text-sm text-slate-400">To'lovlar yo'q</p>
+                <p className="text-sm text-slate-400 dark:text-slate-500">To'lovlar yo'q</p>
               ) : (
                 <div className="space-y-3">
                   {client.payments.map((p) => (
                     <div
                       key={p.id}
-                      className="flex items-start justify-between gap-2 border-b border-slate-100 pb-3 last:border-0"
+                      className="flex items-start justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 last:border-0"
                     >
                       <div className="flex items-start gap-2">
                         <Banknote className="mt-0.5 h-4 w-4 text-emerald-500" />
                         <div>
-                          <div className="text-sm font-medium text-slate-800">
+                          <div className="text-sm font-medium text-slate-800 dark:text-slate-100">
                             {formatMoney(p.amount, p.currency)}
                           </div>
-                          <div className="text-xs text-slate-400">
+                          <div className="text-xs text-slate-400 dark:text-slate-500">
                             {formatDate(p.paidAt)}
                             {p.recordedBy ? ` · ${p.recordedBy.name}` : ""}
                           </div>
                           {p.receiptNote && (
-                            <div className="text-xs text-slate-500">
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
                               {p.receiptNote}
                             </div>
                           )}

@@ -18,7 +18,7 @@ export function ReminderButton() {
           else toast(res.error ?? "Xatolik", "error");
         })
       }
-      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
     >
       <Bell className="h-4 w-4" />
       {pending ? "Yuborilmoqda..." : "Eslatma yuborish"}

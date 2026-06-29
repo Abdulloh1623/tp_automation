@@ -60,7 +60,7 @@ export function PaymentForm({
 
   if (done) {
     return (
-      <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-3 text-sm text-emerald-700">
+      <div className="flex items-center gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 px-3 py-3 text-sm text-emerald-700 dark:text-emerald-300">
         <CheckCircle2 className="h-4 w-4" /> To'lov qabul qilindi va to'lovlar
         kanaliga yuborildi.
         <button className="ml-auto underline" onClick={() => setDone(false)}>
@@ -73,7 +73,7 @@ export function PaymentForm({
   return (
     <div className="space-y-3">
       {error && (
-        <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle className="h-4 w-4 shrink-0" /> {error}
         </div>
       )}

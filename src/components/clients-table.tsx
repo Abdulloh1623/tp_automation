@@ -97,13 +97,13 @@ export function ClientsTable({
       <th className={"px-4 py-3 font-medium " + className}>
         <button
           onClick={() => changeSort(col)}
-          className="inline-flex items-center gap-1 hover:text-slate-900"
+          className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-slate-100"
         >
           {label}
           {active ? (
             dir === "asc" ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />
           ) : (
-            <ChevronsUpDown className="h-3.5 w-3.5 text-slate-300" />
+            <ChevronsUpDown className="h-3.5 w-3.5 text-slate-300 dark:text-slate-700" />
           )}
         </button>
       </th>
@@ -114,8 +114,8 @@ export function ClientsTable({
     <div className="space-y-3">
       {/* Ommaviy biriktirish paneli */}
       {canManage && selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
-          <span className="text-sm font-medium text-blue-800">
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 px-4 py-3">
+          <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
             {selected.size} ta tanlandi (ushbu sahifada)
           </span>
           <div className="flex items-center gap-2">
@@ -137,7 +137,7 @@ export function ClientsTable({
           </div>
           <button
             onClick={() => setSelected(new Set())}
-            className="ml-auto inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
+            className="ml-auto inline-flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
           >
             <X className="h-4 w-4" /> Bekor
           </button>
@@ -145,17 +145,17 @@ export function ClientsTable({
       )}
 
       {/* Desktop jadval */}
-      <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
+      <div className="hidden overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 md:block">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
               {canManage && (
                 <th className="w-10 px-4 py-3">
                   <input
                     type="checkbox"
                     checked={allSelected}
                     onChange={toggleAll}
-                    className="h-4 w-4 rounded border-slate-300"
+                    className="h-4 w-4 rounded border-slate-300 dark:border-slate-700"
                     aria-label="Hammasini tanlash"
                   />
                 </th>
@@ -173,7 +173,7 @@ export function ClientsTable({
           <tbody>
             {clients.length === 0 && (
               <tr>
-                <td colSpan={canManage ? 9 : 8} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={canManage ? 9 : 8} className="px-4 py-10 text-center text-slate-400 dark:text-slate-500">
                   Mijoz topilmadi
                 </td>
               </tr>
@@ -182,8 +182,8 @@ export function ClientsTable({
               <tr
                 key={c.id}
                 className={
-                  "border-b border-slate-100 last:border-0 hover:bg-slate-50 " +
-                  (selected.has(c.id) ? "bg-blue-50/40" : "")
+                  "border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800 " +
+                  (selected.has(c.id) ? "bg-blue-50/40 dark:bg-blue-950/40" : "")
                 }
               >
                 {canManage && (
@@ -192,38 +192,38 @@ export function ClientsTable({
                       type="checkbox"
                       checked={selected.has(c.id)}
                       onChange={() => toggle(c.id)}
-                      className="h-4 w-4 rounded border-slate-300"
+                      className="h-4 w-4 rounded border-slate-300 dark:border-slate-700"
                       aria-label="Tanlash"
                     />
                   </td>
                 )}
                 <td className="px-4 py-3">
                   <Link href={`/mijozlar/${c.id}`} className="block">
-                    <div className="font-medium text-slate-900">{c.restaurantName || c.fullName || "—"}</div>
-                    <div className="text-xs text-slate-500">{c.fullName}</div>
+                    <div className="font-medium text-slate-900 dark:text-slate-100">{c.restaurantName || c.fullName || "—"}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">{c.fullName}</div>
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-slate-600">{c.region ?? "—"}</td>
+                <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{c.region ?? "—"}</td>
                 <td className="px-4 py-3">
                   <a
                     href={`tel:${normalizePhone(c.phone)}`}
-                    className="inline-flex items-center gap-1 text-blue-600 hover:underline"
+                    className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
                   >
-                    <Phone className="h-3.5 w-3.5 text-slate-400" />
+                    <Phone className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
                     {formatPhone(c.phone)}
                   </a>
                 </td>
                 <td className="px-4 py-3">
                   {c.lastOperatorName ? (
-                    <span className="text-slate-600">{c.lastOperatorName}</span>
+                    <span className="text-slate-600 dark:text-slate-300">{c.lastOperatorName}</span>
                   ) : (
-                    <span className="text-slate-400">—</span>
+                    <span className="text-slate-400 dark:text-slate-500">—</span>
                   )}
                 </td>
                 <td className="px-4 py-3"><ClientStatusBadge status={c.status} /></td>
                 <td className="px-4 py-3"><PaymentStatusBadge nextPaymentDate={c.nextPaymentDate} /></td>
-                <td className="px-4 py-3 font-medium text-slate-700">{formatMoney(c.monthlyAmount, c.currency)}</td>
-                <td className="px-4 py-3 text-slate-600">{formatDate(c.nextPaymentDate)}</td>
+                <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200">{formatMoney(c.monthlyAmount, c.currency)}</td>
+                <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatDate(c.nextPaymentDate)}</td>
               </tr>
             ))}
           </tbody>
@@ -233,7 +233,7 @@ export function ClientsTable({
       {/* Mobil kartalar */}
       <div className="space-y-2 md:hidden">
         {clients.length === 0 && (
-          <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-400">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center text-sm text-slate-400 dark:text-slate-500">
             Mijoz topilmadi
           </div>
         )}
@@ -241,7 +241,7 @@ export function ClientsTable({
           <div
             key={c.id}
             className={
-              "rounded-xl border border-slate-200 bg-white p-3 " +
+              "rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 " +
               (selected.has(c.id) ? "ring-2 ring-blue-300" : "")
             }
           >
@@ -251,14 +251,14 @@ export function ClientsTable({
                   type="checkbox"
                   checked={selected.has(c.id)}
                   onChange={() => toggle(c.id)}
-                  className="mt-1 h-4 w-4 rounded border-slate-300"
+                  className="mt-1 h-4 w-4 rounded border-slate-300 dark:border-slate-700"
                   aria-label="Tanlash"
                 />
               )}
               <div className="min-w-0 flex-1">
                 <Link href={`/mijozlar/${c.id}`} className="block">
-                  <div className="font-medium text-slate-900">{c.restaurantName || c.fullName || "—"}</div>
-                  <div className="text-xs text-slate-500">{c.fullName}</div>
+                  <div className="font-medium text-slate-900 dark:text-slate-100">{c.restaurantName || c.fullName || "—"}</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">{c.fullName}</div>
                 </Link>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <ClientStatusBadge status={c.status} />
@@ -267,13 +267,13 @@ export function ClientsTable({
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
                   <a
                     href={`tel:${normalizePhone(c.phone)}`}
-                    className="inline-flex items-center gap-1 font-medium text-blue-600"
+                    className="inline-flex items-center gap-1 font-medium text-blue-600 dark:text-blue-400"
                   >
                     <Phone className="h-4 w-4" /> {formatPhone(c.phone)}
                   </a>
-                  <span className="font-medium text-slate-700">{formatMoney(c.monthlyAmount, c.currency)}</span>
+                  <span className="font-medium text-slate-700 dark:text-slate-200">{formatMoney(c.monthlyAmount, c.currency)}</span>
                 </div>
-                <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 text-xs text-slate-500">
+                <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 text-xs text-slate-500 dark:text-slate-400">
                   <span>{c.region ?? "—"}{c.lastOperatorName ? ` · ${c.lastOperatorName}` : ""}</span>
                   <span>To'lov: {formatDate(c.nextPaymentDate)}</span>
                 </div>

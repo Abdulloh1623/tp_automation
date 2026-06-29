@@ -15,9 +15,9 @@ export function toast(message: string, type: ToastType = "info") {
 }
 
 const STYLE: Record<ToastType, { cls: string; Icon: typeof CheckCircle2 }> = {
-  success: { cls: "border-emerald-200 bg-emerald-50 text-emerald-800", Icon: CheckCircle2 },
-  error: { cls: "border-red-200 bg-red-50 text-red-800", Icon: AlertCircle },
-  info: { cls: "border-slate-200 bg-white text-slate-800", Icon: Info },
+  success: { cls: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200", Icon: CheckCircle2 },
+  error: { cls: "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200", Icon: AlertCircle },
+  info: { cls: "border-slate-200 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100", Icon: Info },
 };
 
 let counter = 0;

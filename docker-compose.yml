@@ -1,0 +1,68 @@
+# TP Automation — production (Docker Compose).
+# Ishga tushirish:  docker compose up -d --build
+# Qiymatlar .env faylidan o'qiladi (.env.example dan nusxa oling).
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD .env da belgilanishi shart}
+      POSTGRES_DB: ${POSTGRES_DB:-tp_automation}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tp} -d ${POSTGRES_DB:-tp_automation}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Bir martalik: sxemani qo'llaydi va to'xtaydi (app/worker shundan keyin ishga tushadi)
+  migrate:
+    build: .
+    command: npm run db:deploy
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "3100:3100"
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3100/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  # Telegram bot + cron (hisobot, eslatma, kunlik taqsimot, backup)
+  worker:
+    build: .
+    restart: unless-stopped
+    command: npm run bot
+    env_file: .env
+    volumes:
+      - uploads:/app/uploads
+      - backups:/app/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
+  uploads:
+  backups:

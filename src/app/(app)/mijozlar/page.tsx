@@ -115,15 +115,15 @@ export default async function ClientsPage({
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Mijozlar</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Mijozlar</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Jami {total} ta mijoz{total > 0 ? ` · ${from}–${to} ko'rsatilmoqda` : ""}
           </p>
         </div>
         <div className="flex gap-2">
           <a
             href="/api/export/clients"
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
           >
             <Download className="h-4 w-4" />
             Excel
@@ -153,7 +153,7 @@ export default async function ClientsPage({
 
       {pageCount > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             {current} / {pageCount} sahifa
           </p>
           <div className="flex items-center gap-2">

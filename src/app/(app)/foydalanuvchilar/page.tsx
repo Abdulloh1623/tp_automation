@@ -24,8 +24,8 @@ export default async function UsersPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Foydalanuvchilar</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Foydalanuvchilar</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           {users.length} ta foydalanuvchi · xodim/usta qo'shish, rol, parol va
           faollikni boshqarish
         </p>

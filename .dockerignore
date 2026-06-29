@@ -1,0 +1,33 @@
+node_modules
+.next
+.git
+.github
+.claude
+npm-debug.log*
+
+# muhit va sirlar (image'ga tushmasin)
+.env
+.env*.local
+
+# PII / lokal data
+uploads
+backups
+prisma/*.db
+prisma/*.db-journal
+prisma/*.bak
+prisma/migrations_sqlite_bak
+scripts/_*.ps1
+scripts/_migration-data.json
+
+# test / artefaktlar
+e2e
+playwright-report
+test-results
+blob-report
+**/*.test.ts
+coverage
+
+# hujjat / dizayn (runtime'ga kerak emas)
+docs
+DEPLOY.md
+README.md

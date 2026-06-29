@@ -8,6 +8,9 @@ import {
   EQUIPMENT_MODE,
   LEAD_OUTCOME,
   LEAD_STAGE,
+  TICKET_TYPE,
+  TICKET_PRIORITY,
+  TICKET_STATUS,
 } from "./constants";
 
 /** Obyekt kalitlaridan z.enum uchun tuple yasaydi (manba — constants.ts). */
@@ -20,6 +23,9 @@ export const clientStatusEnum = z.enum(keysOf(CLIENT_STATUS)); // ACTIVE | INACT
 export const equipmentModeEnum = z.enum(keysOf(EQUIPMENT_MODE));
 export const leadOutcomeEnum = z.enum(keysOf(LEAD_OUTCOME));
 export const leadStageEnum = z.enum(keysOf(LEAD_STAGE));
+export const ticketTypeEnum = z.enum(keysOf(TICKET_TYPE));
+export const ticketPriorityEnum = z.enum(keysOf(TICKET_PRIORITY));
+export const ticketStatusEnum = z.enum(keysOf(TICKET_STATUS));
 
 /** Erkin matn maydonlari uchun cheklangan satr (DB bloat / abuse oldini oladi). */
 export const noteString = z
@@ -30,7 +36,18 @@ export const noteString = z
 // Predikatlar — FormData bo'lmagan (to'g'ridan-to'g'ri argument) joylar uchun.
 // MUHIM: `key in OBJECT` ishlatmaslik kerak — u prototip xossalarini ham
 // (masalan "toString") true qaytaradi; enum.safeParse faqat haqiqiy kalitni qabul qiladi.
+/** Zod xatosini { maydon: birinchi_xabar } ko'rinishiga aylantiradi (forma UI uchun). */
+export function toFieldErrors(err: z.ZodError): Record<string, string> {
+  const flat = err.flatten().fieldErrors;
+  const out: Record<string, string> = {};
+  for (const [key, msgs] of Object.entries(flat)) {
+    if (msgs && msgs.length > 0) out[key] = msgs[0] as string;
+  }
+  return out;
+}
+
 export const isCurrency = (v: unknown): boolean => currencyEnum.safeParse(v).success;
 export const isClientStatus = (v: unknown): boolean => clientStatusEnum.safeParse(v).success;
 export const isLeadOutcome = (v: unknown): boolean => leadOutcomeEnum.safeParse(v).success;
 export const isLeadStage = (v: unknown): boolean => leadStageEnum.safeParse(v).success;
+export const isTicketStatus = (v: unknown): boolean => ticketStatusEnum.safeParse(v).success;

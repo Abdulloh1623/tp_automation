@@ -331,8 +331,8 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Boshqaruv paneli</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Boshqaruv paneli</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           Xush kelibsiz{session ? `, ${session.name}` : ""} — {formatDate(now)}
         </p>
       </div>
@@ -347,7 +347,7 @@ export default async function DashboardPage() {
 
       {/* Bugungi faollik */}
       <div>
-        <h2 className="mb-2 text-sm font-semibold text-slate-600">Bugungi faollik</h2>
+        <h2 className="mb-2 text-sm font-semibold text-slate-600 dark:text-slate-300">Bugungi faollik</h2>
         <div className="grid gap-4 sm:grid-cols-3">
           <DashboardStatCard label="Qo'ng'iroqlar (bugun)" value={String(callsToday.length)} icon="phone" tone="blue" detail={callsDetail} />
           <DashboardStatCard label="To'lovlar (bugun)" value={`${todayPayments.length} · ${money2(todayPay)}`} icon="money" tone="emerald" detail={payDetail} />
@@ -359,17 +359,17 @@ export default async function DashboardPage() {
       <Card>
         <CardHeader><CardTitle>Daromad xulosasi</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-            <div className="text-xs text-slate-500">Oylik daromad (MRR)</div>
-            <div className="mt-1 text-xl font-semibold text-slate-900">{money2(mrr)}</div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/60">
+            <div className="text-xs text-slate-500 dark:text-slate-400">Oylik daromad (MRR)</div>
+            <div className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{money2(mrr)}</div>
           </div>
-          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
-            <div className="text-xs text-emerald-700">Bu oy yig'ilgan</div>
-            <div className="mt-1 text-xl font-semibold text-emerald-700">{money2(collected)}</div>
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 dark:border-emerald-950 dark:bg-emerald-950/40">
+            <div className="text-xs text-emerald-700 dark:text-emerald-300">Bu oy yig'ilgan</div>
+            <div className="mt-1 text-xl font-semibold text-emerald-700 dark:text-emerald-300">{money2(collected)}</div>
           </div>
-          <div className="rounded-xl border border-red-100 bg-red-50 p-4">
-            <div className="text-xs text-red-700">Qarzdorlik ({overdueCount} mijoz)</div>
-            <div className="mt-1 text-xl font-semibold text-red-700">{money2(debt)}</div>
+          <div className="rounded-xl border border-red-100 bg-red-50 p-4 dark:border-red-950 dark:bg-red-950/40">
+            <div className="text-xs text-red-700 dark:text-red-300">Qarzdorlik ({overdueCount} mijoz)</div>
+            <div className="mt-1 text-xl font-semibold text-red-700 dark:text-red-300">{money2(debt)}</div>
           </div>
         </CardContent>
       </Card>
@@ -379,19 +379,19 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader><CardTitle>Operatorlar (bugun)</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            {opStats.length === 0 && <p className="text-sm text-slate-400">Operator yo'q</p>}
+            {opStats.length === 0 && <p className="text-sm text-slate-400 dark:text-slate-500">Operator yo'q</p>}
             {opStats.map((o) => {
               const pct = o.target > 0 ? Math.min(100, Math.round((o.calls / o.target) * 100)) : 0;
               return (
                 <div key={o.name}>
                   <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-slate-700">{o.name}</span>
-                    <span className="font-medium text-slate-900">
+                    <span className="text-slate-700 dark:text-slate-200">{o.name}</span>
+                    <span className="font-medium text-slate-900 dark:text-slate-100">
                       {o.calls}
-                      <span className="text-slate-400"> / {o.target}</span>
+                      <span className="text-slate-400 dark:text-slate-500"> / {o.target}</span>
                     </span>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                     <div
                       className={"h-full rounded-full " + (pct >= 100 ? "bg-emerald-500" : pct >= 50 ? "bg-blue-500" : "bg-amber-500")}
                       style={{ width: `${pct}%` }}
@@ -410,12 +410,12 @@ export default async function DashboardPage() {
               <Link
                 key={a.label}
                 href={a.href}
-                className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-slate-50"
+                className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-slate-50 dark:hover:bg-slate-800"
               >
-                <span className="text-sm text-slate-700">{a.label}</span>
+                <span className="text-sm text-slate-700 dark:text-slate-200">{a.label}</span>
                 <span className="flex items-center gap-2">
                   <Badge tone={a.count > 0 ? "amber" : "green"}>{a.count}</Badge>
-                  <ChevronRight className="h-4 w-4 text-slate-300" />
+                  <ChevronRight className="h-4 w-4 text-slate-300 dark:text-slate-700" />
                 </span>
               </Link>
             ))}
@@ -444,27 +444,27 @@ export default async function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle>Bugungi ish ro'yxati</CardTitle>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             To'lov kuni yetgan, rejalashtirilgan qo'ng'iroq yoki ochiq muammosi bor mijozlar
             {workList.length > WORK_CAP ? ` — ${workList.length} ta (birinchi ${WORK_CAP})` : ""}
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
           {workList.length === 0 && (
-            <p className="py-6 text-center text-sm text-slate-400">
+            <p className="py-6 text-center text-sm text-slate-400 dark:text-slate-500">
               Bugun shoshilinch ish yo'q — hammasi joyida
             </p>
           )}
           {workList.slice(0, WORK_CAP).map(({ c, reasons }) => {
             const lastCall = c.callLogs[0];
             return (
-              <div key={c.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50">
+              <div key={c.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800">
                 <div className="min-w-0 flex-1">
-                  <div className="font-medium text-slate-900">{c.restaurantName}</div>
-                  <div className="flex flex-wrap items-center gap-x-3 text-xs text-slate-500">
+                  <div className="font-medium text-slate-900 dark:text-slate-100">{c.restaurantName}</div>
+                  <div className="flex flex-wrap items-center gap-x-3 text-xs text-slate-500 dark:text-slate-400">
                     <span>{c.fullName}</span>
                     {c.region && <span>· {c.region}</span>}
-                    <a href={`tel:${normalizePhone(c.phone)}`} className="inline-flex items-center gap-1 text-blue-600">
+                    <a href={`tel:${normalizePhone(c.phone)}`} className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400">
                       <Phone className="h-3 w-3" />
                       {formatPhone(c.phone)}
                     </a>
@@ -475,7 +475,7 @@ export default async function DashboardPage() {
                       <Badge key={r} tone={REASON_META[r].tone}>{REASON_META[r].label}</Badge>
                     ))}
                     {lastCall && (
-                      <span className="inline-flex items-center gap-1 text-xs text-slate-400">
+                      <span className="inline-flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500">
                         oxirgi: <CallResultBadge result={lastCall.result} />
                       </span>
                     )}
@@ -483,8 +483,8 @@ export default async function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <div className="text-sm font-medium text-slate-700">{formatMoney(c.monthlyAmount, c.currency)}</div>
-                    <div className="text-xs text-slate-400">{formatDate(c.nextPaymentDate)}</div>
+                    <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{formatMoney(c.monthlyAmount, c.currency)}</div>
+                    <div className="text-xs text-slate-400 dark:text-slate-500">{formatDate(c.nextPaymentDate)}</div>
                   </div>
                   <Link href={`/mijozlar/${c.id}`} className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
                     Ochish
@@ -495,7 +495,7 @@ export default async function DashboardPage() {
             );
           })}
           {workList.length > WORK_CAP && (
-            <Link href="/mijozlar" className="block pt-1 text-center text-sm font-medium text-blue-600 hover:underline">
+            <Link href="/mijozlar" className="block pt-1 text-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
               Barcha mijozlar →
             </Link>
           )}

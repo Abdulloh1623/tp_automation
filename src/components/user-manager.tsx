@@ -159,10 +159,10 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
         </Button>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
         <table className="w-full min-w-[820px] text-sm">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
               <th className="px-4 py-3 font-medium">Ism</th>
               <th className="px-4 py-3 font-medium">Login</th>
               <th className="px-4 py-3 font-medium">Rol</th>
@@ -178,24 +178,24 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
               <tr
                 key={u.id}
                 className={
-                  "border-b border-slate-100 last:border-0 " +
+                  "border-b border-slate-100 dark:border-slate-800 last:border-0 " +
                   (u.isActive ? "" : "opacity-50")
                 }
               >
-                <td className="px-4 py-3 font-medium text-slate-900">{u.name}</td>
-                <td className="px-4 py-3 text-slate-600">{u.username}</td>
+                <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{u.name}</td>
+                <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{u.username}</td>
                 <td className="px-4 py-3">
                   <Badge tone={roleTone[u.role] ?? "neutral"}>
                     {userRoleLabel(u.role)}
                   </Badge>
                 </td>
-                <td className="px-4 py-3 text-slate-600">
+                <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
                   {parseRegions(u.regions, u.region).join(", ") || "—"}
                 </td>
-                <td className="px-4 py-3 text-center text-slate-600">
+                <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-300">
                   {u.role === "OPERATOR" ? u.dailyLeadTarget : "—"}
                 </td>
-                <td className="px-4 py-3 text-center text-slate-600">
+                <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-300">
                   {u.telegramId ? "✓" : "—"}
                 </td>
                 <td className="px-4 py-3 text-center">
@@ -228,7 +228,7 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                       size="sm"
                       className={
                         "h-7 px-2 text-xs " +
-                        (u.isActive ? "text-red-600" : "text-emerald-600")
+                        (u.isActive ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400")
                       }
                       onClick={() => toggleActive(u)}
                       disabled={pending}
@@ -250,7 +250,7 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
           onClick={() => setMode(null)}
         >
           <div
-            className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-lg"
+            className="w-full max-w-md rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
@@ -263,14 +263,14 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
               </h3>
               <button
                 onClick={() => setMode(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             {error && (
-              <div className="mb-3 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="mb-3 flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {error}
               </div>

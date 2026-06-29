@@ -7,6 +7,7 @@ import { guardRole } from "@/lib/auth";
 import { canMutateClient } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { callResultLabel } from "@/lib/constants";
+import { noteString, toFieldErrors } from "@/lib/validation";
 
 const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
 
@@ -17,11 +18,11 @@ function s(v: FormDataEntryValue | null): string | undefined {
 
 const callLogSchema = z.object({
   result: z.string().min(1, "Natijani tanlang"),
-  note: z.string().optional(),
+  note: noteString.optional(),
   nextFollowUpDate: z.string().optional(),
 });
 
-export type CallLogFormState = { error?: string };
+export type CallLogFormState = { error?: string; fieldErrors?: Record<string, string> };
 
 export async function addCallLog(
   clientId: string,
@@ -42,7 +43,7 @@ export async function addCallLog(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Maʼlumotlar noto'g'ri" };
+    return { error: "Maʼlumotlarni tekshiring", fieldErrors: toFieldErrors(parsed.error) };
   }
 
   const client = await db.client.findUnique({ where: { id: clientId } });

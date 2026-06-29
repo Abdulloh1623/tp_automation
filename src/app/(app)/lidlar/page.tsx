@@ -117,8 +117,8 @@ export default async function LeadsPage({
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Kunlik ish</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Kunlik ish</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             {formatDate(new Date())} · {leads.length} ta lid
           </p>
         </div>
@@ -128,7 +128,7 @@ export default async function LeadsPage({
         <Card className="p-4">
           <form className="flex flex-wrap items-end gap-3" method="get">
             <div className="w-56">
-              <label className="mb-1.5 block text-xs font-medium text-slate-500">
+              <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
                 Operator board'i
               </label>
               <Select name="operator" defaultValue={viewerId}>

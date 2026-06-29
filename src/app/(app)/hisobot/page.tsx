@@ -46,22 +46,22 @@ function Kpi({
   tone: "blue" | "emerald" | "red" | "violet" | "slate" | "amber";
 }) {
   const toneMap = {
-    blue: "bg-blue-50 text-blue-600",
-    emerald: "bg-emerald-50 text-emerald-600",
-    red: "bg-red-50 text-red-600",
-    violet: "bg-violet-50 text-violet-600",
-    slate: "bg-slate-100 text-slate-600",
-    amber: "bg-amber-50 text-amber-600",
+    blue: "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400",
+    emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400",
+    red: "bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400",
+    violet: "bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400",
+    slate: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+    amber: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400",
   };
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between">
         <div className="min-w-0">
-          <div className="text-sm text-slate-500">{label}</div>
-          <div className="mt-1 text-2xl font-semibold text-slate-900">
+          <div className="text-sm text-slate-500 dark:text-slate-400">{label}</div>
+          <div className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
             {value}
           </div>
-          {sub && <div className="text-xs text-slate-400">{sub}</div>}
+          {sub && <div className="text-xs text-slate-400 dark:text-slate-500">{sub}</div>}
         </div>
         <div
           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${toneMap[tone]}`}
@@ -214,8 +214,8 @@ export default async function ReportsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Hisobot</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Hisobot</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Umumiy ko'rsatkichlar, viloyat va operatorlar bo'yicha tahlil
           </p>
         </div>
@@ -308,7 +308,7 @@ export default async function ReportsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-y border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr className="border-y border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-400">
                   <th className="px-4 py-3 font-medium">Operator</th>
                   <th className="px-4 py-3 font-medium">Biriktirilgan mijoz</th>
                   <th className="px-4 py-3 font-medium">Qo'ng'iroqlar</th>
@@ -320,15 +320,15 @@ export default async function ReportsPage() {
                 {operatorStats.map((o) => (
                   <tr
                     key={o.name}
-                    className="border-b border-slate-100 last:border-0"
+                    className="border-b border-slate-100 last:border-0 dark:border-slate-800"
                   >
-                    <td className="px-4 py-3 font-medium text-slate-900">
+                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
                       {o.name}
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{o.assigned}</td>
-                    <td className="px-4 py-3 text-slate-600">{o.calls}</td>
-                    <td className="px-4 py-3 text-slate-600">{o.collected}</td>
-                    <td className="px-4 py-3 text-slate-600">{o.tickets}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{o.assigned}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{o.calls}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{o.collected}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{o.tickets}</td>
                   </tr>
                 ))}
               </tbody>
@@ -346,7 +346,7 @@ export default async function ReportsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-y border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="border-y border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-400">
                     <th className="px-4 py-3 font-medium">Usta</th>
                     <th className="px-4 py-3 font-medium">Faol vazifa</th>
                     <th className="px-4 py-3 font-medium">Bajarilgan</th>
@@ -358,11 +358,11 @@ export default async function ReportsPage() {
                       key={u.name}
                       className="border-b border-slate-100 last:border-0"
                     >
-                      <td className="px-4 py-3 font-medium text-slate-900">
+                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
                         {u.name}
                       </td>
-                      <td className="px-4 py-3 text-slate-600">{u.active}</td>
-                      <td className="px-4 py-3 text-slate-600">{u.done}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{u.active}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{u.done}</td>
                     </tr>
                   ))}
                 </tbody>

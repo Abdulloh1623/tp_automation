@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   Phone,
   Bell,
@@ -32,6 +32,8 @@ import {
 import { LEAD_OUTCOME, leadOutcomeLabel, leadStageLabel } from "@/lib/constants";
 import { formatMoney, formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 import { buildCsv, downloadCsv } from "@/lib/csv-export";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { EmptyState } from "@/components/empty-state";
 
 export type LeadHistory = {
   date: string; // YYYY-MM-DD
@@ -64,19 +66,19 @@ export type LeadRow = {
 };
 
 const OUTCOME_CELL: Record<string, string> = {
-  NO_ANSWER: "text-red-700",
-  PHONE_OFF: "text-red-700",
-  BUSY: "text-amber-700",
-  CALL_LATER: "text-amber-700",
-  WILL_PAY: "text-blue-700",
-  WILL_PAY_TOMORROW: "text-blue-700",
-  PAYMENT_REMINDED: "text-blue-700",
-  FORWARDED: "text-slate-600",
-  HAS_ISSUE: "text-amber-700",
-  NO_PROBLEM: "text-emerald-700",
-  PAID: "text-emerald-700",
-  RESOLVED: "text-emerald-700",
-  DEACTIVATED: "text-slate-500",
+  NO_ANSWER: "text-red-700 dark:text-red-300",
+  PHONE_OFF: "text-red-700 dark:text-red-300",
+  BUSY: "text-amber-700 dark:text-amber-300",
+  CALL_LATER: "text-amber-700 dark:text-amber-300",
+  WILL_PAY: "text-blue-700 dark:text-blue-300",
+  WILL_PAY_TOMORROW: "text-blue-700 dark:text-blue-300",
+  PAYMENT_REMINDED: "text-blue-700 dark:text-blue-300",
+  FORWARDED: "text-slate-600 dark:text-slate-300",
+  HAS_ISSUE: "text-amber-700 dark:text-amber-300",
+  NO_PROBLEM: "text-emerald-700 dark:text-emerald-300",
+  PAID: "text-emerald-700 dark:text-emerald-300",
+  RESOLVED: "text-emerald-700 dark:text-emerald-300",
+  DEACTIVATED: "text-slate-500 dark:text-slate-400",
 };
 
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -98,6 +100,20 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
   const [payTarget, setPayTarget] = useState<PayTarget | null>(null);
   const [pending, startTransition] = useTransition();
   const [finishing, setFinishing] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // "/" tugmasi qidiruvni fokuslaydi (input/textarea ichida bo'lmasa)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -143,8 +159,14 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
     });
   }
 
-  function onEscalate(row: LeadRow) {
-    if (!confirm(`"${row.restaurantName}" boshliqqa yo'naltirilsinmi?`)) return;
+  async function onEscalate(row: LeadRow) {
+    const ok = await confirmDialog({
+      title: "Boshliqqa yo'naltirilsinmi?",
+      message: `"${row.restaurantName}" lidi eskalatsiya navbatiga o'tadi.`,
+      confirmLabel: "Yo'naltirish",
+      variant: "primary",
+    });
+    if (!ok) return;
     startTransition(async () => {
       const res = await escalateLead(row.id);
       if (res.ok) setRows((prev) => prev.filter((r) => r.id !== row.id));
@@ -242,12 +264,12 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
     <div className="space-y-3">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1 rounded-lg border border-slate-200 p-0.5">
+        <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-800 p-0.5">
           <button
             onClick={() => setMode("joriy")}
             className={
               "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium " +
-              (mode === "joriy" ? "bg-blue-50 text-blue-700" : "text-slate-600")
+              (mode === "joriy" ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300" : "text-slate-600 dark:text-slate-300")
             }
           >
             <LayoutList className="h-4 w-4" /> Joriy
@@ -256,7 +278,7 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
             onClick={() => setMode("tarix")}
             className={
               "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium " +
-              (mode === "tarix" ? "bg-blue-50 text-blue-700" : "text-slate-600")
+              (mode === "tarix" ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300" : "text-slate-600 dark:text-slate-300")
             }
           >
             <History className="h-4 w-4" /> Tarix
@@ -264,11 +286,13 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
             <Input
+              ref={searchRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Qidirish…"
+              placeholder="Qidirish… ( / )"
+              aria-label="Lidlarni qidirish"
               className="h-9 w-44 pl-8"
             />
           </div>
@@ -283,9 +307,15 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-400">
-          Bugun bajariladigan lid yo'q
-        </div>
+        <EmptyState
+          icon={CalendarCheck}
+          title={query ? "Hech narsa topilmadi" : "Bugun bajariladigan lid yo'q"}
+          hint={
+            query
+              ? "Boshqa kalit so'z bilan qidirib ko'ring."
+              : "Hammasi joyida — bugungi ish yakunlangan yoki yangi lid yo'q."
+          }
+        />
       ) : mode === "joriy" ? (
         <JoriyTable
           rows={filtered}
@@ -387,10 +417,10 @@ function JoriyTable({
 }) {
   return (
     <>
-    <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
+    <div className="hidden overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 md:block">
       <table className="w-full min-w-[1000px] text-sm">
         <thead>
-          <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
             <th className="px-3 py-2.5 font-medium">Restoran / FIO</th>
             <th className="px-3 py-2.5 font-medium">Viloyat</th>
             <th className="px-3 py-2.5 font-medium">Telefon</th>
@@ -398,10 +428,10 @@ function JoriyTable({
             <th className="px-3 py-2.5 font-medium">Bo'lim</th>
             <th className="px-3 py-2.5 font-medium">Oxirgi aloqa</th>
             <th className="px-3 py-2.5 font-medium">To'lov</th>
-            <th className="bg-blue-50/60 px-3 py-2.5 font-medium text-blue-700">
+            <th className="bg-blue-50/60 dark:bg-blue-950/40 px-3 py-2.5 font-medium text-blue-700 dark:text-blue-300">
               Bugun
             </th>
-            <th className="bg-blue-50/60 px-3 py-2.5 font-medium text-blue-700">
+            <th className="bg-blue-50/60 dark:bg-blue-950/40 px-3 py-2.5 font-medium text-blue-700 dark:text-blue-300">
               Izoh
             </th>
             <th className="px-3 py-2.5 text-center font-medium">Amallar</th>
@@ -412,36 +442,37 @@ function JoriyTable({
             <tr
               key={r.id}
               className={
-                "border-b border-slate-100 last:border-0 " +
+                "border-b border-slate-100 dark:border-slate-800 last:border-0 " +
                 (r.missedCallCount >= 3
-                  ? "bg-red-50/40"
+                  ? "bg-red-50/40 dark:bg-red-950/40"
                   : r.overdue
-                    ? "bg-amber-50/50"
-                    : "hover:bg-slate-50")
+                    ? "bg-amber-50/50 dark:bg-amber-950/40"
+                    : "hover:bg-slate-50 dark:hover:bg-slate-800")
               }
             >
               <td className="px-3 py-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-medium text-slate-900">
+                  <span className="font-medium text-slate-900 dark:text-slate-100">
                     {r.restaurantName}
                   </span>
                   {r.specialNote && (
                     <button
                       title="Maxsus izoh"
+                      aria-label="Maxsus izohni ko'rish"
                       onClick={() => onBell(r)}
-                      className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-700"
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300"
                     >
                       <Bell className="h-3 w-3" />
                     </button>
                   )}
                 </div>
-                <div className="text-xs text-slate-500">{r.fullName}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">{r.fullName}</div>
               </td>
-              <td className="px-3 py-2 text-slate-600">{r.region ?? "—"}</td>
+              <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{r.region ?? "—"}</td>
               <td className="px-3 py-2">
                 <a
                   href={`tel:${normalizePhone(r.phone)}`}
-                  className="text-blue-600"
+                  className="text-blue-600 dark:text-blue-400"
                 >
                   {formatPhone(r.phone)}
                 </a>
@@ -450,8 +481,8 @@ function JoriyTable({
                 className={
                   "px-3 py-2 text-center " +
                   (r.missedCallCount >= 3
-                    ? "font-medium text-red-600"
-                    : "text-slate-500")
+                    ? "font-medium text-red-600 dark:text-red-400"
+                    : "text-slate-500 dark:text-slate-400")
                 }
               >
                 {r.missedCallCount}
@@ -461,7 +492,7 @@ function JoriyTable({
               </td>
               <td className="px-3 py-2">
                 {r.history.length === 0 ? (
-                  <span className="text-slate-400">—</span>
+                  <span className="text-slate-400 dark:text-slate-500">—</span>
                 ) : (
                   <button
                     type="button"
@@ -469,37 +500,40 @@ function JoriyTable({
                     title={r.history[0].note || "Izoh yo'q"}
                     className="text-left hover:underline"
                   >
-                    <div className="text-slate-600">{formatDate(r.history[0].date)}</div>
-                    <div className={"text-xs " + (OUTCOME_CELL[r.history[0].result] ?? "text-slate-500")}>
+                    <div className="text-slate-600 dark:text-slate-300">{formatDate(r.history[0].date)}</div>
+                    <div className={"text-xs " + (OUTCOME_CELL[r.history[0].result] ?? "text-slate-500 dark:text-slate-400")}>
                       {leadOutcomeLabel(r.history[0].result)}
                       {r.history[0].note ? " 💬" : ""}
                     </div>
                   </button>
                 )}
               </td>
-              <td className="px-3 py-2 text-slate-600">
+              <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
                 {formatMoney(r.monthlyAmount, r.currency)}
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-slate-400 dark:text-slate-500">
                   {r.nextPaymentDate ? formatDate(r.nextPaymentDate) : "—"}
                 </div>
                 {r.overdue && (
-                  <span className="mt-0.5 inline-flex items-center rounded-full bg-red-100 px-1.5 py-0.5 text-[11px] font-semibold text-red-700">
+                  <span className="mt-0.5 inline-flex items-center rounded-full bg-red-100 dark:bg-red-950 px-1.5 py-0.5 text-[11px] font-semibold text-red-700 dark:text-red-300">
                     Qarzdor ({r.overdueDays} kun)
                   </span>
                 )}
               </td>
-              <td className="bg-blue-50/40 px-2 py-2">
+              <td className="bg-blue-50/40 dark:bg-blue-950/40 px-2 py-2">
                 <OutcomeSelect row={r} />
               </td>
-              <td className="bg-blue-50/40 px-2 py-2">
+              <td className="bg-blue-50/40 dark:bg-blue-950/40 px-2 py-2">
                 <Input
                   defaultValue={r.todayNote ?? ""}
                   onBlur={(e) => onNoteSave(r, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur(); // Enter → saqlash
+                  }}
                   placeholder="izoh…"
                   className="h-8 text-xs"
                 />
                 {saved[r.id] && (
-                  <span className="mt-0.5 inline-flex items-center gap-0.5 text-xs text-emerald-600">
+                  <span className="mt-0.5 inline-flex items-center gap-0.5 text-xs text-emerald-600 dark:text-emerald-300">
                     <Check className="h-3 w-3" /> saqlandi
                   </span>
                 )}
@@ -517,7 +551,7 @@ function JoriyTable({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 border-amber-300 text-xs text-amber-700"
+                    className="h-7 border-amber-300 text-xs text-amber-700 dark:text-amber-300"
                     onClick={() => onEscalate(r)}
                   >
                     <ArrowUpRight className="h-3.5 w-3.5" /> Boshliqqa
@@ -536,29 +570,29 @@ function JoriyTable({
         <div
           key={r.id}
           className={
-            "rounded-xl border bg-white p-3 " +
+            "rounded-xl border bg-white dark:bg-slate-900 p-3 " +
             (r.missedCallCount >= 3
-              ? "border-red-200 bg-red-50/40"
+              ? "border-red-200 bg-red-50/40 dark:bg-red-950/40"
               : r.overdue
-                ? "border-amber-200 bg-amber-50/40"
-                : "border-slate-200")
+                ? "border-amber-200 bg-amber-50/40 dark:bg-amber-950/40"
+                : "border-slate-200 dark:border-slate-800")
           }
         >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="font-medium text-slate-900">{r.restaurantName}</span>
+                <span className="font-medium text-slate-900 dark:text-slate-100">{r.restaurantName}</span>
                 {r.specialNote && (
                   <button
                     title="Maxsus izoh"
                     onClick={() => onBell(r)}
-                    className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-700"
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300"
                   >
                     <Bell className="h-3 w-3" />
                   </button>
                 )}
               </div>
-              <div className="text-xs text-slate-500">{r.fullName}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">{r.fullName}</div>
             </div>
             <LeadStageBadge stage={r.pendingStage ?? r.stage} />
           </div>
@@ -566,14 +600,14 @@ function JoriyTable({
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
             <a
               href={`tel:${normalizePhone(r.phone)}`}
-              className="inline-flex items-center gap-1 font-medium text-blue-600"
+              className="inline-flex items-center gap-1 font-medium text-blue-600 dark:text-blue-400"
             >
               <Phone className="h-4 w-4" /> {formatPhone(r.phone)}
             </a>
-            <span className="text-slate-600">{formatMoney(r.monthlyAmount, r.currency)}</span>
+            <span className="text-slate-600 dark:text-slate-300">{formatMoney(r.monthlyAmount, r.currency)}</span>
           </div>
 
-          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
             <span>{r.region ?? "—"}</span>
             {r.history.length > 0 ? (
               <button
@@ -588,12 +622,12 @@ function JoriyTable({
               <span>Oxirgi: —</span>
             )}
             {r.missedCallCount >= 3 && (
-              <span className="font-medium text-red-600">
+              <span className="font-medium text-red-600 dark:text-red-400">
                 Ko'tarilmagan: {r.missedCallCount}
               </span>
             )}
             {r.overdue && (
-              <span className="inline-flex items-center rounded-full bg-red-100 px-1.5 py-0.5 font-semibold text-red-700">
+              <span className="inline-flex items-center rounded-full bg-red-100 dark:bg-red-950 px-1.5 py-0.5 font-semibold text-red-700 dark:text-red-300">
                 Qarzdor ({r.overdueDays} kun)
               </span>
             )}
@@ -604,12 +638,15 @@ function JoriyTable({
             <Input
               defaultValue={r.todayNote ?? ""}
               onBlur={(e) => onNoteSave(r, e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur(); // Enter → saqlash
+              }}
               placeholder="izoh…"
               className="h-8 text-xs"
             />
           </div>
           {saved[r.id] && (
-            <div className="mt-1 inline-flex items-center gap-0.5 text-xs text-emerald-600">
+            <div className="mt-1 inline-flex items-center gap-0.5 text-xs text-emerald-600 dark:text-emerald-300">
               <Check className="h-3 w-3" /> saqlandi
             </div>
           )}
@@ -626,7 +663,7 @@ function JoriyTable({
             <Button
               variant="outline"
               size="sm"
-              className="h-8 flex-1 border-amber-300 text-xs text-amber-700"
+              className="h-8 flex-1 border-amber-300 text-xs text-amber-700 dark:text-amber-300"
               onClick={() => onEscalate(r)}
             >
               <ArrowUpRight className="h-3.5 w-3.5" /> Boshliqqa
@@ -655,22 +692,22 @@ function TarixTable({
 }) {
   const dayLabel = (d: string) => d.slice(8) + "." + d.slice(5, 7);
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
       <table className="border-separate border-spacing-0 text-sm">
         <thead>
           <tr>
-            <th className="sticky left-0 z-10 border-b border-r border-slate-200 bg-slate-50 px-3 py-2.5 text-left text-xs font-medium uppercase text-slate-500">
+            <th className="sticky left-0 z-10 border-b border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-3 py-2.5 text-left text-xs font-medium uppercase text-slate-500 dark:text-slate-400">
               Restoran / FIO
             </th>
             {dayColumns.map((d) => (
               <th
                 key={d}
-                className="min-w-[88px] border-b border-slate-200 bg-slate-50 px-2 py-2.5 text-center text-xs font-medium text-slate-400"
+                className="min-w-[88px] border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 px-2 py-2.5 text-center text-xs font-medium text-slate-400 dark:text-slate-500"
               >
                 {dayLabel(d)}
               </th>
             ))}
-            <th className="sticky right-0 z-10 min-w-[150px] border-b border-l border-slate-200 bg-blue-50 px-2 py-2.5 text-left text-xs font-medium text-blue-700">
+            <th className="sticky right-0 z-10 min-w-[150px] border-b border-l border-slate-200 dark:border-slate-800 bg-blue-50 dark:bg-blue-950/40 px-2 py-2.5 text-left text-xs font-medium text-blue-700 dark:text-blue-300">
               Bugun
             </th>
           </tr>
@@ -680,22 +717,22 @@ function TarixTable({
             const byDate = new Map(r.history.map((h) => [h.date, h]));
             return (
               <tr key={r.id}>
-                <td className="sticky left-0 z-10 border-b border-r border-slate-100 bg-white px-3 py-2">
+                <td className="sticky left-0 z-10 border-b border-r border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-medium text-slate-900">
+                    <span className="font-medium text-slate-900 dark:text-slate-100">
                       {r.restaurantName}
                     </span>
                     {r.specialNote && (
                       <button
                         title="Maxsus izoh"
                         onClick={() => onBell(r)}
-                        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-700"
+                        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300"
                       >
                         <Bell className="h-3 w-3" />
                       </button>
                     )}
                   </div>
-                  <div className="text-xs text-slate-500">{r.fullName}</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">{r.fullName}</div>
                 </td>
                 {dayColumns.map((d) => {
                   const h = byDate.get(d);
@@ -704,10 +741,10 @@ function TarixTable({
                       key={d}
                       onClick={() => h && onCell(r, h)}
                       className={
-                        "border-b border-slate-100 px-2 py-2 text-center text-xs " +
+                        "border-b border-slate-100 dark:border-slate-800 px-2 py-2 text-center text-xs " +
                         (h
-                          ? "cursor-pointer hover:bg-slate-50 " +
-                            (OUTCOME_CELL[h.result] ?? "text-slate-600")
+                          ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 " +
+                            (OUTCOME_CELL[h.result] ?? "text-slate-600 dark:text-slate-300")
                           : "text-slate-300")
                       }
                     >
@@ -715,7 +752,7 @@ function TarixTable({
                     </td>
                   );
                 })}
-                <td className="sticky right-0 z-10 border-b border-l border-slate-100 bg-blue-50/40 px-2 py-2">
+                <td className="sticky right-0 z-10 border-b border-l border-slate-100 dark:border-slate-800 bg-blue-50/40 dark:bg-blue-950/40 px-2 py-2">
                   <OutcomeSelect row={r} />
                 </td>
               </tr>
@@ -741,11 +778,11 @@ function ModalOverlay({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-lg"
+        className="w-full max-w-md rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-2 flex justify-end">
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button onClick={onClose} className="text-slate-400 dark:text-slate-500 hover:text-slate-600">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -758,13 +795,13 @@ function ModalOverlay({
 function SpecialView({ lead, onEdit }: { lead: LeadRow; onEdit: () => void }) {
   return (
     <div>
-      <h3 className="mb-2 flex items-center gap-2 text-base font-semibold text-amber-700">
+      <h3 className="mb-2 flex items-center gap-2 text-base font-semibold text-amber-700 dark:text-amber-300">
         <Bell className="h-4 w-4" /> Maxsus izoh — {lead.restaurantName}
       </h3>
-      <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+      <p className="rounded-lg bg-amber-50 dark:bg-amber-950/40 p-3 text-sm text-amber-900">
         {lead.specialNote}
       </p>
-      <p className="mt-2 text-xs text-slate-500">
+      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
         {lead.specialNoteBy ?? "—"}
         {lead.specialNoteAt ? ` · ${formatDate(lead.specialNoteAt)}` : ""}
       </p>
@@ -783,15 +820,15 @@ function HistoryView({ lead, day }: { lead: LeadRow; day: LeadHistory }) {
       <h3 className="mb-1 text-base font-semibold">
         {formatDate(day.date)} — {leadOutcomeLabel(day.result)}
       </h3>
-      <p className="text-xs text-slate-500">{lead.restaurantName}</p>
-      <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm">
+      <p className="text-xs text-slate-500 dark:text-slate-400">{lead.restaurantName}</p>
+      <div className="mt-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 p-3 text-sm">
         {day.note ? (
-          <span className="text-slate-700">{day.note}</span>
+          <span className="text-slate-700 dark:text-slate-200">{day.note}</span>
         ) : (
-          <span className="italic text-slate-400">Izoh mavjud emas</span>
+          <span className="italic text-slate-400 dark:text-slate-500">Izoh mavjud emas</span>
         )}
       </div>
-      <p className="mt-2 text-xs text-slate-500">
+      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
         Xodim: {day.operator ?? "—"}
       </p>
     </div>
@@ -802,41 +839,41 @@ function HistoryView({ lead, day }: { lead: LeadRow; day: LeadHistory }) {
 function FullHistoryView({ lead }: { lead: LeadRow }) {
   return (
     <div>
-      <h3 className="mb-0.5 flex items-center gap-2 text-base font-semibold text-slate-900">
-        <History className="h-4 w-4 text-slate-500" /> Aloqa tarixi
+      <h3 className="mb-0.5 flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-slate-100">
+        <History className="h-4 w-4 text-slate-500 dark:text-slate-400" /> Aloqa tarixi
       </h3>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-slate-500 dark:text-slate-400">
         {lead.restaurantName} · {lead.fullName} · {lead.history.length} ta yozuv
       </p>
       <div className="mt-3 max-h-[60vh] space-y-2 overflow-y-auto pr-1">
         {lead.history.length === 0 && (
-          <p className="py-6 text-center text-sm italic text-slate-400">
+          <p className="py-6 text-center text-sm italic text-slate-400 dark:text-slate-500">
             Hali aloqa yozuvi yo'q
           </p>
         )}
         {lead.history.map((h) => (
           <div
             key={h.date}
-            className="rounded-lg border border-slate-100 bg-slate-50 p-3"
+            className="rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3"
           >
             <div className="flex items-center justify-between gap-2">
               <span
                 className={
                   "text-sm font-medium " +
-                  (OUTCOME_CELL[h.result] ?? "text-slate-700")
+                  (OUTCOME_CELL[h.result] ?? "text-slate-700 dark:text-slate-200")
                 }
               >
                 {leadOutcomeLabel(h.result)}
               </span>
-              <span className="text-xs text-slate-400">{formatDate(h.date)}</span>
+              <span className="text-xs text-slate-400 dark:text-slate-500">{formatDate(h.date)}</span>
             </div>
             {h.note ? (
-              <p className="mt-1 text-sm text-slate-700">{h.note}</p>
+              <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">{h.note}</p>
             ) : (
-              <p className="mt-1 text-xs italic text-slate-400">Izoh yo'q</p>
+              <p className="mt-1 text-xs italic text-slate-400 dark:text-slate-500">Izoh yo'q</p>
             )}
             {h.operator && (
-              <p className="mt-1 text-xs text-slate-400">Xodim: {h.operator}</p>
+              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Xodim: {h.operator}</p>
             )}
           </div>
         ))}

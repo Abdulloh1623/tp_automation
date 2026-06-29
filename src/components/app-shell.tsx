@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Toaster } from "@/components/toaster";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 import { userRoleLabel } from "@/lib/constants";
 import type { Role } from "@/lib/rbac";
@@ -65,15 +67,18 @@ export function AppShell({
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
-        <div className="flex items-center gap-2 px-5 py-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white">
-            <Building2 className="h-5 w-5" />
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 md:flex">
+        <div className="flex items-center justify-between gap-2 px-5 py-5">
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">POS CRM</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">TP Automation</div>
+            </div>
           </div>
-          <div>
-            <div className="text-sm font-semibold text-slate-900">POS CRM</div>
-            <div className="text-xs text-slate-500">TP Automation</div>
-          </div>
+          <ThemeToggle />
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-2">
@@ -90,8 +95,8 @@ export function AppShell({
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   active
-                    ? "bg-blue-50 text-blue-700"
-                    : "text-slate-600 hover:bg-slate-100",
+                    ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                    : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -101,17 +106,17 @@ export function AppShell({
           })}
         </nav>
 
-        <div className="border-t border-slate-200 p-3">
+        <div className="border-t border-slate-200 p-3 dark:border-slate-800">
           <div className="mb-2 px-2">
-            <div className="text-sm font-medium text-slate-900">{user.name}</div>
-            <div className="text-xs text-slate-500">
+            <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{user.name}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
               {userRoleLabel(user.role)}
             </div>
           </div>
           <form action={logout}>
             <button
               type="submit"
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-slate-300 dark:hover:bg-red-950 dark:hover:text-red-400"
             >
               <LogOut className="h-4 w-4" />
               Chiqish
@@ -123,22 +128,25 @@ export function AppShell({
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile top bar */}
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:hidden">
+        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900 md:hidden">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
               <Building2 className="h-4 w-4" />
             </div>
-            <span className="text-sm font-semibold">POS CRM</span>
+            <span className="text-sm font-semibold dark:text-slate-100">POS CRM</span>
           </div>
-          <form action={logout}>
-            <button type="submit" className="text-slate-500">
-              <LogOut className="h-5 w-5" />
-            </button>
-          </form>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <form action={logout}>
+              <button type="submit" className="text-slate-500 dark:text-slate-400">
+                <LogOut className="h-5 w-5" />
+              </button>
+            </form>
+          </div>
         </header>
 
         {/* Mobile nav — gorizontal skroll (rollar ko'p element ko'rsatadi) */}
-        <nav className="flex gap-1 overflow-x-auto border-b border-slate-200 bg-white px-2 py-2 md:hidden">
+        <nav className="flex gap-1 overflow-x-auto border-b border-slate-200 bg-white px-2 py-2 dark:border-slate-800 dark:bg-slate-900 md:hidden">
           {nav.map((item) => {
             const active =
               item.href === "/"
@@ -151,7 +159,9 @@ export function AppShell({
                 href={item.href}
                 className={cn(
                   "flex shrink-0 min-w-[60px] flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-xs font-medium",
-                  active ? "bg-blue-50 text-blue-700" : "text-slate-600",
+                  active
+                    ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                    : "text-slate-600 dark:text-slate-300",
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -165,6 +175,7 @@ export function AppShell({
       </div>
 
       <Toaster />
+      <ConfirmDialog />
     </div>
   );
 }

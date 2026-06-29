@@ -82,7 +82,7 @@ export function ClientEquipmentPanel({
         <div
           className={
             "flex items-center gap-2 rounded-lg px-3 py-2 text-sm " +
-            (err ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700")
+            (err ? "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300" : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300")
           }
         >
           {err ? <AlertCircle className="h-4 w-4" /> : <Check className="h-4 w-4" />}
@@ -92,23 +92,23 @@ export function ClientEquipmentPanel({
 
       {/* Joriy uskunalar */}
       {items.length === 0 ? (
-        <p className="text-sm text-slate-400">Biriktirilgan uskuna yo'q</p>
+        <p className="text-sm text-slate-400 dark:text-slate-500">Biriktirilgan uskuna yo'q</p>
       ) : (
         <div className="space-y-2">
           {items.map((i) => (
             <div
               key={i.id}
-              className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2"
+              className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-800 px-3 py-2"
             >
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-slate-800">
+                <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
                   {i.name} ×{i.quantity}
                 </span>
                 <Badge tone={i.ownership === "RENTAL" ? "blue" : "green"}>
                   {ownershipLabel(i.ownership)}
                 </Badge>
               </div>
-              <span className="text-sm text-slate-500">
+              <span className="text-sm text-slate-500 dark:text-slate-400">
                 {i.ownership === "RENTAL"
                   ? `${formatMoney(i.rentalPrice * i.quantity, currency)}/oy`
                   : formatMoney(i.salePrice * i.quantity, currency)}
@@ -120,7 +120,7 @@ export function ClientEquipmentPanel({
 
       {/* Qaytarish holati */}
       {pendingReturn && (
-        <div className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
           <Clock className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
             <div className="font-medium">
@@ -130,7 +130,7 @@ export function ClientEquipmentPanel({
                 : "tasdiqlangan — usta olib keladi"}
             </div>
             {pendingReturn.note && (
-              <div className="text-amber-700">{pendingReturn.note}</div>
+              <div className="text-amber-700 dark:text-amber-300">{pendingReturn.note}</div>
             )}
           </div>
         </div>
@@ -138,8 +138,8 @@ export function ClientEquipmentPanel({
 
       {/* Manager: uskuna biriktirish */}
       {isManager && (
-        <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <div className="text-sm font-medium text-slate-700">Uskuna biriktirish</div>
+        <div className="space-y-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">
+          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">Uskuna biriktirish</div>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label>Texnika</Label>
@@ -186,8 +186,8 @@ export function ClientEquipmentPanel({
 
       {/* Operator/manager: qaytarish arizasi */}
       {canReturn && hasRental && !pendingReturn && (
-        <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <div className="text-sm font-medium text-slate-700">
+        <div className="space-y-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">
+          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
             Uskunani qaytarish (ijara)
           </div>
           <Textarea
@@ -198,7 +198,7 @@ export function ClientEquipmentPanel({
           />
           <Button
             variant="outline"
-            className="border-amber-300 text-amber-700"
+            className="border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300"
             disabled={pending}
             onClick={() =>
               run(

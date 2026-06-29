@@ -1,15 +1,21 @@
 import { describe, it, expect } from "vitest";
+import { z } from "zod";
 import {
   currencyEnum,
   clientStatusEnum,
   leadOutcomeEnum,
   leadStageEnum,
   equipmentModeEnum,
+  ticketTypeEnum,
+  ticketPriorityEnum,
+  ticketStatusEnum,
   noteString,
   isCurrency,
   isClientStatus,
   isLeadOutcome,
   isLeadStage,
+  isTicketStatus,
+  toFieldErrors,
 } from "./validation";
 import {
   CURRENCY,
@@ -17,6 +23,9 @@ import {
   LEAD_OUTCOME,
   LEAD_STAGE,
   EQUIPMENT_MODE,
+  TICKET_TYPE,
+  TICKET_PRIORITY,
+  TICKET_STATUS,
 } from "./constants";
 
 describe("enum sxemalari constants bilan mos (yagona manba)", () => {
@@ -34,6 +43,24 @@ describe("enum sxemalari constants bilan mos (yagona manba)", () => {
   });
   it("equipmentModeEnum = EQUIPMENT_MODE kalitlari", () => {
     expect([...equipmentModeEnum.options].sort()).toEqual(Object.keys(EQUIPMENT_MODE).sort());
+  });
+  it("ticketTypeEnum = TICKET_TYPE kalitlari", () => {
+    expect([...ticketTypeEnum.options].sort()).toEqual(Object.keys(TICKET_TYPE).sort());
+  });
+  it("ticketPriorityEnum = TICKET_PRIORITY kalitlari", () => {
+    expect([...ticketPriorityEnum.options].sort()).toEqual(Object.keys(TICKET_PRIORITY).sort());
+  });
+  it("ticketStatusEnum = TICKET_STATUS kalitlari", () => {
+    expect([...ticketStatusEnum.options].sort()).toEqual(Object.keys(TICKET_STATUS).sort());
+  });
+});
+
+describe("isTicketStatus — prototip teshigi yopilgan", () => {
+  it("haqiqiy status qabul, prototip/soxta rad", () => {
+    expect(isTicketStatus("OPEN")).toBe(true);
+    expect(isTicketStatus("RESOLVED")).toBe(true);
+    expect(isTicketStatus("toString")).toBe(false);
+    expect(isTicketStatus("BLAH")).toBe(false);
   });
 });
 
@@ -83,6 +110,30 @@ describe("lead stage validatsiya", () => {
   it("prototip / soxta stage rad etiladi", () => {
     expect(isLeadStage("toString")).toBe(false);
     expect(isLeadStage("XXX")).toBe(false);
+  });
+});
+
+describe("toFieldErrors", () => {
+  const schema = z.object({
+    fullName: z.string().min(1, "FIO kiriting"),
+    amount: z.coerce.number().positive("Summa musbat bo'lsin"),
+  });
+  it("har maydon uchun birinchi xabarni qaytaradi", () => {
+    const res = schema.safeParse({ fullName: "", amount: -5 });
+    expect(res.success).toBe(false);
+    if (!res.success) {
+      const fe = toFieldErrors(res.error);
+      expect(fe.fullName).toBe("FIO kiriting");
+      expect(fe.amount).toBe("Summa musbat bo'lsin");
+    }
+  });
+  it("xato yo'q maydonlar map'da bo'lmaydi", () => {
+    const res = schema.safeParse({ fullName: "Ali", amount: -5 });
+    if (!res.success) {
+      const fe = toFieldErrors(res.error);
+      expect(fe.fullName).toBeUndefined();
+      expect(fe.amount).toBeDefined();
+    }
   });
 });
 

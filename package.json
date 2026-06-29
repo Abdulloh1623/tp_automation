@@ -11,9 +11,11 @@
     "test:e2e": "playwright test",
     "lint": "eslint .",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset --force",
+    "create-admin": "tsx scripts/create-admin.ts",
     "test:import": "tsx scripts/test-import-logic.ts",
     "bot": "tsx scripts/bot.ts"
   },
@@ -34,9 +36,11 @@
     "next": "^15.5.19",
     "node-cron": "^4.5.0",
     "pdf-lib": "^1.17.1",
+    "prisma": "^6.2.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^2.6.0",
+    "tsx": "^4.19.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -50,9 +54,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^9.39.4",
     "postcss": "^8.5.10",
-    "prisma": "^6.2.1",
     "tailwindcss": "^3.4.17",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vitest": "^4.1.9"
   },

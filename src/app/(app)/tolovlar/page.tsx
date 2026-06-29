@@ -20,9 +20,9 @@ function Metric({
   tone: "red" | "amber" | "emerald";
 }) {
   const toneMap = {
-    red: "bg-red-50 text-red-600",
-    amber: "bg-amber-50 text-amber-600",
-    emerald: "bg-emerald-50 text-emerald-600",
+    red: "bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400",
+    amber: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400",
+    emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400",
   };
   return (
     <Card className="p-5">
@@ -31,8 +31,8 @@ function Metric({
           <Icon className="h-5 w-5" />
         </div>
         <div>
-          <div className="text-sm text-slate-500">{label}</div>
-          <div className="text-xl font-semibold text-slate-900">{value}</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">{label}</div>
+          <div className="text-xl font-semibold text-slate-900 dark:text-slate-100">{value}</div>
         </div>
       </div>
     </Card>
@@ -76,8 +76,8 @@ export default async function PaymentsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">To'lovlar</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">To'lovlar</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           Obuna holati va to'lov yig'imi
         </p>
       </div>
@@ -111,7 +111,7 @@ export default async function PaymentsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-y border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr className="border-y border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   <th className="px-4 py-3 font-medium">Mijoz</th>
                   <th className="px-4 py-3 font-medium">Holat</th>
                   <th className="px-4 py-3 font-medium">Keyingi to'lov</th>
@@ -135,40 +135,40 @@ export default async function PaymentsPage() {
                   return (
                     <tr
                       key={c.id}
-                      className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
+                      className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800"
                     >
                       <td className="px-4 py-3">
-                        <div className="font-medium text-slate-900">
+                        <div className="font-medium text-slate-900 dark:text-slate-100">
                           {c.restaurantName}
                         </div>
-                        <div className="text-xs text-slate-500">{c.fullName}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">{c.fullName}</div>
                       </td>
                       <td className="px-4 py-3">
                         <PaymentStatusBadge nextPaymentDate={c.nextPaymentDate} />
                       </td>
-                      <td className="px-4 py-3 text-slate-600">
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
                         {formatDate(c.nextPaymentDate)}
                       </td>
                       <td
                         className={
                           "px-4 py-3 " +
                           (state === "OVERDUE"
-                            ? "text-red-600"
-                            : "text-slate-600")
+                            ? "text-red-600 dark:text-red-400"
+                            : "text-slate-600 dark:text-slate-300")
                         }
                       >
                         {qoldi}
                       </td>
-                      <td className="px-4 py-3 font-medium text-slate-700">
+                      <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-200">
                         {formatMoney(c.monthlyAmount, c.currency)}
                       </td>
-                      <td className="px-4 py-3 text-slate-600">
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
                         {c.assignedTo?.name ?? "—"}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <Link
                           href={`/mijozlar/${c.id}`}
-                          className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"
+                          className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700"
                         >
                           To'lov
                           <ArrowRight className="h-3.5 w-3.5" />

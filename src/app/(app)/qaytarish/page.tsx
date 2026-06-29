@@ -60,8 +60,8 @@ export default async function QaytarishPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Qaytariladigan uskunalar</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Qaytariladigan uskunalar</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           Operator &quot;Uskuna qaytarish kerak&quot; qo&apos;ygan lidlar — usta biriktiring va ishni
           nazorat qiling. Yangi: {pendingCount} · Ustada: {approvedCount}
         </p>

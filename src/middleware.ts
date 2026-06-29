@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { decodeSession, SESSION_COOKIE_NAME } from "@/lib/session";
 import { canAccess, roleHome } from "@/lib/rbac";
 
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/login", "/api/health"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

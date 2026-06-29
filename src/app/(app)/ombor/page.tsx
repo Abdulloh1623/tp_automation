@@ -118,8 +118,8 @@ export default async function OmborPage({
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Ombor</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Ombor</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           Texnika qoldig'i, kirim, taqsimot va harakatlar tarixi
         </p>
       </div>
@@ -129,15 +129,15 @@ export default async function OmborPage({
           <div
             key={s.label}
             className={
-              "rounded-xl border bg-white p-3 " +
-              (s.warn ? "border-red-300 bg-red-50/40" : "border-slate-200")
+              "rounded-xl border bg-white dark:bg-slate-900 p-3 " +
+              (s.warn ? "border-red-300 dark:border-red-700 bg-red-50/40 dark:bg-red-950/40" : "border-slate-200 dark:border-slate-800")
             }
           >
-            <div className="text-xs text-slate-500">{s.label}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">{s.label}</div>
             <div
               className={
                 "mt-1 text-lg font-semibold " +
-                (s.warn ? "text-red-600" : "text-slate-900")
+                (s.warn ? "text-red-600 dark:text-red-400" : "text-slate-900 dark:text-slate-100")
               }
             >
               {s.value}
@@ -147,7 +147,7 @@ export default async function OmborPage({
       </div>
 
       {lowStock.length > 0 && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-800 dark:text-red-300">
           <span className="font-medium">Kam zaxira:</span>{" "}
           {lowStock
             .map((t) => `${t.name} (${t.warehouse}/${t.minStock})`)

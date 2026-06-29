@@ -104,12 +104,12 @@ export function CsvImport() {
           <CardTitle>1. CSV faylni yuklang yoki joylashtiring</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-8 text-center hover:border-blue-400 hover:bg-blue-50/40">
-            <Upload className="h-6 w-6 text-slate-400" />
-            <span className="text-sm font-medium text-slate-700">
+          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-6 py-8 text-center hover:border-blue-400 hover:bg-blue-50/40 dark:hover:bg-blue-950/40">
+            <Upload className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
               CSV faylni tanlang
             </span>
-            <span className="text-xs text-slate-400">.csv</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500">.csv</span>
             <input
               type="file"
               accept=".csv,text/csv"
@@ -140,7 +140,7 @@ export function CsvImport() {
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
               <AlertCircle className="h-4 w-4 shrink-0" />
               {error}
             </div>
@@ -154,7 +154,7 @@ export function CsvImport() {
           <Card>
             <CardHeader>
               <CardTitle>2. Ustunlarni moslang</CardTitle>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
                 {parsed.rows.length} ta qator topildi. Har bir maydonni CSV
                 ustuniga bog'lang (* — majburiy).
               </p>
@@ -203,7 +203,7 @@ export function CsvImport() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-y border-slate-200 bg-slate-50 text-left text-slate-500">
+                    <tr className="border-y border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-left text-slate-500 dark:text-slate-400">
                       {mappedFields.map((f) => (
                         <th key={f.key} className="px-3 py-2 font-medium">
                           {f.label}
@@ -213,9 +213,9 @@ export function CsvImport() {
                   </thead>
                   <tbody>
                     {parsed.rows.slice(0, 5).map((cols, r) => (
-                      <tr key={r} className="border-b border-slate-100">
+                      <tr key={r} className="border-b border-slate-100 dark:border-slate-800">
                         {mappedFields.map((f) => (
-                          <td key={f.key} className="px-3 py-2 text-slate-700">
+                          <td key={f.key} className="px-3 py-2 text-slate-700 dark:text-slate-200">
                             {cols[mapping[f.key]] ?? ""}
                           </td>
                         ))}
@@ -244,7 +244,7 @@ export function CsvImport() {
                   />
                   <span className="text-sm">
                     <span className="font-medium">Faqat yangi qo'shish</span>
-                    <span className="block text-xs text-slate-500">
+                    <span className="block text-xs text-slate-500 dark:text-slate-400">
                       Har bir qator yangi mijoz sifatida qo'shiladi
                     </span>
                   </span>
@@ -261,7 +261,7 @@ export function CsvImport() {
                     <span className="font-medium">
                       Telefon bo'yicha yangilash
                     </span>
-                    <span className="block text-xs text-slate-500">
+                    <span className="block text-xs text-slate-500 dark:text-slate-400">
                       Telefon mos kelsa mavjud mijoz yangilanadi, aks holda
                       yangisi qo'shiladi
                     </span>
@@ -279,13 +279,13 @@ export function CsvImport() {
                   <option value="USD">USD ($)</option>
                   <option value="UZS">UZS (so'm)</option>
                 </Select>
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                   Valyuta ustuni bog'lanmagan yoki bo'sh qatorlar uchun ishlatiladi
                 </p>
               </div>
 
               {!requiredMapped && (
-                <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                <div className="flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
                   <AlertCircle className="h-4 w-4 shrink-0" />
                   Import uchun FIO, Restoran nomi va Telefon maydonlari bog'lanishi
                   shart
@@ -321,26 +321,26 @@ export function CsvImport() {
           </CardHeader>
           <CardContent className="space-y-4">
             {report.unauthorized ? (
-              <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 Sizda import qilish huquqi yo'q (faqat administrator)
               </div>
             ) : (
               <>
                 <div className="flex flex-wrap gap-4">
-                  <div className="flex items-center gap-2 text-sm text-emerald-700">
+                  <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300">
                     <CheckCircle2 className="h-4 w-4" />
                     {report.created} ta qo'shildi
                   </div>
-                  <div className="text-sm text-blue-700">
+                  <div className="text-sm text-blue-700 dark:text-blue-300">
                     {report.updated} ta yangilandi
                   </div>
-                  <div className="text-sm text-slate-500">
+                  <div className="text-sm text-slate-500 dark:text-slate-400">
                     {report.skipped} ta o'tkazib yuborildi
                   </div>
                 </div>
                 {report.errors.length > 0 && (
-                  <div className="max-h-48 overflow-y-auto rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+                  <div className="max-h-48 overflow-y-auto rounded-lg bg-slate-50 dark:bg-slate-800/60 p-3 text-xs text-slate-600 dark:text-slate-300">
                     {report.errors.map((e, i) => (
                       <div key={i}>
                         {e.row}-qator: {e.message}

@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Users, PhoneCall, MessageSquare, Wifi, Tv } from "lucide-react";
+import { Users, PhoneCall, MessageSquare, Wifi, Tv, UserMinus } from "lucide-react";
 import { ReminderButton } from "@/components/reminder-button";
 import { DistributeButton } from "@/components/distribute-button";
+import { releaseOperatorLeads } from "@/actions/distribution";
+import { toast } from "@/components/toaster";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BarList } from "@/components/bar-list";
@@ -36,6 +38,7 @@ export function AnalyticsLive({ initial }: { initial: Analytics }) {
   const [live, setLive] = useState(true);
   const [period, setPeriod] = useState<Period>("today");
   const [flash, setFlash] = useState<Set<string>>(new Set());
+  const [releasing, setReleasing] = useState<string | null>(null);
   const prev = useRef<Analytics>(initial);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -67,6 +70,29 @@ export function AnalyticsLive({ initial }: { initial: Analytics }) {
       setLive(false); // tarmoq xatosi — oxirgi ma'lumot saqlanadi
     }
   }, []);
+
+  // Xodim kelmaganda — bugungi lidlarini bo'shatish
+  async function onRelease(o: OperatorStat) {
+    if (o.assigned === 0 || releasing) return;
+    if (
+      !confirm(
+        `"${o.name}" ishga kelmadi deb belgilanadimi?\n\nUning bugungi ${o.assigned} ta lidi biriktirishdan bo'shatiladi va boshqa operatorga berish mumkin bo'ladi.`,
+      )
+    )
+      return;
+    setReleasing(o.id);
+    try {
+      const res = await releaseOperatorLeads(o.id);
+      if (res.ok) {
+        toast(`${res.released} lid bo'shatildi — endi /mijozlar'da boshqa operatorga bering`, "success");
+        await refresh();
+      } else {
+        toast(res.error ?? "Xatolik", "error");
+      }
+    } finally {
+      setReleasing(null);
+    }
+  }
 
   useEffect(() => {
     setUpdatedAt(new Date(initial.ts));
@@ -242,11 +268,25 @@ export function AnalyticsLive({ initial }: { initial: Analytics }) {
                       · {o.assigned} mijoz
                     </span>
                   </div>
-                  <div className="flex items-baseline gap-2 text-sm">
-                    <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
-                      {v.talked}
-                    </span>
-                    <span className="text-xs text-slate-400 dark:text-slate-500">/ {v.calls} qo'ng'iroq</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-baseline gap-2 text-sm">
+                      <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
+                        {v.talked}
+                      </span>
+                      <span className="text-xs text-slate-400 dark:text-slate-500">/ {v.calls} qo'ng'iroq</span>
+                    </div>
+                    {o.assigned > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => onRelease(o)}
+                        disabled={releasing === o.id}
+                        title="Xodim kelmadi — bugungi lidlarini bo'shatish"
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-500 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:border-slate-700 dark:text-slate-400 dark:hover:border-red-700 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                      >
+                        <UserMinus className="h-3.5 w-3.5" />
+                        {releasing === o.id ? "..." : "Bo'shatish"}
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">

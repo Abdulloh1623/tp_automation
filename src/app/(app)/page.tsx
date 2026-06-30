@@ -12,6 +12,7 @@ import {
   type CardDetail,
 } from "@/components/dashboard-stat-card";
 import { formatMoney, formatDate, formatPhone, normalizePhone } from "@/lib/utils";
+import { PhoneCopyButton } from "@/components/phone-copy";
 import { callResultLabel } from "@/lib/constants";
 import { paymentState, paymentUrgency } from "@/lib/payment-status";
 
@@ -464,10 +465,13 @@ export default async function DashboardPage() {
                   <div className="flex flex-wrap items-center gap-x-3 text-xs text-slate-500 dark:text-slate-400">
                     <span>{c.fullName}</span>
                     {c.region && <span>· {c.region}</span>}
-                    <a href={`tel:${normalizePhone(c.phone)}`} className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400">
-                      <Phone className="h-3 w-3" />
-                      {formatPhone(c.phone)}
-                    </a>
+                    <span className="inline-flex items-center gap-1">
+                      <a href={`tel:${normalizePhone(c.phone)}`} className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                        <Phone className="h-3 w-3" />
+                        {formatPhone(c.phone)}
+                      </a>
+                      <PhoneCopyButton phone={c.phone} />
+                    </span>
                     {c.assignedTo && <span>· {c.assignedTo.name}</span>}
                   </div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">

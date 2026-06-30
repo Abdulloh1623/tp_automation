@@ -33,6 +33,7 @@ import { PaymentForm } from "@/components/payment-form";
 import { TicketForm } from "@/components/ticket-form";
 import { TicketStatusControl } from "@/components/ticket-status-control";
 import { formatDate, formatDateTime, formatMoney, formatPhone, normalizePhone } from "@/lib/utils";
+import { PhoneCopyButton } from "@/components/phone-copy";
 
 function InfoRow({
   icon: Icon,
@@ -156,9 +157,12 @@ export default async function ClientDetailPage({
                 icon={Phone}
                 label="Asosiy telefon"
                 value={
-                  <a href={`tel:${normalizePhone(client.phone)}`} className="text-blue-600 dark:text-blue-400">
-                    {formatPhone(client.phone)}
-                  </a>
+                  <span className="inline-flex items-center gap-1">
+                    <a href={`tel:${normalizePhone(client.phone)}`} className="text-blue-600 dark:text-blue-400">
+                      {formatPhone(client.phone)}
+                    </a>
+                    <PhoneCopyButton phone={client.phone} />
+                  </span>
                 }
               />
               {client.phones.map((p) => (
@@ -167,9 +171,12 @@ export default async function ClientDetailPage({
                   icon={Phone}
                   label={p.label}
                   value={
-                    <a href={`tel:${normalizePhone(p.number)}`} className="text-blue-600 dark:text-blue-400">
-                      {formatPhone(p.number)}
-                    </a>
+                    <span className="inline-flex items-center gap-1">
+                      <a href={`tel:${normalizePhone(p.number)}`} className="text-blue-600 dark:text-blue-400">
+                        {formatPhone(p.number)}
+                      </a>
+                      <PhoneCopyButton phone={p.number} />
+                    </span>
                   }
                 />
               ))}

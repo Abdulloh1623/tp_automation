@@ -20,6 +20,7 @@ import {
   Upload,
   LogOut,
   Building2,
+  CircleUser,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Toaster } from "@/components/toaster";
@@ -52,6 +53,7 @@ const NAV: NavItem[] = [
   { href: "/foydalanuvchilar", label: "Foydalanuvchilar", icon: UserCog, roles: ["ADMIN"] },
   { href: "/audit", label: "Audit", icon: ScrollText, roles: ["ADMIN"] },
   { href: "/import", label: "Import", icon: Upload, roles: ["ADMIN"] },
+  { href: "/profil", label: "Profil", icon: CircleUser, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
 ];
 
 export function AppShell({
@@ -107,12 +109,15 @@ export function AppShell({
         </nav>
 
         <div className="border-t border-slate-200 p-3 dark:border-slate-800">
-          <div className="mb-2 px-2">
+          <Link
+            href="/profil"
+            className="mb-2 block rounded-lg px-2 py-1 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
             <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{user.name}</div>
             <div className="text-xs text-slate-500 dark:text-slate-400">
               {userRoleLabel(user.role)}
             </div>
-          </div>
+          </Link>
           <form action={logout}>
             <button
               type="submit"

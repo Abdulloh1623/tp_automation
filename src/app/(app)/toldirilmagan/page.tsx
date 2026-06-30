@@ -2,14 +2,21 @@ import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { IncompleteTable, type IncompleteRow } from "@/components/incomplete-table";
 
-// Mijoz "to'ldirilmagan" hisoblanadi: telefon yoki restoran nomi bo'sh.
+// Mijoz "to'ldirilmagan" hisoblanadi: telefon, restoran nomi yoki viloyat
+// to'ldirilmagan ("—" — import paytidagi joy egasi ham to'ldirilmagan hisoblanadi).
 // Bu dinamik — ma'lumot to'ldirilgach mijoz avtomatik bu ro'yxatdan chiqadi.
 export default async function IncompletePage() {
   await requireRole(["ADMIN", "OPERATOR", "MANAGER"]);
 
   const clients: IncompleteRow[] = await db.client.findMany({
     where: {
-      OR: [{ phone: "" }, { restaurantName: "" }],
+      OR: [
+        { phone: "" },
+        { restaurantName: "" },
+        { restaurantName: "—" },
+        { region: null },
+        { region: "" },
+      ],
     },
     orderBy: { createdAt: "desc" },
     select: {

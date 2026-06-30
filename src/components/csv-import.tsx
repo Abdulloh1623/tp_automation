@@ -338,7 +338,23 @@ export function CsvImport() {
                   <div className="text-sm text-slate-500 dark:text-slate-400">
                     {report.skipped} ta o'tkazib yuborildi
                   </div>
+                  {report.callLogsCreated > 0 && (
+                    <div className="text-sm text-violet-700 dark:text-violet-300">
+                      {report.callLogsCreated} ta operator aloqasi yozildi
+                    </div>
+                  )}
                 </div>
+                {report.unmatchedOperators.length > 0 && (
+                  <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+                    Quyidagi operator nomlari tizimda topilmadi (aloqa tarixi
+                    yozilmadi) — ularni avval Foydalanuvchilar bo'limida yarating
+                    va keyin &quot;Telefon bo'yicha yangilash&quot; rejimida qayta
+                    import qiling:{" "}
+                    <span className="font-medium">
+                      {report.unmatchedOperators.join(", ")}
+                    </span>
+                  </div>
+                )}
                 {report.errors.length > 0 && (
                   <div className="max-h-48 overflow-y-auto rounded-lg bg-slate-50 dark:bg-slate-800/60 p-3 text-xs text-slate-600 dark:text-slate-300">
                     {report.errors.map((e, i) => (

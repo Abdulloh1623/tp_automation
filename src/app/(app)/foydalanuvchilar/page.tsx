@@ -1,6 +1,18 @@
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { UserManager, type ManagedUser } from "@/components/user-manager";
+import {
+  PasswordResetRequests,
+  type ResetRequestRow,
+} from "@/components/password-reset-requests";
+import { formatDateTime } from "@/lib/utils";
+
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: "Administrator",
+  MANAGER: "Menejer",
+  OPERATOR: "Operator",
+  INSTALLER: "Usta",
+};
 
 export default async function UsersPage() {
   await requireRole(["ADMIN"]);
@@ -21,6 +33,25 @@ export default async function UsersPage() {
     },
   });
 
+  const pendingResets = await db.passwordResetRequest.findMany({
+    where: { status: "PENDING" },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      note: true,
+      createdAt: true,
+      user: { select: { name: true, username: true, role: true } },
+    },
+  });
+  const resetRows: ResetRequestRow[] = pendingResets.map((r) => ({
+    id: r.id,
+    userName: r.user.name,
+    username: r.user.username,
+    roleLabel: ROLE_LABEL[r.user.role] ?? r.user.role,
+    note: r.note,
+    requestedAt: formatDateTime(r.createdAt),
+  }));
+
   return (
     <div className="space-y-5">
       <div>
@@ -30,6 +61,7 @@ export default async function UsersPage() {
           faollikni boshqarish
         </p>
       </div>
+      <PasswordResetRequests requests={resetRows} />
       <UserManager users={users as ManagedUser[]} />
     </div>
   );

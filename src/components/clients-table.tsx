@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { ClientStatusBadge, PaymentStatusBadge } from "@/components/status-badge";
 import { formatDate, formatMoney, formatPhone, normalizePhone } from "@/lib/utils";
+import { PhoneCopyButton } from "@/components/phone-copy";
 
 export type ClientRow = {
   id: string;
@@ -205,13 +206,16 @@ export function ClientsTable({
                 </td>
                 <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{c.region ?? "—"}</td>
                 <td className="px-4 py-3">
-                  <a
-                    href={`tel:${normalizePhone(c.phone)}`}
-                    className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    <Phone className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
-                    {formatPhone(c.phone)}
-                  </a>
+                  <span className="inline-flex items-center gap-1">
+                    <a
+                      href={`tel:${normalizePhone(c.phone)}`}
+                      className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      <Phone className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
+                      {formatPhone(c.phone)}
+                    </a>
+                    <PhoneCopyButton phone={c.phone} />
+                  </span>
                 </td>
                 <td className="px-4 py-3">
                   {c.lastOperatorName ? (
@@ -265,12 +269,15 @@ export function ClientsTable({
                   <PaymentStatusBadge nextPaymentDate={c.nextPaymentDate ? new Date(c.nextPaymentDate) : null} />
                 </div>
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <a
-                    href={`tel:${normalizePhone(c.phone)}`}
-                    className="inline-flex items-center gap-1 font-medium text-blue-600 dark:text-blue-400"
-                  >
-                    <Phone className="h-4 w-4" /> {formatPhone(c.phone)}
-                  </a>
+                  <span className="inline-flex items-center gap-1">
+                    <a
+                      href={`tel:${normalizePhone(c.phone)}`}
+                      className="inline-flex items-center gap-1 font-medium text-blue-600 dark:text-blue-400"
+                    >
+                      <Phone className="h-4 w-4" /> {formatPhone(c.phone)}
+                    </a>
+                    <PhoneCopyButton phone={c.phone} />
+                  </span>
                   <span className="font-medium text-slate-700 dark:text-slate-200">{formatMoney(c.monthlyAmount, c.currency)}</span>
                 </div>
                 <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 text-xs text-slate-500 dark:text-slate-400">

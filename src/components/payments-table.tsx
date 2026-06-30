@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Search, ArrowRight, X } from "lucide-react";
 import type { PaymentState } from "@/lib/payment-status";
+import { formatPhone } from "@/lib/utils";
+import { PhoneCopyButton } from "@/components/phone-copy";
 
 export type PaymentRow = {
   id: string;
@@ -151,9 +153,14 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
               >
                 <td className="px-4 py-3">
                   <div className="font-medium text-slate-900 dark:text-slate-100">{r.restaurantName}</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
-                    {r.fullName}
-                    {r.phone && <span className="ml-2 tabular-nums">{r.phone}</span>}
+                  <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-500 dark:text-slate-400">
+                    <span>{r.fullName}</span>
+                    {r.phone && (
+                      <span className="inline-flex items-center gap-1 tabular-nums">
+                        {formatPhone(r.phone)}
+                        <PhoneCopyButton phone={r.phone} />
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3">

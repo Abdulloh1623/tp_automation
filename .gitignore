@@ -46,3 +46,6 @@ next-env.d.ts
 
 # bir martalik yordamchi skriptlar
 /scripts/_*.ps1
+
+# import uchun xom manba fayllar (Excel/CSV — mijoz PII, hech qachon commit qilinmaydi)
+/_import/

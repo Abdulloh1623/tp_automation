@@ -96,6 +96,8 @@ export function normStatus(v?: string): string {
     t.includes("o'chir") ||
     t.includes("ochiril") ||
     t.includes("inactive") ||
+    t.includes("xta") || // to'xtatgan / to'xtatdi (to'xta...) -> faolsiz
+    t.includes("yopil") || // kafe yopilgan
     t.includes("отключ")
   ) {
     return "INACTIVE";

@@ -15,6 +15,8 @@ export const IMPORT_FIELDS = [
   { key: "currency", label: "Valyuta", required: false },
   { key: "nextPaymentDate", label: "Keyingi to'lov sanasi", required: false },
   { key: "status", label: "Holat", required: false },
+  { key: "notes", label: "Izoh", required: false },
+  { key: "operator", label: "Operator (TP xodimi)", required: false },
 ] as const;
 
 export type ImportFieldKey = (typeof IMPORT_FIELDS)[number]["key"];
@@ -34,6 +36,8 @@ const FIELD_KEYWORDS: Record<string, string[]> = {
   currency: ["valyuta", "valuta", "currency"],
   nextPaymentDate: ["keyingi tolov", "tolov kuni", "keyingi tolov sanasi"],
   status: ["holat", "status", "статус"],
+  notes: ["izoh", "muammo", "taklif", "comment", "коммент", "примечание"],
+  operator: ["tp xodimi", "tp xodim", "operator", "qongiroq xodim", "kim gaplashgan"],
 };
 
 function normalize(s: string): string {

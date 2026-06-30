@@ -1,5 +1,5 @@
 // Server komponentlar uchun auth yordamchilari (cookies bilan).
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "./db";
 import { roleHome } from "./rbac";
@@ -16,11 +16,25 @@ export async function createSession(payload: SessionPayload): Promise<void> {
   const store = await cookies();
   store.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: await isHttps(),
     sameSite: "lax",
     maxAge: SESSION_MAX_AGE,
     path: "/",
   });
+}
+
+/**
+ * Sayt HTTPS orqali xizmat qilinyaptimi? Cookie `Secure` shu asosda yoqiladi.
+ * MUHIM: Secure cookie HTTP ustida brauzerга saqlanmaydi — agar bu NODE_ENV ga
+ * bog'lansa, HTTPS'siz (masalan IP orqali) serverда login cheksiz takrorlanadi.
+ * Proksi orqasida `x-forwarded-proto` ishlatiladi; `COOKIE_SECURE` bilan majburlash mumkin.
+ */
+async function isHttps(): Promise<boolean> {
+  const force = process.env.COOKIE_SECURE;
+  if (force === "true") return true;
+  if (force === "false") return false;
+  const proto = (await headers()).get("x-forwarded-proto");
+  return proto ? proto.split(",")[0].trim() === "https" : false;
 }
 
 export async function destroySession(): Promise<void> {

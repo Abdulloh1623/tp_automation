@@ -22,6 +22,12 @@ export type ImportReport = {
 const MAX_ROWS = 5000;
 const NOTE_MAX = 2000;
 
+// Import qilingan aloqa yozuvlari TARIXIY — operatorlar bu mijozlar bilan o'tmishда
+// gaplashgan. Jonli tabloda (bugun/hafta/oy) operatorlarni shishirib ko'rsatmasligi
+// uchun o'tmishdagi sana bilan yoziladi (analitika oraliqlaridan tashqarida).
+// Mijoz tarixida "kim gaplashgani" baribir ko'rinadi.
+const IMPORT_CALL_DATE = new Date("2025-01-01T00:00:00.000Z");
+
 /** Import izohini xavfsiz uzunlikka qisqartiradi. */
 function clampNote(v?: string): string | null {
   const t = opt(v);
@@ -189,6 +195,7 @@ export async function importClients(payload: {
             operatorId,
             result: "TALKED",
             note,
+            calledAt: IMPORT_CALL_DATE,
           },
         });
         withCallLogs.add(clientId);

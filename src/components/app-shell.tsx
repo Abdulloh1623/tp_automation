@@ -21,6 +21,7 @@ import {
   LogOut,
   Building2,
   CircleUser,
+  Bell,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Toaster } from "@/components/toaster";
@@ -53,18 +54,23 @@ const NAV: NavItem[] = [
   { href: "/foydalanuvchilar", label: "Foydalanuvchilar", icon: UserCog, roles: ["ADMIN"] },
   { href: "/audit", label: "Audit", icon: ScrollText, roles: ["ADMIN"] },
   { href: "/import", label: "Import", icon: Upload, roles: ["ADMIN"] },
+  { href: "/bildirishnomalar", label: "Bildirishnomalar", icon: Bell, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
   { href: "/profil", label: "Profil", icon: CircleUser, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
 ];
 
 export function AppShell({
   user,
+  unreadCount = 0,
   children,
 }: {
   user: { name: string; role: string };
+  unreadCount?: number;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const nav = NAV.filter((i) => i.roles.includes(user.role as Role));
+  const badgeFor = (href: string) =>
+    href === "/bildirishnomalar" && unreadCount > 0 ? unreadCount : 0;
 
   return (
     <div className="flex min-h-screen">
@@ -102,7 +108,12 @@ export function AppShell({
                 )}
               >
                 <Icon className="h-4 w-4" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {badgeFor(item.href) > 0 && (
+                  <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-semibold leading-none text-white">
+                    {badgeFor(item.href)}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -163,12 +174,17 @@ export function AppShell({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex shrink-0 min-w-[60px] flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-xs font-medium",
+                  "relative flex shrink-0 min-w-[60px] flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-xs font-medium",
                   active
                     ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
                     : "text-slate-600 dark:text-slate-300",
                 )}
               >
+                {badgeFor(item.href) > 0 && (
+                  <span className="absolute right-1 top-0.5 min-w-[16px] rounded-full bg-red-500 px-1 text-center text-[10px] font-semibold leading-4 text-white">
+                    {badgeFor(item.href)}
+                  </span>
+                )}
                 <Icon className="h-4 w-4" />
                 {item.label}
               </Link>

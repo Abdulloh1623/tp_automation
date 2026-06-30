@@ -33,6 +33,36 @@ model User {
   tickets         Ticket[]
   dailyGrants     DailyLeadGrant[]
   passwordResets  PasswordResetRequest[]
+  notifications   NotificationRecipient[]
+}
+
+// Bildirishnoma — admin yozadi, xodimlarga yuboradi.
+model Notification {
+  id          String   @id @default(cuid())
+  title       String
+  body        String
+  priority    String   @default("NORMAL") // NORMAL | IMPORTANT
+  audience    String   @default("ALL") // ALL | OPERATOR | MANAGER (ko'rsatish uchun)
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  recipients NotificationRecipient[]
+
+  @@index([createdAt])
+}
+
+// Har bir qabul qiluvchi uchun yozuv — o'qilgan/o'qilmagan kuzatuvi.
+model NotificationRecipient {
+  id             String       @id @default(cuid())
+  notificationId String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@unique([notificationId, userId])
+  @@index([userId, readAt])
 }
 
 // Parolni tiklash so'rovi — foydalanuvchi yangi parol so'raydi, admin tasdiqlaydi.

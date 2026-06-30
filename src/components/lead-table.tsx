@@ -31,6 +31,7 @@ import {
 } from "@/components/payment-receipt-modal";
 import { LEAD_OUTCOME, leadOutcomeLabel, leadStageLabel } from "@/lib/constants";
 import { formatMoney, formatDate, formatPhone, normalizePhone } from "@/lib/utils";
+import { PhoneCopyButton } from "@/components/phone-copy";
 import { buildCsv, downloadCsv } from "@/lib/csv-export";
 import { confirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
@@ -470,12 +471,15 @@ function JoriyTable({
               </td>
               <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{r.region ?? "—"}</td>
               <td className="px-3 py-2">
-                <a
-                  href={`tel:${normalizePhone(r.phone)}`}
-                  className="text-blue-600 dark:text-blue-400"
-                >
-                  {formatPhone(r.phone)}
-                </a>
+                <span className="inline-flex items-center gap-1">
+                  <a
+                    href={`tel:${normalizePhone(r.phone)}`}
+                    className="text-blue-600 dark:text-blue-400"
+                  >
+                    {formatPhone(r.phone)}
+                  </a>
+                  <PhoneCopyButton phone={r.phone} />
+                </span>
               </td>
               <td
                 className={
@@ -598,12 +602,15 @@ function JoriyTable({
           </div>
 
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
-            <a
-              href={`tel:${normalizePhone(r.phone)}`}
-              className="inline-flex items-center gap-1 font-medium text-blue-600 dark:text-blue-400"
-            >
-              <Phone className="h-4 w-4" /> {formatPhone(r.phone)}
-            </a>
+            <span className="inline-flex items-center gap-1">
+              <a
+                href={`tel:${normalizePhone(r.phone)}`}
+                className="inline-flex items-center gap-1 font-medium text-blue-600 dark:text-blue-400"
+              >
+                <Phone className="h-4 w-4" /> {formatPhone(r.phone)}
+              </a>
+              <PhoneCopyButton phone={r.phone} />
+            </span>
             <span className="text-slate-600 dark:text-slate-300">{formatMoney(r.monthlyAmount, r.currency)}</span>
           </div>
 

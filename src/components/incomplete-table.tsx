@@ -22,14 +22,16 @@ export type IncompleteRow = {
 };
 
 function RowEditor({ c, onSaved }: { c: IncompleteRow; onSaved: () => void }) {
-  const [restaurantName, setRestaurantName] = useState(c.restaurantName);
+  // "—" — import paytidagi joy egasi; tahrirda bo'sh ko'rsatamiz (to'ldirishga undash).
+  const baseRest = c.restaurantName === "—" ? "" : c.restaurantName;
+  const [restaurantName, setRestaurantName] = useState(baseRest);
   const [phone, setPhone] = useState(c.phone);
   const [region, setRegion] = useState(c.region ?? "");
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState(false);
 
   const dirty =
-    restaurantName !== c.restaurantName ||
+    restaurantName !== baseRest ||
     phone !== c.phone ||
     region !== (c.region ?? "");
 

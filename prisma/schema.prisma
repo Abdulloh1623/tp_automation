@@ -32,6 +32,23 @@ model User {
   payments        Payment[]
   tickets         Ticket[]
   dailyGrants     DailyLeadGrant[]
+  passwordResets  PasswordResetRequest[]
+}
+
+// Parolni tiklash so'rovi — foydalanuvchi yangi parol so'raydi, admin tasdiqlaydi.
+model PasswordResetRequest {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  newPasswordHash String // tasdiqlangach user.passwordHash ga ko'chiriladi
+  status          String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  note            String? // foydalanuvchi izohi (ixtiyoriy)
+  createdAt       DateTime  @default(now())
+  resolvedAt      DateTime?
+  resolvedById    String? // tasdiqlagan/rad etgan admin (id)
+
+  @@index([status])
+  @@index([userId])
 }
 
 model AuditLog {

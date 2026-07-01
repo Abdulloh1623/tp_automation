@@ -1,0 +1,8 @@
+# TP Automation — Caddy reverse proxy + avtomatik HTTPS (Let's Encrypt).
+# DOMAIN muhit o'zgaruvchisidan olinadi (docker-compose caddy xizmati -> .env).
+# Caddy sertifikatni birinchi so'rovda avtomatik oladi (80/443 ochiq + DNS to'g'ri bo'lsa).
+
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3100
+}

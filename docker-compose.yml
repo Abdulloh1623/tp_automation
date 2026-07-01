@@ -33,8 +33,9 @@ services:
     image: ${TP_IMAGE:-ghcr.io/abdulloh1623/tp_automation:latest}
     restart: unless-stopped
     env_file: .env
-    ports:
-      - "${APP_PORT:-80}:3100"
+    # Host portga chiqarilmaydi — Caddy (reverse proxy) ichki tarmoq orqali ulanadi.
+    expose:
+      - "3100"
     volumes:
       - uploads:/app/uploads
     depends_on:
@@ -47,6 +48,22 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
+
+  # Reverse proxy + avtomatik HTTPS (Let's Encrypt). DOMAIN .env da belgilanadi.
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN .env da belgilanishi shart}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
 
   # Telegram bot + cron (hisobot, eslatma, kunlik taqsimot, backup)
   worker:
@@ -67,3 +84,5 @@ volumes:
   pgdata:
   uploads:
   backups:
+  caddy_data:
+  caddy_config:

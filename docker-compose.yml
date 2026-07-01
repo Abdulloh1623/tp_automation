@@ -1,5 +1,6 @@
 # TP Automation — production (Docker Compose).
-# Ishga tushirish:  docker compose up -d --build
+# Image GitHub Actions'da quriladi va GHCR'ga yuklanadi (build serverda EMAS).
+# Deploy (serverda):  docker compose pull && docker compose up -d
 # Qiymatlar .env faylidan o'qiladi (.env.example dan nusxa oling).
 
 services:
@@ -20,7 +21,7 @@ services:
 
   # Bir martalik: sxemani qo'llaydi va to'xtaydi (app/worker shundan keyin ishga tushadi)
   migrate:
-    build: .
+    image: ${TP_IMAGE:-ghcr.io/abdulloh1623/tp_automation:latest}
     command: npm run db:deploy
     env_file: .env
     depends_on:
@@ -29,11 +30,11 @@ services:
     restart: "no"
 
   app:
-    build: .
+    image: ${TP_IMAGE:-ghcr.io/abdulloh1623/tp_automation:latest}
     restart: unless-stopped
     env_file: .env
     ports:
-      - "3100:3100"
+      - "${APP_PORT:-80}:3100"
     volumes:
       - uploads:/app/uploads
     depends_on:
@@ -49,7 +50,7 @@ services:
 
   # Telegram bot + cron (hisobot, eslatma, kunlik taqsimot, backup)
   worker:
-    build: .
+    image: ${TP_IMAGE:-ghcr.io/abdulloh1623/tp_automation:latest}
     restart: unless-stopped
     command: npm run bot
     env_file: .env

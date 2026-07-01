@@ -141,6 +141,16 @@ export const OUTCOME_TO_STAGE: Record<LeadOutcome, LeadStage> = {
 // Ko'tarilmagan (muvaffaqiyatsiz aloqa) natijalari — hisoblanadi
 export const MISSED_OUTCOMES: LeadOutcome[] = ["NO_ANSWER", "PHONE_OFF", "BUSY"];
 
+// "Gaplashildi" hisoblanadigan CallLog natijalari — operator mijozga haqiqatan
+// yetgan (ko'tarmadi/o'chiq/band EMAS). Jonli dashboard "gaplashilgan mijozlar"
+// sonini shu bo'yicha sanaydi — operator lid holatini o'zgartirsa +1 bo'ladi.
+export const TALKED_RESULTS: string[] = [
+  ...(Object.keys(LEAD_OUTCOME) as LeadOutcome[]).filter(
+    (k) => !MISSED_OUTCOMES.includes(k),
+  ),
+  "TALKED", // qo'lda qo'ng'iroq jurnalidagi "Gaplashildi"
+];
+
 // Shu sondan ko'p ketma-ket ko'tarilmasa, avtomatik ustaga (FORWARDED) yo'naltiriladi
 export const ESCALATION_THRESHOLD = 3;
 

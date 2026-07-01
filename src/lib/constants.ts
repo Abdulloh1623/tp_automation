@@ -88,6 +88,7 @@ export const LEAD_STAGE = {
   FORWARDED: "Ustada (yo'naltirilgan)",
   RETURNING: "Uskuna qaytarilmoqda", // boshliqning qaytarish navbatida
   RESOLVED: "Hal qilindi",
+  REFUSED: "Otkaz (bekor qilgan)", // mijoz xizmatdan voz kechdi
   DEACTIVATED: "O'chirilgan",
 } as const;
 export type LeadStage = keyof typeof LEAD_STAGE;
@@ -116,6 +117,7 @@ export const LEAD_OUTCOME = {
   PAID: "To'lov qildi",
   RESOLVED: "Muammo hal qilindi",
   RETURN_EQUIPMENT: "Uskuna qaytarish kerak",
+  REFUSED: "Otkaz (bekor qildi)",
   DEACTIVATED: "O'chirib qo'ydi",
 } as const;
 export type LeadOutcome = keyof typeof LEAD_OUTCOME;
@@ -135,6 +137,7 @@ export const OUTCOME_TO_STAGE: Record<LeadOutcome, LeadStage> = {
   PAID: "RESOLVED",
   RESOLVED: "RESOLVED",
   RETURN_EQUIPMENT: "RETURNING", // boshliqning qaytarish navbatiga
+  REFUSED: "REFUSED", // otkaz — bekor qilganlar bo'limiga
   DEACTIVATED: "DEACTIVATED",
 };
 

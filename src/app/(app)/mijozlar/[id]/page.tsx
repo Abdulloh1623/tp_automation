@@ -10,6 +10,7 @@ import {
   User as UserIcon,
   Calendar,
   Banknote,
+  History,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
@@ -83,6 +84,14 @@ export default async function ClientDetailPage({
   });
 
   if (!client) notFound();
+
+  // Faoliyat jurnali — shu mijozga tegishli barcha amallar (audit)
+  const activity = await db.auditLog.findMany({
+    where: { entityId: id },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    select: { id: true, action: true, userName: true, detail: true, createdAt: true },
+  });
 
   // Ombordagi turlar (manager biriktirish formasi uchun)
   const typeRows = await db.equipmentType.findMany({ orderBy: { name: "asc" } });
@@ -310,6 +319,42 @@ export default async function ClientDetailPage({
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Faoliyat jurnali</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {activity.length === 0 ? (
+                <p className="text-sm text-slate-400 dark:text-slate-500">
+                  Hali amal yozuvi yo'q
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {activity.map((a) => (
+                    <div
+                      key={a.id}
+                      className="flex gap-3 border-b border-slate-100 dark:border-slate-800 pb-3 last:border-0"
+                    >
+                      <History className="mt-0.5 h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                          {a.action}
+                        </div>
+                        {a.detail && (
+                          <div className="text-xs text-slate-600 dark:text-slate-300">{a.detail}</div>
+                        )}
+                        <div className="text-xs text-slate-400 dark:text-slate-500">
+                          {formatDateTime(a.createdAt)}
+                          {a.userName ? ` · ${a.userName}` : ""}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

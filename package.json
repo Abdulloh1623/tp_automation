@@ -31,7 +31,7 @@
     "dotenv": "^17.4.2",
     "eslint-config-next": "^15.5.19",
     "grammy": "^1.44.0",
-    "jose": "^5.9.6",
+    "jose": "^6.2.3",
     "lucide-react": "^0.468.0",
     "next": "^15.5.19",
     "node-cron": "^4.5.0",

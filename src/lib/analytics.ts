@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import {
   CLIENT_STATUS,
   LEAD_STAGE,
+  TALKED_RESULTS,
   clientStatusLabel,
   leadStageLabel,
 } from "@/lib/constants";
@@ -53,7 +54,8 @@ export type Analytics = {
 /**
  * Real-time analitika ma'lumotlari. Sahifa (boshlang'ich render) va
  * `/api/analytics` (jonli polling) shu funksiyani ishlatadi.
- * "Gaplashildi" = CallLog.result === "TALKED".
+ * "Gaplashildi" = operator mijozga yetgan natija (TALKED_RESULTS) — ko'tarmadi/
+ * o'chiq/band emas. Operator lid holatini o'zgartirsa (natija tanlasa) +1 bo'ladi.
  */
 export async function getAnalytics(): Promise<Analytics> {
   const now = new Date();
@@ -99,7 +101,8 @@ export async function getAnalytics(): Promise<Analytics> {
   const totals = blank();
 
   for (const l of logs) {
-    const talked = l.result === "TALKED";
+    // "Gaplashildi" — operator mijozga haqiqatan yetgan natija (ko'tarmadi/o'chiq/band emas)
+    const talked = TALKED_RESULTS.includes(l.result);
     const inWeek = l.calledAt >= weekStart;
     const inToday = l.calledAt >= todayStart;
 

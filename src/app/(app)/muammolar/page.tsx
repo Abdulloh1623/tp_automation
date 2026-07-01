@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { Phone } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { requireSession } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -10,9 +12,11 @@ import {
   TicketTypeBadge,
 } from "@/components/status-badge";
 import { TicketStatusControl } from "@/components/ticket-status-control";
+import { TicketIntegratorControl } from "@/components/ticket-integrator-control";
 import { TicketForm } from "@/components/ticket-form";
+import { PhoneCopyButton } from "@/components/phone-copy";
 import { TICKET_STATUS, TICKET_TYPE, TICKET_PRIORITY } from "@/lib/constants";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 
 type SearchParams = Promise<{
   status?: string;
@@ -32,24 +36,32 @@ export default async function TicketsPage({
   searchParams: SearchParams;
 }) {
   const { status, type, priority } = await searchParams;
+  const session = await requireSession();
+  const canAssign = session.role === "ADMIN" || session.role === "MANAGER";
 
   const where: Prisma.TicketWhereInput = {};
   if (status) where.status = status;
   if (type) where.type = type;
   if (priority) where.priority = priority;
 
-  const [ticketsRaw, clients] = await Promise.all([
+  const [ticketsRaw, clients, ustalar] = await Promise.all([
     db.ticket.findMany({
       where,
       orderBy: { createdAt: "desc" },
       include: {
-        client: { select: { id: true, restaurantName: true, fullName: true } },
+        client: { select: { id: true, restaurantName: true, fullName: true, phone: true } },
         assignedTo: { select: { name: true } },
+        assignedUsta: { select: { id: true, name: true, phone: true } },
       },
     }),
     db.client.findMany({
       select: { id: true, restaurantName: true, fullName: true },
       orderBy: { restaurantName: "asc" },
+    }),
+    db.user.findMany({
+      where: { role: "INSTALLER", isActive: true },
+      select: { id: true, name: true, phone: true },
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -146,9 +158,20 @@ export default async function TicketsPage({
                   </div>
                 </div>
 
-                <div className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-                  {formatDate(t.createdAt)}
-                  {t.assignedTo ? ` · mas'ul: ${t.assignedTo.name}` : ""}
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400 dark:text-slate-500">
+                  <span>{formatDate(t.createdAt)}</span>
+                  {t.assignedTo && <span>· mas'ul: {t.assignedTo.name}</span>}
+                  <span className="inline-flex items-center gap-1">
+                    ·
+                    <a
+                      href={`tel:${normalizePhone(t.client.phone)}`}
+                      className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400"
+                    >
+                      <Phone className="h-3 w-3" />
+                      {formatPhone(t.client.phone)}
+                    </a>
+                    <PhoneCopyButton phone={t.client.phone} />
+                  </span>
                 </div>
 
                 {t.resolutionNote && (
@@ -156,6 +179,18 @@ export default async function TicketsPage({
                     Yechim: {t.resolutionNote}
                   </div>
                 )}
+
+                {/* Integrator (usta) — boshliq biriktiradi, TP xodimlari holatni yuritadi */}
+                <div className="mt-3">
+                  <TicketIntegratorControl
+                    ticketId={t.id}
+                    canAssign={canAssign}
+                    assignedId={t.assignedUsta?.id ?? null}
+                    assignedName={t.assignedUsta?.name ?? null}
+                    assignedPhone={t.assignedUsta?.phone ?? null}
+                    ustalar={ustalar}
+                  />
+                </div>
 
                 <div className="mt-3">
                   <TicketStatusControl ticketId={t.id} status={t.status} />

@@ -30,7 +30,8 @@ model User {
   specialNotes    Client[]         @relation("SpecialNoteAuthor")
   callLogs        CallLog[]
   payments        Payment[]
-  tickets         Ticket[]
+  tickets         Ticket[]               @relation("TicketOperator")
+  ustaTickets     Ticket[]               @relation("TicketUsta")
   dailyGrants     DailyLeadGrant[]
   passwordResets  PasswordResetRequest[]
   notifications   NotificationRecipient[]
@@ -219,13 +220,17 @@ model Ticket {
   status         String    @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED
   priority       String    @default("MEDIUM") // LOW | MEDIUM | HIGH
   assignedToId   String?
-  assignedTo     User?     @relation(fields: [assignedToId], references: [id])
+  assignedTo     User?     @relation("TicketOperator", fields: [assignedToId], references: [id])
+  // Integrator (usta) — boshliq muammoni biriktiradi; TP xodimlari holatni yuritadi
+  assignedUstaId String?
+  assignedUsta   User?     @relation("TicketUsta", fields: [assignedUstaId], references: [id])
   resolutionNote String?
   createdAt      DateTime  @default(now())
   resolvedAt     DateTime?
 
   @@index([clientId])
   @@index([status])
+  @@index([assignedUstaId])
 }
 
 // --- Ombor (inventar) ---

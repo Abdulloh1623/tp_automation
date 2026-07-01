@@ -4,7 +4,10 @@ import { requireRole } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { AssignUstaForm } from "@/components/assign-usta-form";
 import { UstaStatusControl } from "@/components/usta-status-control";
+import { LeadRevertButton } from "@/components/lead-revert-button";
+import { PhoneCopyButton } from "@/components/phone-copy";
 import { parseRegions, ustaStatusLabel } from "@/lib/constants";
+import { formatPhone, normalizePhone } from "@/lib/utils";
 
 export default async function EscalationPage() {
   await requireRole(["ADMIN", "MANAGER"]);
@@ -74,13 +77,16 @@ export default async function EscalationPage() {
                             {c.region}
                           </span>
                         )}
-                        <a
-                          href={`tel:${c.phone.replace(/\s/g, "")}`}
-                          className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400"
-                        >
-                          <Phone className="h-3 w-3" />
-                          {c.phone}
-                        </a>
+                        <span className="inline-flex items-center gap-1">
+                          <a
+                            href={`tel:${normalizePhone(c.phone)}`}
+                            className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400"
+                          >
+                            <Phone className="h-3 w-3" />
+                            {formatPhone(c.phone)}
+                          </a>
+                          <PhoneCopyButton phone={c.phone} />
+                        </span>
                         {c.assignedTo && <span>· operator: {c.assignedTo.name}</span>}
                       </div>
                     </div>
@@ -103,12 +109,18 @@ export default async function EscalationPage() {
                     </div>
                   )}
 
-                  <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+                  <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
                     <AssignUstaForm
                       clientId={c.id}
                       ustalar={ustalar}
                       suggestedUstaId={suggested?.id ?? null}
                     />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-slate-400 dark:text-slate-500">
+                        Noto'g'ri yo'naltirilgan bo'lsa:
+                      </span>
+                      <LeadRevertButton clientId={c.id} label={c.restaurantName} />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -137,13 +149,16 @@ export default async function EscalationPage() {
                           {c.region}
                         </span>
                       )}
-                      <a
-                        href={`tel:${c.phone.replace(/\s/g, "")}`}
-                        className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400"
-                      >
-                        <Phone className="h-3 w-3" />
-                        {c.phone}
-                      </a>
+                      <span className="inline-flex items-center gap-1">
+                        <a
+                          href={`tel:${normalizePhone(c.phone)}`}
+                          className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400"
+                        >
+                          <Phone className="h-3 w-3" />
+                          {formatPhone(c.phone)}
+                        </a>
+                        <PhoneCopyButton phone={c.phone} />
+                      </span>
                       <span className="inline-flex items-center gap-1">
                         <Wrench className="h-3 w-3" /> {c.assignedUsta?.name ?? "—"}
                       </span>
@@ -153,8 +168,9 @@ export default async function EscalationPage() {
                     {ustaStatusLabel(c.ustaStatus ?? "ASSIGNED")}
                   </span>
                 </div>
-                <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+                <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
                   <UstaStatusControl clientId={c.id} current={c.ustaStatus} />
+                  <LeadRevertButton clientId={c.id} label={c.restaurantName} />
                 </div>
               </CardContent>
             </Card>

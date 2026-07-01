@@ -158,11 +158,10 @@ export async function quickCompleteClient(
   id: string,
   data: { restaurantName?: string; phone?: string; region?: string },
 ): Promise<{ ok: boolean; error?: string }> {
+  // "To'ldirilmagan" ro'yxatidagi mijozni ISTAGAN xodim to'ldira oladi (egalik
+  // tekshiruvi yo'q) — lekin kim, nimani to'ldirgani audit jurnaliga yoziladi.
   const g = await guardRole(STAFF);
   if (!g.ok) return { ok: false, error: g.error };
-  if (!(await canMutateClient(g.session, id))) {
-    return { ok: false, error: "Bu mijoz sizga biriktirilmagan" };
-  }
   const patch: { restaurantName?: string; phone?: string; region?: string | null } = {};
   // Faqat bo'sh bo'lmagan qiymatni yozamiz — mavjud qiymatni bo'sh bilan o'chirib
   // qo'ymaslik va "to'ldirilmagan" holatini qayta yaratmaslik uchun.
@@ -173,10 +172,13 @@ export async function quickCompleteClient(
   if (data.region !== undefined) patch.region = normalizeRegion(data.region);
   if (Object.keys(patch).length === 0) return { ok: false, error: "O'zgarish yo'q" };
   await db.client.update({ where: { id }, data: patch });
+  const changed = Object.entries(patch)
+    .map(([k, v]) => `${k}=${v ?? "—"}`)
+    .join(", ");
   await logAudit("Mijoz ma'lumoti to'ldirildi", {
     entity: "Client",
     entityId: id,
-    detail: Object.keys(patch).join(", "),
+    detail: changed,
   });
   revalidatePath("/toldirilmagan");
   revalidatePath("/mijozlar");

@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { confirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
-import { normalizePhone } from "@/lib/utils";
+import { PhoneCopyButton } from "@/components/phone-copy";
+import { formatPhone, normalizePhone } from "@/lib/utils";
 
 export type ReturnQueueItem = {
   id: string;
@@ -97,9 +98,12 @@ function Row({
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-slate-500 dark:text-slate-400">
             <span>{r.fullName}</span>
-            <a href={`tel:${normalizePhone(r.phone)}`} className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400">
-              <Phone className="h-3 w-3" /> {r.phone}
-            </a>
+            <span className="inline-flex items-center gap-1">
+              <a href={`tel:${normalizePhone(r.phone)}`} className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                <Phone className="h-3 w-3" /> {formatPhone(r.phone)}
+              </a>
+              <PhoneCopyButton phone={r.phone} />
+            </span>
             <span>· Ariza: {r.byName ?? "—"}</span>
           </div>
           {r.note && <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{r.note}</p>}

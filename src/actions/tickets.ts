@@ -123,3 +123,44 @@ export async function setTicketStatus(
     // mavjud bo'lmagan ticketId — jimgina o'tkazib yuboramiz
   }
 }
+
+/**
+ * Muammoni integratorga (usta) biriktirish/olib tashlash. Faqat boshliq/admin.
+ * Biriktirilganda muammo "Jarayonda" holatiga o'tadi. ustaId=null — biriktiruv olinadi.
+ */
+export async function assignTicketUsta(
+  ticketId: string,
+  ustaId: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  const g = await guardRole(["ADMIN", "MANAGER"]);
+  if (!g.ok) return { ok: false, error: g.error };
+
+  if (ustaId) {
+    const usta = await db.user.findUnique({
+      where: { id: ustaId },
+      select: { role: true, isActive: true },
+    });
+    if (!usta || usta.role !== "INSTALLER") {
+      return { ok: false, error: "Integrator (usta) topilmadi" };
+    }
+  }
+
+  try {
+    const ticket = await db.ticket.update({
+      where: { id: ticketId },
+      data: {
+        assignedUstaId: ustaId,
+        // Integratorga biriktirilganda ish boshlandi hisoblanadi
+        ...(ustaId ? { status: "IN_PROGRESS" } : {}),
+      },
+    });
+    await logAudit(
+      ustaId ? "Muammo integratorga biriktirildi" : "Integrator biriktiruvi olindi",
+      { entity: "Ticket", entityId: ticketId },
+    );
+    revalidateTicket(ticket.clientId);
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Muammo topilmadi" };
+  }
+}

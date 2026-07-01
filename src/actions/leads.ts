@@ -56,6 +56,35 @@ async function autoReturnRequest(clientId: string, byUserId: string, note: strin
 }
 
 /**
+ * Lid natijasi "Muammo bor" (HAS_ISSUE) bo'lsa — avtomatik Muammolar bo'limiga
+ * ticket ochadi (yozilgan izoh bilan). Ochiq ticket bo'lsa dublikat yaratmaydi.
+ * Boshliq keyin ticketni integratorga (ustaga) biriktiradi.
+ */
+async function autoCreateTicket(clientId: string, note: string | null) {
+  const open = await db.ticket.findFirst({
+    where: { clientId, status: { in: ["OPEN", "IN_PROGRESS"] } },
+    select: { id: true },
+  });
+  if (open) return;
+  const client = await db.client.findUnique({
+    where: { id: clientId },
+    select: { assignedToId: true },
+  });
+  const title = note?.trim() ? note.trim().slice(0, 300) : "Operator bildirgan muammo";
+  await db.ticket.create({
+    data: {
+      clientId,
+      title,
+      type: "TECHNICAL",
+      priority: "MEDIUM",
+      status: "OPEN",
+      assignedToId: client?.assignedToId ?? null,
+    },
+  });
+  revalidatePath("/muammolar");
+}
+
+/**
  * Xodim lid bilan gaplashgach natija + izoh yozadi.
  * CallLog (tarix) yaratiladi va lidning `pendingStage`i belgilanadi —
  * lid kun yakunida (`finishDay`) shu bo'limga ko'chadi.
@@ -128,6 +157,9 @@ export async function recordLeadOutcome(
 
   if (outcome === "RETURN_EQUIPMENT") {
     await autoReturnRequest(clientId, session.userId, parsed.data.note ?? null);
+  }
+  if (outcome === "HAS_ISSUE") {
+    await autoCreateTicket(clientId, parsed.data.note ?? null);
   }
 
   await logAudit(`Lid natijasi: ${LEAD_OUTCOME[outcome as LeadOutcome] ?? outcome}`, {
@@ -318,6 +350,9 @@ export async function saveLeadCell(
   if (outcome === "RETURN_EQUIPMENT") {
     await autoReturnRequest(clientId, session.userId, note);
   }
+  if (outcome === "HAS_ISSUE") {
+    await autoCreateTicket(clientId, note);
+  }
 
   await logAudit(`Lid katak: ${LEAD_OUTCOME[outcome as LeadOutcome] ?? outcome}`, {
     entity: "Client",
@@ -369,6 +404,40 @@ export async function setSpecialNote(
       ? updated.specialNoteAt.toISOString()
       : null,
   };
+}
+
+/**
+ * Lidni orqaga qaytarish — noto'g'ri (texnik nosozlik yoki bilmasdan) boshliqqa
+ * yo'naltirilgan yoki "muammo bor" deb belgilangan lidni kunlik ishga qaytaradi.
+ * Usta biriktiruvi va eskalatsiya holatlari tozalanadi. Faqat boshliq/admin.
+ */
+export async function revertLead(
+  clientId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const g = await guardRole(["ADMIN", "MANAGER"]);
+  if (!g.ok) return { ok: false, error: g.error };
+  try {
+    await db.client.update({
+      where: { id: clientId },
+      data: {
+        stage: "NEW",
+        pendingStage: null,
+        assignedUstaId: null,
+        ustaStatus: null,
+        missedCallCount: 0,
+        nextContactDate: new Date(), // bugungi kunlik ro'yxatga qaytadi
+      },
+    });
+    await logAudit("Lid orqaga qaytarildi (kunlik ishga)", {
+      entity: "Client",
+      entityId: clientId,
+    });
+    revalidatePath("/eskalatsiya");
+    revalidatePath("/lidlar");
+  } catch {
+    return { ok: false, error: "Xatolik" };
+  }
+  return { ok: true };
 }
 
 /** Qo'lda eskalatsiya — lid darhol boshliq navbatiga (ESCALATED) o'tadi. */

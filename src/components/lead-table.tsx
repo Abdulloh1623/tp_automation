@@ -79,6 +79,7 @@ const OUTCOME_CELL: Record<string, string> = {
   NO_PROBLEM: "text-emerald-700 dark:text-emerald-300",
   PAID: "text-emerald-700 dark:text-emerald-300",
   RESOLVED: "text-emerald-700 dark:text-emerald-300",
+  REFUSED: "text-rose-600 dark:text-rose-400",
   DEACTIVATED: "text-slate-500 dark:text-slate-400",
 };
 

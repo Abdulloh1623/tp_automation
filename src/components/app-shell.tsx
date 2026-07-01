@@ -22,6 +22,7 @@ import {
   Building2,
   CircleUser,
   Bell,
+  Ban,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Toaster } from "@/components/toaster";
@@ -49,6 +50,7 @@ const NAV: NavItem[] = [
   { href: "/muammolar", label: "Muammolar", icon: Wrench, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
   { href: "/eskalatsiya", label: "Eskalatsiya", icon: AlertTriangle, roles: ["ADMIN", "MANAGER"] },
   { href: "/qaytarish", label: "Qaytarish", icon: PackageCheck, roles: ["ADMIN", "MANAGER"] },
+  { href: "/otkaz", label: "Otkaz", icon: Ban, roles: ["ADMIN", "MANAGER"] },
   { href: "/analitika", label: "Jonli analitika", icon: Activity, roles: ["ADMIN", "MANAGER"] },
   { href: "/hisobot", label: "Hisobot", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
   { href: "/foydalanuvchilar", label: "Foydalanuvchilar", icon: UserCog, roles: ["ADMIN"] },

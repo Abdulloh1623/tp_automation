@@ -25,6 +25,7 @@ export type ReturnQueueItem = {
   note: string | null;
   byName: string | null;
   ustaName: string | null; // biriktirilgan (APPROVED)
+  ustaPhone: string | null; // TP xodimi usta bilan bog'lanishi uchun
   matchedUstaId: string | null; // viloyat bo'yicha taklif (PENDING)
 };
 
@@ -33,9 +34,11 @@ export type UstaOpt = { id: string; name: string };
 export function ReturnQueue({
   items,
   ustalar,
+  canAssign,
 }: {
   items: ReturnQueueItem[];
   ustalar: UstaOpt[];
+  canAssign: boolean; // ADMIN/MANAGER — usta biriktirish va rad etish
 }) {
   const [err, setErr] = useState<string | null>(null);
 
@@ -57,7 +60,7 @@ export function ReturnQueue({
         </div>
       )}
       {items.map((r) => (
-        <Row key={r.id} r={r} ustalar={ustalar} onError={setErr} />
+        <Row key={r.id} r={r} ustalar={ustalar} canAssign={canAssign} onError={setErr} />
       ))}
     </div>
   );
@@ -66,10 +69,12 @@ export function ReturnQueue({
 function Row({
   r,
   ustalar,
+  canAssign,
   onError,
 }: {
   r: ReturnQueueItem;
   ustalar: UstaOpt[];
+  canAssign: boolean;
   onError: (e: string | null) => void;
 }) {
   const router = useRouter();
@@ -108,8 +113,21 @@ function Row({
           </div>
           {r.note && <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{r.note}</p>}
           {approved && (
-            <p className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300">
-              <Wrench className="h-3 w-3" /> Usta: {r.ustaName ?? "—"}
+            <p className="mt-1 inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-emerald-700 dark:text-emerald-300">
+              <span className="inline-flex items-center gap-1">
+                <Wrench className="h-3 w-3" /> Usta: {r.ustaName ?? "—"}
+              </span>
+              {r.ustaPhone && (
+                <span className="inline-flex items-center gap-1">
+                  <a
+                    href={`tel:${normalizePhone(r.ustaPhone)}`}
+                    className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400"
+                  >
+                    <Phone className="h-3 w-3" /> {formatPhone(r.ustaPhone)}
+                  </a>
+                  <PhoneCopyButton phone={r.ustaPhone} />
+                </span>
+              )}
             </p>
           )}
         </div>
@@ -119,6 +137,8 @@ function Row({
             <Button size="sm" disabled={pending} onClick={() => run(() => confirmReturnCollected(r.id))}>
               <PackageCheck className="h-4 w-4" /> Bajarildi (olib keldi)
             </Button>
+          ) : !canAssign ? (
+            <Badge tone="amber">Usta biriktirilishi kutilmoqda</Badge>
           ) : (
             <>
               <div className="flex items-center gap-2">

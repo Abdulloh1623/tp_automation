@@ -6,11 +6,15 @@ import {
   type ReturnQueueItem,
   type UstaOpt,
 } from "@/components/return-queue";
+import { ReturnStats, type ReturnStatsData } from "@/components/return-stats";
 
 export const dynamic = "force-dynamic";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export default async function QaytarishPage() {
-  await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR"]);
+  const isManager = ["ADMIN", "MANAGER"].includes(session.role);
 
   const [requests, ustalarFull, users] = await Promise.all([
     db.equipmentReturnRequest.findMany({
@@ -24,13 +28,13 @@ export default async function QaytarishPage() {
     }),
     db.user.findMany({
       where: { role: "INSTALLER", isActive: true },
-      select: { id: true, name: true, region: true, regions: true },
+      select: { id: true, name: true, phone: true, region: true, regions: true },
       orderBy: { name: "asc" },
     }),
-    db.user.findMany({ select: { id: true, name: true } }),
+    db.user.findMany({ select: { id: true, name: true, phone: true } }),
   ]);
 
-  const userName = new Map(users.map((u) => [u.id, u.name]));
+  const userById = new Map(users.map((u) => [u.id, u]));
 
   // Viloyat -> usta id (avtomatik taklif)
   const regionUsta = new Map<string, string>();
@@ -48,8 +52,9 @@ export default async function QaytarishPage() {
     phone: r.client.phone,
     region: r.client.region,
     note: r.note,
-    byName: r.byUserId ? userName.get(r.byUserId) ?? null : null,
-    ustaName: r.ustaId ? userName.get(r.ustaId) ?? null : null,
+    byName: r.byUserId ? userById.get(r.byUserId)?.name ?? null : null,
+    ustaName: r.ustaId ? userById.get(r.ustaId)?.name ?? null : null,
+    ustaPhone: r.ustaId ? userById.get(r.ustaId)?.phone ?? null : null,
     matchedUstaId: r.client.region ? regionUsta.get(r.client.region) ?? null : null,
   }));
 
@@ -57,16 +62,53 @@ export default async function QaytarishPage() {
   const pendingCount = items.filter((i) => i.status === "PENDING").length;
   const approvedCount = items.filter((i) => i.status === "APPROVED").length;
 
+  // Boshliq uchun umumiy hisobot (jarayon nazorati)
+  let stats: ReturnStatsData | null = null;
+  if (isManager) {
+    const monthAgo = new Date(Date.now() - 30 * DAY_MS);
+    const [doneTotal, rejectedTotal, done30, resolved] = await Promise.all([
+      db.equipmentReturnRequest.count({ where: { status: "DONE" } }),
+      db.equipmentReturnRequest.count({ where: { status: "REJECTED" } }),
+      db.equipmentReturnRequest.count({
+        where: { status: "DONE", resolvedAt: { gte: monthAgo } },
+      }),
+      db.equipmentReturnRequest.findMany({
+        where: { status: "DONE", resolvedAt: { not: null } },
+        select: { createdAt: true, resolvedAt: true },
+        orderBy: { resolvedAt: "desc" },
+        take: 100,
+      }),
+    ]);
+    const durations = resolved
+      .filter((r) => r.resolvedAt)
+      .map((r) => (r.resolvedAt!.getTime() - r.createdAt.getTime()) / DAY_MS);
+    const avgDays =
+      durations.length > 0
+        ? durations.reduce((a, b) => a + b, 0) / durations.length
+        : null;
+    stats = {
+      pending: pendingCount,
+      inProgress: approvedCount,
+      doneTotal,
+      done30,
+      rejectedTotal,
+      avgDays,
+    };
+  }
+
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Qaytariladigan uskunalar</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Operator &quot;Uskuna qaytarish kerak&quot; qo&apos;ygan lidlar — usta biriktiring va ishni
-          nazorat qiling. Yangi: {pendingCount} · Ustada: {approvedCount}
+          {isManager
+            ? "Yangi arizaga usta biriktiring — keyingi kuzatuvni TP xodimlari olib boradi."
+            : "Usta biriktirilgan arizalarni kuzating: usta/mijoz bilan bog'laning va uskuna olib kelingach yakunlang."}
+          {" "}Yangi: {pendingCount} · Jarayonda: {approvedCount}
         </p>
       </div>
-      <ReturnQueue items={items} ustalar={ustalar} />
+      {stats && <ReturnStats stats={stats} />}
+      <ReturnQueue items={items} ustalar={ustalar} canAssign={isManager} />
     </div>
   );
 }

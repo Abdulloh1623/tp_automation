@@ -46,7 +46,7 @@ const NAV: NavItem[] = [
   { href: "/ustalar", label: "Ustalar", icon: HardHat, roles: ["ADMIN", "MANAGER"] },
   { href: "/mijozlar", label: "Mijozlar", icon: Users, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
   { href: "/toldirilmagan", label: "To'ldirilmagan", icon: UserX, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
-  { href: "/tolovlar", label: "To'lovlar", icon: CreditCard, roles: ["ADMIN", "MANAGER"] },
+  { href: "/tolovlar", label: "To'lovlar", icon: CreditCard, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
   { href: "/muammolar", label: "Muammolar", icon: Wrench, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
   { href: "/eskalatsiya", label: "Eskalatsiya", icon: AlertTriangle, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
   { href: "/qaytarish", label: "Qaytarish", icon: PackageCheck, roles: ["ADMIN", "MANAGER", "OPERATOR"] },

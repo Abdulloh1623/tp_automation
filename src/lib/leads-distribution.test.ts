@@ -78,6 +78,28 @@ describe("distributeLeadsCore", () => {
     }
   });
 
+  it("qarzdorlar limit to'lsa ham albatta biriktiriladi (navbat boshida)", async () => {
+    userFindMany.mockResolvedValue([{ id: "op1" }]); // sig'im 50
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    // 52 oddiy lid + 3 qarzdor = 55 (5 tasi ortib qoladi)
+    const pool = [
+      ...Array.from({ length: 52 }, (_, i) => ({ id: `c${i}`, nextPaymentDate: null })),
+      { id: "debt1", nextPaymentDate: yesterday },
+      { id: "debt2", nextPaymentDate: yesterday },
+      { id: "debt3", nextPaymentDate: yesterday },
+    ];
+    clientFindMany.mockResolvedValue(pool);
+    clientUpdateMany.mockImplementation(countByIds);
+
+    await distributeLeadsCore();
+    const assignedIds = clientUpdateMany.mock.calls
+      .filter((c) => c[0].data.assignedToId !== null)
+      .flatMap((c) => c[0].where.id.in);
+    expect(assignedIds).toContain("debt1");
+    expect(assignedIds).toContain("debt2");
+    expect(assignedIds).toContain("debt3");
+  });
+
   it("taqsimotdan keyin audit yoziladi", async () => {
     userFindMany.mockResolvedValue([{ id: "op1" }]);
     clientFindMany.mockResolvedValue([{ id: "c0" }]);

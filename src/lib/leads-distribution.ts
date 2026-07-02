@@ -1,5 +1,5 @@
 // Kunlik random taqsimot yadrosi (auth'siz) — server action ham, worker (cron) ham ishlatadi.
-import { endOfDay } from "date-fns";
+import { endOfDay, startOfDay } from "date-fns";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { ACTIVE_STAGES, LEAD_LIMITS } from "@/lib/constants";
@@ -18,13 +18,21 @@ export async function distributeLeadsCore(): Promise<DistributeResult> {
   });
   if (operators.length === 0) return { assigned: 0, operators: 0, error: "Faol operator yo'q" };
 
+  const now = new Date();
   const pool = await db.client.findMany({
     where: {
       status: "ACTIVE",
-      stage: { in: ACTIVE_STAGES as unknown as string[] },
-      OR: [{ nextContactDate: { lte: endOfDay(new Date()) } }, { nextContactDate: null }],
+      OR: [
+        // Kunlik ish: muddati kelgan faol bosqichdagi lidlar
+        {
+          stage: { in: ACTIVE_STAGES as unknown as string[] },
+          OR: [{ nextContactDate: { lte: endOfDay(now) } }, { nextContactDate: null }],
+        },
+        // Qarzdorlar — bosqichidan qat'i nazar (otkaz bo'lsa ham qarz undiriladi)
+        { nextPaymentDate: { lt: startOfDay(now) } },
+      ],
     },
-    select: { id: true },
+    select: { id: true, nextPaymentDate: true },
   });
 
   // Fisher–Yates
@@ -33,6 +41,15 @@ export async function distributeLeadsCore(): Promise<DistributeResult> {
     const j = Math.floor(Math.random() * (i + 1));
     [ids[i], ids[j]] = [ids[j], ids[i]];
   }
+
+  // Qarzdorlar navbat boshiga — operator limiti to'lsa ham ular albatta taqsimlanadi
+  const todayStart = startOfDay(now).getTime();
+  const debtorIds = new Set(
+    pool
+      .filter((c) => c.nextPaymentDate != null && c.nextPaymentDate.getTime() < todayStart)
+      .map((c) => c.id),
+  );
+  ids.sort((a, b) => Number(debtorIds.has(b)) - Number(debtorIds.has(a)));
 
   const { byOp: buckets, overflow } = splitRoundRobin(
     ids,

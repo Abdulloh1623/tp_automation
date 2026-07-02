@@ -7,7 +7,9 @@ import { PhoneCopyButton } from "@/components/phone-copy";
 import { formatPhone, normalizePhone, formatDateTime } from "@/lib/utils";
 
 export default async function RefusedPage() {
-  await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR"]);
+  // Operator faqat ko'radi (telefon/izoh) — orqaga qaytarish boshliqda
+  const isManager = ["ADMIN", "MANAGER"].includes(session.role);
 
   const clients = await db.client.findMany({
     where: { stage: "REFUSED" },
@@ -84,12 +86,14 @@ export default async function RefusedPage() {
                     </div>
                   )}
 
-                  <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
-                    <span className="text-xs text-slate-400 dark:text-slate-500">
-                      Mijoz qaytsa:
-                    </span>
-                    <LeadRevertButton clientId={c.id} label={c.restaurantName} />
-                  </div>
+                  {isManager && (
+                    <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+                      <span className="text-xs text-slate-400 dark:text-slate-500">
+                        Mijoz qaytsa:
+                      </span>
+                      <LeadRevertButton clientId={c.id} label={c.restaurantName} />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );

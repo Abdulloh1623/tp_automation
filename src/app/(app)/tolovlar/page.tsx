@@ -39,7 +39,7 @@ function Metric({
 }
 
 export default async function PaymentsPage() {
-  await requireRole(["ADMIN", "MANAGER"]);
+  await requireRole(["ADMIN", "MANAGER", "OPERATOR"]);
   const clients = await db.client.findMany({
     where: { status: "ACTIVE" },
     include: { assignedTo: { select: { name: true } } },

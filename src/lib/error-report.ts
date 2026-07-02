@@ -81,6 +81,8 @@ export async function reportError(error: unknown, ctx: ErrorContext = {}): Promi
   const e = error instanceof Error ? error : new Error(String(error));
   console.error(`[error-report] ${ctx.source ?? ""} ${ctx.path ?? ""}:`, e);
   try {
+    // Dev/test xatolari kanalga ketmasin — Telegram faqat prod uchun
+    if (process.env.NODE_ENV !== "production") return;
     if (!botToken()) return; // Telegram o'chiq — faqat konsol
     const now = Date.now();
     if (!shouldSend(signatureOf(error, ctx), now)) return; // spam himoyasi

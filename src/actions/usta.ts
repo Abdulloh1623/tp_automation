@@ -55,7 +55,7 @@ export async function assignUsta(
 
 export type UstaUpdateState = { ok: boolean; ustaStatus?: string; error?: string };
 
-/** Usta: vazifa holatini yangilaydi (Yo'ldaman/Bordim/Bajarildi/...). */
+/** Usta vazifa holatini yangilash (Yo'ldaman/Bordim/Bajarildi/...). */
 export async function updateUstaStatus(
   clientId: string,
   status: string,
@@ -66,8 +66,9 @@ export async function updateUstaStatus(
 
   const client = await db.client.findUnique({ where: { id: clientId } });
   if (!client) return { ok: false, error: "Vazifa topilmadi" };
-  // Boshliq (ADMIN/MANAGER) usta nomidan holatni yangilaydi (ustalar tizimga kirmaydi)
-  if (!["ADMIN", "MANAGER"].includes(session.role)) {
+  // Usta biriktirilgach jarayonni TP xodimi (OPERATOR) usta bilan bog'lanib yuritadi;
+  // boshliq (ADMIN/MANAGER) ham yangilashi mumkin (ustalar tizimga kirmaydi)
+  if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
 

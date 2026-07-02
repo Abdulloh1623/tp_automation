@@ -1,4 +1,4 @@
-import { Phone, PhoneOff, MapPin, Wrench } from "lucide-react";
+import { Phone, PhoneOff, MapPin, Wrench, Clock } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,7 +10,8 @@ import { parseRegions, ustaStatusLabel } from "@/lib/constants";
 import { formatPhone, normalizePhone } from "@/lib/utils";
 
 export default async function EscalationPage() {
-  await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR"]);
+  const isManager = ["ADMIN", "MANAGER"].includes(session.role);
 
   const [clients, forwarded, ustalar] = await Promise.all([
     db.client.findMany({
@@ -28,7 +29,7 @@ export default async function EscalationPage() {
     db.client.findMany({
       where: { stage: "FORWARDED" },
       orderBy: { updatedAt: "desc" },
-      include: { assignedUsta: { select: { name: true } } },
+      include: { assignedUsta: { select: { name: true, phone: true } } },
     }),
     db.user.findMany({
       where: { role: "INSTALLER", isActive: true },
@@ -44,7 +45,9 @@ export default async function EscalationPage() {
           Eskalatsiya navbati
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          {clients.length} ta lid ustaga biriktirishni kutmoqda
+          {isManager
+            ? `${clients.length} ta lid ustaga biriktirishni kutmoqda — keyingi kuzatuvni TP xodimlari olib boradi`
+            : `Ustadagi ishlarni kuzating: usta bilan bog'laning va holatni yangilang. Biriktirish kutilmoqda: ${clients.length}`}
         </p>
       </div>
 
@@ -109,19 +112,27 @@ export default async function EscalationPage() {
                     </div>
                   )}
 
-                  <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
-                    <AssignUstaForm
-                      clientId={c.id}
-                      ustalar={ustalar}
-                      suggestedUstaId={suggested?.id ?? null}
-                    />
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs text-slate-400 dark:text-slate-500">
-                        Noto'g'ri yo'naltirilgan bo'lsa:
-                      </span>
-                      <LeadRevertButton clientId={c.id} label={c.restaurantName} />
+                  {isManager ? (
+                    <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+                      <AssignUstaForm
+                        clientId={c.id}
+                        ustalar={ustalar}
+                        suggestedUstaId={suggested?.id ?? null}
+                      />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-slate-400 dark:text-slate-500">
+                          Noto'g'ri yo'naltirilgan bo'lsa:
+                        </span>
+                        <LeadRevertButton clientId={c.id} label={c.restaurantName} />
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                        <Clock className="h-3 w-3" /> Usta biriktirilishi kutilmoqda
+                      </span>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -129,7 +140,7 @@ export default async function EscalationPage() {
         </div>
       )}
 
-      {/* Ustada (jarayonda) — boshliq usta bilan aloqada bo'lib nazorat qiladi */}
+      {/* Ustada (jarayonda) — TP xodimi usta bilan bog'lanib jarayonni yuritadi */}
       {forwarded.length > 0 && (
         <div className="space-y-3">
           <h2 className="pt-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
@@ -162,6 +173,18 @@ export default async function EscalationPage() {
                       <span className="inline-flex items-center gap-1">
                         <Wrench className="h-3 w-3" /> {c.assignedUsta?.name ?? "—"}
                       </span>
+                      {c.assignedUsta?.phone && (
+                        <span className="inline-flex items-center gap-1">
+                          <a
+                            href={`tel:${normalizePhone(c.assignedUsta.phone)}`}
+                            className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400"
+                          >
+                            <Phone className="h-3 w-3" />
+                            {formatPhone(c.assignedUsta.phone)}
+                          </a>
+                          <PhoneCopyButton phone={c.assignedUsta.phone} />
+                        </span>
+                      )}
                     </div>
                   </div>
                   <span className="rounded-full bg-amber-100 dark:bg-amber-950 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
@@ -170,7 +193,7 @@ export default async function EscalationPage() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
                   <UstaStatusControl clientId={c.id} current={c.ustaStatus} />
-                  <LeadRevertButton clientId={c.id} label={c.restaurantName} />
+                  {isManager && <LeadRevertButton clientId={c.id} label={c.restaurantName} />}
                 </div>
               </CardContent>
             </Card>

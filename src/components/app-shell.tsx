@@ -48,7 +48,7 @@ const NAV: NavItem[] = [
   { href: "/toldirilmagan", label: "To'ldirilmagan", icon: UserX, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
   { href: "/tolovlar", label: "To'lovlar", icon: CreditCard, roles: ["ADMIN", "MANAGER"] },
   { href: "/muammolar", label: "Muammolar", icon: Wrench, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
-  { href: "/eskalatsiya", label: "Eskalatsiya", icon: AlertTriangle, roles: ["ADMIN", "MANAGER"] },
+  { href: "/eskalatsiya", label: "Eskalatsiya", icon: AlertTriangle, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
   { href: "/qaytarish", label: "Qaytarish", icon: PackageCheck, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
   { href: "/otkaz", label: "Otkaz", icon: Ban, roles: ["ADMIN", "MANAGER"] },
   { href: "/analitika", label: "Jonli analitika", icon: Activity, roles: ["ADMIN", "MANAGER"] },

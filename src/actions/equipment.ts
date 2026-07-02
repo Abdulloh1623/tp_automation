@@ -286,7 +286,11 @@ export async function rejectReturnRequest(
   return { ok: true };
 }
 
-/** Usta: mijozdan uskunani olib keldi — ijara uskunalari usta zaxirasiga o'tadi. */
+/**
+ * Uskuna olib kelindi — ijara uskunalari usta zaxirasiga o'tadi.
+ * Usta biriktirilgach jarayonni TP xodimi (OPERATOR) kuzatadi va yakunlaydi;
+ * boshliq (ADMIN/MANAGER) ham yakunlashi mumkin.
+ */
 export async function confirmReturnCollected(requestId: string): Promise<EqState> {
   const session = await requireSession();
   const req = await db.equipmentReturnRequest.findUnique({
@@ -296,8 +300,10 @@ export async function confirmReturnCollected(requestId: string): Promise<EqState
   if (!req || req.status !== "APPROVED") {
     return { ok: false, error: "Ariza topilmadi yoki holati o'zgargan" };
   }
-  const isManager = ["ADMIN", "MANAGER"].includes(session.role);
-  if (!isManager && req.ustaId !== session.userId) {
+  const canConfirm =
+    ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) ||
+    req.ustaId === session.userId;
+  if (!canConfirm) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
   const ustaId = req.ustaId;

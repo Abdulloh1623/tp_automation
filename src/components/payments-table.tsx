@@ -12,6 +12,7 @@ export type PaymentRow = {
   restaurantName: string;
   fullName: string;
   phone: string;
+  region: string | null;
   state: PaymentState;
   stateLabel: string;
   nextPaymentFmt: string;
@@ -43,6 +44,17 @@ function digits(s: string): string {
 export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("ALL");
+  const [region, setRegion] = useState("");
+  const [operator, setOperator] = useState("");
+
+  const regions = useMemo(
+    () => [...new Set(rows.map((r) => r.region).filter((x): x is string => !!x))].sort(),
+    [rows],
+  );
+  const operators = useMemo(
+    () => [...new Set(rows.map((r) => r.operatorName).filter((x) => x && x !== "—"))].sort(),
+    [rows],
+  );
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { ALL: rows.length };
@@ -55,12 +67,14 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
     const qDigits = digits(query);
     return rows.filter((r) => {
       if (filter !== "ALL" && r.state !== filter) return false;
+      if (region && r.region !== region) return false;
+      if (operator && r.operatorName !== operator) return false;
       if (!q) return true;
       const hay = norm(r.restaurantName + " " + r.fullName);
       const phoneMatch = qDigits.length >= 3 && digits(r.phone).includes(qDigits);
       return hay.includes(q) || phoneMatch;
     });
-  }, [rows, query, filter]);
+  }, [rows, query, filter, region, operator]);
 
   const chips: { key: Filter; label: string }[] = [
     { key: "ALL", label: "Hammasi" },
@@ -96,10 +110,32 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
             </button>
           )}
         </div>
-        <span className="text-sm text-slate-500 dark:text-slate-400">
-          Topildi: <span className="font-semibold text-slate-700 dark:text-slate-200">{filtered.length}</span>
-          {filtered.length !== rows.length && <> / {rows.length}</>}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+            className="h-9 rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          >
+            <option value="">Barcha viloyatlar</option>
+            {regions.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+          <select
+            value={operator}
+            onChange={(e) => setOperator(e.target.value)}
+            className="h-9 rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          >
+            <option value="">Barcha operatorlar</option>
+            {operators.map((o) => (
+              <option key={o} value={o}>{o}</option>
+            ))}
+          </select>
+          <span className="text-sm text-slate-500 dark:text-slate-400">
+            Topildi: <span className="font-semibold text-slate-700 dark:text-slate-200">{filtered.length}</span>
+            {filtered.length !== rows.length && <> / {rows.length}</>}
+          </span>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">

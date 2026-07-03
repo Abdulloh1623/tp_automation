@@ -1,7 +1,7 @@
 // Chart SVG'lari uchun umumiy mavzu (palitra, shrift, yordamchilar).
 
 export const CHART_W = 1000;
-export const FONT = "Arial, Helvetica, sans-serif";
+export const FONT = "DejaVu Sans, Arial, Helvetica, sans-serif";
 
 export const C = {
   ink: "#0f172a", // slate-900

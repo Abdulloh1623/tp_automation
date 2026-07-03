@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ReceiptInput } from "@/components/receipt-input";
-import { CURRENCY } from "@/lib/constants";
+import { CURRENCY, PAYMENT_METHOD } from "@/lib/constants";
 
 export type PayTarget = {
   id: string;
@@ -32,7 +32,7 @@ export function PaymentReceiptModal({
   const [amount, setAmount] = useState(String(target.monthlyAmount));
   const [currency, setCurrency] = useState(target.currency);
   const [months, setMonths] = useState("1");
-  const [note, setNote] = useState("");
+  const [method, setMethod] = useState("CARD");
 
   function submit() {
     setError(null);
@@ -44,7 +44,7 @@ export function PaymentReceiptModal({
     fd.set("amount", amount);
     fd.set("currency", currency);
     fd.set("months", months);
-    if (note) fd.set("receiptNote", note);
+    fd.set("method", method);
     fd.set("receipt", receipt);
     start(async () => {
       const res = await recordLeadPayment(target.id, fd);
@@ -92,8 +92,14 @@ export function PaymentReceiptModal({
               <Input type="number" min={1} max={24} value={months} onChange={(e) => setMonths(e.target.value)} />
             </div>
             <div>
-              <Label>Izoh</Label>
-              <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="ixtiyoriy" />
+              <Label>To'lov usuli</Label>
+              <Select value={method} onChange={(e) => setMethod(e.target.value)}>
+                {Object.entries(PAYMENT_METHOD).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
             </div>
           </div>
           <div>

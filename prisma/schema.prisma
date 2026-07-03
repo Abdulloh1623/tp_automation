@@ -184,6 +184,7 @@ model Payment {
   paidAt       DateTime  @default(now())
   periodStart  DateTime?
   periodEnd    DateTime?
+  method       String? // CARD | QR (PAYMENT_METHOD) — to'lov usuli
   receiptNote  String?
   receiptPath  String? // saqlangan chek rasmi yo'li (uploads/receipts/...)
   recordedById String?

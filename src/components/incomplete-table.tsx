@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Pencil, CheckCircle2 } from "lucide-react";
 import { quickCompleteClient } from "@/actions/clients";
+import { SearchInput, FoundCount, matchesQuery } from "@/components/list-filter";
 import { toast } from "@/components/toaster";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -154,6 +155,14 @@ function RowEditor({ c, onSaved }: { c: IncompleteRow; onSaved: () => void }) {
 export function IncompleteTable({ clients }: { clients: IncompleteRow[] }) {
   const router = useRouter();
   const onSaved = () => router.refresh();
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(
+    () =>
+      clients.filter((c) =>
+        matchesQuery(query, c.restaurantName + " " + c.fullName, c.phone),
+      ),
+    [clients, query],
+  );
 
   if (clients.length === 0) {
     return (
@@ -167,23 +176,29 @@ export function IncompleteTable({ clients }: { clients: IncompleteRow[] }) {
   }
 
   return (
-    <div className="overflow-x-auto md:rounded-xl md:border md:border-slate-200 dark:md:border-slate-800 md:bg-white dark:md:bg-slate-900">
-      <table className="w-full text-sm">
-        <thead className="hidden md:table-header-group">
-          <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            <th className="px-3 py-3 font-medium">Mijoz / FIO</th>
-            <th className="px-3 py-3 font-medium">Restoran nomi</th>
-            <th className="px-3 py-3 font-medium">Telefon</th>
-            <th className="px-3 py-3 font-medium">Viloyat</th>
-            <th className="px-3 py-3 text-right font-medium">Amal</th>
-          </tr>
-        </thead>
-        <tbody>
-          {clients.map((c) => (
-            <RowEditor key={c.id} c={c} onSaved={onSaved} />
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <SearchInput value={query} onChange={setQuery} />
+        <FoundCount found={filtered.length} total={clients.length} />
+      </div>
+      <div className="overflow-x-auto md:rounded-xl md:border md:border-slate-200 dark:md:border-slate-800 md:bg-white dark:md:bg-slate-900">
+        <table className="w-full text-sm">
+          <thead className="hidden md:table-header-group">
+            <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <th className="px-3 py-3 font-medium">Mijoz / FIO</th>
+              <th className="px-3 py-3 font-medium">Restoran nomi</th>
+              <th className="px-3 py-3 font-medium">Telefon</th>
+              <th className="px-3 py-3 font-medium">Viloyat</th>
+              <th className="px-3 py-3 text-right font-medium">Amal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((c) => (
+              <RowEditor key={c.id} c={c} onSaved={onSaved} />
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

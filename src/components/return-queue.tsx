@@ -1,8 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, X, AlertCircle, Phone, Wrench, PackageCheck } from "lucide-react";
+import {
+  SearchInput,
+  RegionSelect,
+  FoundCount,
+  matchesQuery,
+  uniqueRegions,
+} from "@/components/list-filter";
 import {
   approveReturnRequest,
   rejectReturnRequest,
@@ -41,6 +48,21 @@ export function ReturnQueue({
   canAssign: boolean; // ADMIN/MANAGER — usta biriktirish va rad etish
 }) {
   const [err, setErr] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [region, setRegion] = useState("");
+  const [status, setStatus] = useState<"" | "PENDING" | "APPROVED">("");
+
+  const regions = useMemo(() => uniqueRegions(items), [items]);
+  const filtered = useMemo(
+    () =>
+      items.filter(
+        (r) =>
+          (!status || r.status === status) &&
+          (!region || r.region === region) &&
+          matchesQuery(query, r.restaurantName + " " + r.fullName, r.phone),
+      ),
+    [items, query, region, status],
+  );
 
   if (items.length === 0) {
     return (
@@ -52,14 +74,42 @@ export function ReturnQueue({
     );
   }
 
+  const chips: { key: "" | "PENDING" | "APPROVED"; label: string }[] = [
+    { key: "", label: "Hammasi" },
+    { key: "PENDING", label: "Yangi" },
+    { key: "APPROVED", label: "Ustada" },
+  ];
+
   return (
     <div className="space-y-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <SearchInput value={query} onChange={setQuery} />
+        <div className="flex flex-wrap items-center gap-2">
+          {chips.map((ch) => (
+            <button
+              key={ch.key}
+              type="button"
+              onClick={() => setStatus(ch.key)}
+              className={
+                "rounded-full px-3 py-1 text-xs font-medium transition-colors " +
+                (status === ch.key
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700")
+              }
+            >
+              {ch.label}
+            </button>
+          ))}
+          <RegionSelect value={region} onChange={setRegion} regions={regions} />
+          <FoundCount found={filtered.length} total={items.length} />
+        </div>
+      </div>
       {err && (
         <div className="flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle className="h-4 w-4 shrink-0" /> {err}
         </div>
       )}
-      {items.map((r) => (
+      {filtered.map((r) => (
         <Row key={r.id} r={r} ustalar={ustalar} canAssign={canAssign} onError={setErr} />
       ))}
     </div>

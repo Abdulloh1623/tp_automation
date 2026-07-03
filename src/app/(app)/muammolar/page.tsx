@@ -49,7 +49,25 @@ export default async function TicketsPage({
       where,
       orderBy: { createdAt: "desc" },
       include: {
-        client: { select: { id: true, restaurantName: true, fullName: true, phone: true } },
+        client: {
+          select: {
+            id: true,
+            restaurantName: true,
+            fullName: true,
+            phone: true,
+            // Mijozning oxirgi izohli qo'ng'irog'i — muammo tafsiloti kartada ko'rinadi
+            callLogs: {
+              where: { note: { not: null } },
+              orderBy: { calledAt: "desc" },
+              take: 1,
+              select: {
+                note: true,
+                calledAt: true,
+                operator: { select: { name: true } },
+              },
+            },
+          },
+        },
         assignedTo: { select: { name: true } },
         assignedUsta: { select: { id: true, name: true, phone: true } },
       },
@@ -173,6 +191,21 @@ export default async function TicketsPage({
                     <PhoneCopyButton phone={t.client.phone} />
                   </span>
                 </div>
+
+                {/* Mijozning oxirgi izohi — muammo nima ekani profilga kirmasdan ko'rinadi */}
+                {t.client.callLogs[0]?.note && (
+                  <div className="mt-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
+                    <span className="font-medium">Oxirgi izoh:</span>{" "}
+                    {t.client.callLogs[0].note}
+                    <span className="ml-1 text-xs text-amber-700/70 dark:text-amber-300/70">
+                      ({formatDate(t.client.callLogs[0].calledAt)}
+                      {t.client.callLogs[0].operator
+                        ? ` · ${t.client.callLogs[0].operator.name}`
+                        : ""}
+                      )
+                    </span>
+                  </div>
+                )}
 
                 {t.resolutionNote && (
                   <div className="mt-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300">

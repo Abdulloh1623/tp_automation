@@ -33,6 +33,7 @@ import { CallLogForm } from "@/components/call-log-form";
 import { PaymentForm } from "@/components/payment-form";
 import { TicketForm } from "@/components/ticket-form";
 import { TicketStatusControl } from "@/components/ticket-status-control";
+import { paymentMethodLabel } from "@/lib/constants";
 import { formatDate, formatDateTime, formatMoney, formatPhone, normalizePhone } from "@/lib/utils";
 import { PhoneCopyButton } from "@/components/phone-copy";
 
@@ -445,9 +446,9 @@ export default async function ClientDetailPage({
                             {formatDate(p.paidAt)}
                             {p.recordedBy ? ` · ${p.recordedBy.name}` : ""}
                           </div>
-                          {p.receiptNote && (
+                          {(p.method || p.receiptNote) && (
                             <div className="text-xs text-slate-500 dark:text-slate-400">
-                              {p.receiptNote}
+                              {p.method ? paymentMethodLabel(p.method) : p.receiptNote}
                             </div>
                           )}
                         </div>

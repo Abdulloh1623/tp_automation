@@ -19,6 +19,8 @@ import {
   setSpecialNote,
   escalateLead,
   finishDay,
+  getClientInfo,
+  type ClientInfoData,
 } from "@/actions/leads";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -29,7 +31,14 @@ import {
   PaymentReceiptModal,
   type PayTarget,
 } from "@/components/payment-receipt-modal";
-import { LEAD_OUTCOME, leadOutcomeLabel, leadStageLabel } from "@/lib/constants";
+import {
+  LEAD_OUTCOME,
+  leadOutcomeLabel,
+  leadStageLabel,
+  clientStatusLabel,
+  equipmentModeLabel,
+  ownershipLabel,
+} from "@/lib/constants";
 import { formatMoney, formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { buildCsv, downloadCsv } from "@/lib/csv-export";
@@ -85,11 +94,17 @@ const OUTCOME_CELL: Record<string, string> = {
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
+// Restoran nomi bo'sh (to'ldirilmagan) mijozlar uchun bosiladigan yorliq
+function leadName(r: LeadRow): string {
+  return r.restaurantName.trim() || "(nomsiz)";
+}
+
 type Modal =
   | { type: "specialView"; lead: LeadRow }
   | { type: "specialEdit"; lead: LeadRow }
   | { type: "history"; lead: LeadRow; day: LeadHistory }
   | { type: "fullHistory"; lead: LeadRow }
+  | { type: "clientInfo"; info: ClientInfoData }
   | null;
 
 export function LeadTable({ leads }: { leads: LeadRow[] }) {
@@ -100,6 +115,7 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
   const [modal, setModal] = useState<Modal>(null);
   const [specialText, setSpecialText] = useState("");
   const [payTarget, setPayTarget] = useState<PayTarget | null>(null);
+  const [infoLoadingId, setInfoLoadingId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [finishing, setFinishing] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -172,6 +188,16 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
     startTransition(async () => {
       const res = await escalateLead(row.id);
       if (res.ok) setRows((prev) => prev.filter((r) => r.id !== row.id));
+    });
+  }
+
+  // Mijoz nomiga bosilganda — to'liq ma'lumot modali
+  function openClientInfo(row: LeadRow) {
+    setInfoLoadingId(row.id);
+    startTransition(async () => {
+      const res = await getClientInfo(row.id);
+      setInfoLoadingId(null);
+      if (res.ok) setModal({ type: "clientInfo", info: res.info });
     });
   }
 
@@ -322,12 +348,14 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
         <JoriyTable
           rows={filtered}
           saved={saved}
+          infoLoadingId={infoLoadingId}
           OutcomeSelect={OutcomeSelect}
           onNoteSave={(row, note) => {
             patchRow(row.id, { todayNote: note });
             save(row, row.todayOutcome, note);
           }}
           onBell={(lead) => setModal({ type: "specialView", lead })}
+          onInfo={openClientInfo}
           onSpecial={openSpecialEdit}
           onEscalate={onEscalate}
           onHistory={(lead) => setModal({ type: "fullHistory", lead })}
@@ -338,6 +366,7 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
           dayColumns={dayColumns}
           OutcomeSelect={OutcomeSelect}
           onBell={(lead) => setModal({ type: "specialView", lead })}
+          onInfo={openClientInfo}
           onCell={(lead, day) => setModal({ type: "history", lead, day })}
         />
       )}
@@ -379,6 +408,7 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
             <HistoryView lead={modal.lead} day={modal.day} />
           )}
           {modal.type === "fullHistory" && <FullHistoryView lead={modal.lead} />}
+          {modal.type === "clientInfo" && <ClientInfoView info={modal.info} />}
         </ModalOverlay>
       )}
 
@@ -401,18 +431,22 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
 function JoriyTable({
   rows,
   saved,
+  infoLoadingId,
   OutcomeSelect,
   onNoteSave,
   onBell,
+  onInfo,
   onSpecial,
   onEscalate,
   onHistory,
 }: {
   rows: LeadRow[];
   saved: Record<string, boolean>;
+  infoLoadingId: string | null;
   OutcomeSelect: (p: { row: LeadRow }) => React.ReactElement;
   onNoteSave: (row: LeadRow, note: string) => void;
   onBell: (lead: LeadRow) => void;
+  onInfo: (lead: LeadRow) => void;
   onSpecial: (lead: LeadRow) => void;
   onEscalate: (lead: LeadRow) => void;
   onHistory: (lead: LeadRow) => void;
@@ -454,9 +488,17 @@ function JoriyTable({
             >
               <td className="px-3 py-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-medium text-slate-900 dark:text-slate-100">
-                    {r.restaurantName}
-                  </span>
+                  <button
+                    type="button"
+                    title="Mijoz ma'lumotlarini ko'rish"
+                    onClick={() => onInfo(r)}
+                    className={
+                      "text-left font-medium text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline underline-offset-2 " +
+                      (infoLoadingId === r.id ? "opacity-50" : "")
+                    }
+                  >
+                    {leadName(r)}
+                  </button>
                   {r.specialNote && (
                     <button
                       title="Maxsus izoh"
@@ -586,7 +628,16 @@ function JoriyTable({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="font-medium text-slate-900 dark:text-slate-100">{r.restaurantName}</span>
+                <button
+                  type="button"
+                  onClick={() => onInfo(r)}
+                  className={
+                    "text-left font-medium text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline underline-offset-2 " +
+                    (infoLoadingId === r.id ? "opacity-50" : "")
+                  }
+                >
+                  {leadName(r)}
+                </button>
                 {r.specialNote && (
                   <button
                     title="Maxsus izoh"
@@ -690,12 +741,14 @@ function TarixTable({
   dayColumns,
   OutcomeSelect,
   onBell,
+  onInfo,
   onCell,
 }: {
   rows: LeadRow[];
   dayColumns: string[];
   OutcomeSelect: (p: { row: LeadRow }) => React.ReactElement;
   onBell: (lead: LeadRow) => void;
+  onInfo: (lead: LeadRow) => void;
   onCell: (lead: LeadRow, day: LeadHistory) => void;
 }) {
   const dayLabel = (d: string) => d.slice(8) + "." + d.slice(5, 7);
@@ -727,9 +780,14 @@ function TarixTable({
               <tr key={r.id}>
                 <td className="sticky left-0 z-10 border-b border-r border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-medium text-slate-900 dark:text-slate-100">
-                      {r.restaurantName}
-                    </span>
+                    <button
+                      type="button"
+                      title="Mijoz ma'lumotlarini ko'rish"
+                      onClick={() => onInfo(r)}
+                      className="text-left font-medium text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline underline-offset-2"
+                    >
+                      {leadName(r)}
+                    </button>
                     {r.specialNote && (
                       <button
                         title="Maxsus izoh"
@@ -839,6 +897,122 @@ function HistoryView({ lead, day }: { lead: LeadRow; day: LeadHistory }) {
       <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
         Xodim: {day.operator ?? "—"}
       </p>
+    </div>
+  );
+}
+
+/* Mijoz ma'lumotlari — lid jadvalida nomga bosilganda profilga kirmasdan ko'rish */
+function ClientInfoView({ info }: { info: ClientInfoData }) {
+  const InfoItem = ({ label, value }: { label: string; value: React.ReactNode }) => (
+    <div>
+      <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
+      <div className="text-sm text-slate-800 dark:text-slate-100">{value ?? "—"}</div>
+    </div>
+  );
+
+  return (
+    <div>
+      <h3 className="mb-0.5 text-base font-semibold text-slate-900 dark:text-slate-100">
+        {info.restaurantName}
+      </h3>
+      <p className="text-xs text-slate-500 dark:text-slate-400">
+        {info.fullName} · {clientStatusLabel(info.status)}
+      </p>
+
+      <div className="mt-3 max-h-[65vh] space-y-3 overflow-y-auto pr-1">
+        <div className="grid grid-cols-2 gap-3">
+          <InfoItem
+            label="Asosiy telefon"
+            value={
+              <span className="inline-flex items-center gap-1">
+                <a
+                  href={`tel:${normalizePhone(info.phone)}`}
+                  className="text-blue-600 dark:text-blue-400"
+                >
+                  {formatPhone(info.phone)}
+                </a>
+                <PhoneCopyButton phone={info.phone} />
+              </span>
+            }
+          />
+          {info.phones.map((p, i) => (
+            <InfoItem
+              key={i}
+              label={p.label}
+              value={
+                <span className="inline-flex items-center gap-1">
+                  <a
+                    href={`tel:${normalizePhone(p.number)}`}
+                    className="text-blue-600 dark:text-blue-400"
+                  >
+                    {formatPhone(p.number)}
+                  </a>
+                  <PhoneCopyButton phone={p.number} />
+                </span>
+              }
+            />
+          ))}
+          <InfoItem label="Viloyat" value={info.region} />
+          <InfoItem label="Operator" value={info.operatorName} />
+          <InfoItem label="Shartnoma raqami" value={info.contractNumber} />
+          <InfoItem
+            label="Shartnoma sanasi"
+            value={info.contractDate ? formatDate(info.contractDate) : null}
+          />
+          <InfoItem label="Kim o'rnatgan" value={info.installerName} />
+          <InfoItem label="Texnika" value={equipmentModeLabel(info.equipmentMode)} />
+          <InfoItem label="Apparat" value={info.equipment} />
+          <InfoItem label="Monoblok soni" value={String(info.monoblokCount)} />
+          <InfoItem
+            label="Oylik to'lov"
+            value={formatMoney(info.monthlyAmount, info.currency)}
+          />
+          <InfoItem
+            label="Keyingi to'lov"
+            value={info.nextPaymentDate ? formatDate(info.nextPaymentDate) : null}
+          />
+          <InfoItem
+            label="Oxirgi to'lov"
+            value={
+              info.lastPayment
+                ? `${formatMoney(info.lastPayment.amount, info.lastPayment.currency)} · ${formatDate(info.lastPayment.paidAt)}`
+                : null
+            }
+          />
+        </div>
+
+        {info.equipmentItems.length > 0 && (
+          <div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">Uskunalar</div>
+            <ul className="mt-1 space-y-0.5 text-sm text-slate-800 dark:text-slate-100">
+              {info.equipmentItems.map((e, i) => (
+                <li key={i}>
+                  {e.name} × {e.quantity}{" "}
+                  <span className="text-xs text-slate-400 dark:text-slate-500">
+                    ({ownershipLabel(e.ownership)})
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {info.notes && (
+          <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 p-3">
+            <div className="text-xs text-slate-500 dark:text-slate-400">Izoh</div>
+            <p className="mt-0.5 text-sm text-slate-700 dark:text-slate-200">{info.notes}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3">
+        <a
+          href={`/mijozlar/${info.id}`}
+          className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700"
+        >
+          To'liq profil <ArrowUpRight className="h-3.5 w-3.5" />
+        </a>
+      </div>
     </div>
   );
 }

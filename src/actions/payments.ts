@@ -10,7 +10,8 @@ import { logAudit } from "@/lib/audit";
 import { saveReceipt } from "@/lib/receipts";
 import { sendPaymentToChannel, escapeHtml } from "@/lib/telegram";
 import { formatMoney, formatDate } from "@/lib/utils";
-import { currencyEnum, noteString } from "@/lib/validation";
+import { PAYMENT_METHOD, type PaymentMethod } from "@/lib/constants";
+import { currencyEnum, noteString, paymentMethodEnum } from "@/lib/validation";
 import type { SessionPayload } from "@/lib/session";
 
 // Mijoz/to'lov bilan ishlovchi xodimlar (usta — INSTALLER taqiqlanadi)
@@ -26,6 +27,7 @@ const paymentSchema = z.object({
   currency: currencyEnum.default("USD"),
   paidAt: z.string().optional(),
   months: z.coerce.number().int().min(1).max(24).default(1),
+  method: paymentMethodEnum.default("CARD"),
   receiptNote: noteString.optional(),
 });
 
@@ -57,6 +59,7 @@ function paymentCaption(
     amount: number;
     currency: string;
     months: number;
+    method: string;
     paidAt: Date;
     nextPaymentDate: Date;
     operatorName: string;
@@ -72,6 +75,7 @@ function paymentCaption(
     client.region ? `📍 ${escapeHtml(client.region)}` : null,
     client.contractNumber ? `📄 Shartnoma: ${escapeHtml(client.contractNumber)}` : null,
     `💵 To'lov: <b>${formatMoney(p.amount, p.currency)}</b>${p.months > 1 ? ` (${p.months} oy)` : ""}`,
+    `💳 Usul: ${PAYMENT_METHOD[p.method as PaymentMethod] ?? p.method}`,
     `📅 Sana: ${formatDate(p.paidAt)}`,
     `🔜 Keyingi to'lov: ${formatDate(p.nextPaymentDate)}`,
     `🧾 Qabul qildi: ${escapeHtml(p.operatorName)}`,
@@ -85,7 +89,14 @@ function paymentCaption(
 async function processPayment(
   session: SessionPayload,
   clientId: string,
-  fields: { amount: number; currency: string; months: number; paidAt?: string; receiptNote?: string },
+  fields: {
+    amount: number;
+    currency: string;
+    months: number;
+    method: string;
+    paidAt?: string;
+    receiptNote?: string;
+  },
   receipt: { buffer: Buffer; mime: string },
 ): Promise<{ ok: true; paymentId: string } | { ok: false; error: string }> {
   const client = await db.client.findUnique({
@@ -109,6 +120,7 @@ async function processPayment(
       paidAt,
       periodStart: base,
       periodEnd: nextPaymentDate,
+      method: fields.method,
       receiptNote: fields.receiptNote ?? null,
       recordedById: session.userId,
     },
@@ -140,6 +152,7 @@ async function processPayment(
     amount,
     currency,
     months,
+    method: fields.method,
     paidAt,
     nextPaymentDate,
     operatorName: session.name,
@@ -170,6 +183,7 @@ export async function recordPayment(
     currency: s(formData.get("currency")) ?? "USD",
     paidAt: s(formData.get("paidAt")),
     months: s(formData.get("months")) ?? 1,
+    method: s(formData.get("method")) ?? "CARD",
     receiptNote: s(formData.get("receiptNote")),
   });
   if (!parsed.success) {
@@ -199,6 +213,7 @@ export async function recordLeadPayment(
     currency: s(formData.get("currency")) ?? "USD",
     paidAt: s(formData.get("paidAt")),
     months: s(formData.get("months")) ?? 1,
+    method: s(formData.get("method")) ?? "CARD",
     receiptNote: s(formData.get("receiptNote")),
   });
   if (!parsed.success) {
@@ -211,12 +226,15 @@ export async function recordLeadPayment(
   const res = await processPayment(g.session, clientId, parsed.data, rc);
   if (!res.ok) return { error: res.error };
 
-  // Lid natijasi: "To'lov qildi" → bo'lim RESOLVED
+  // Lid natijasi: "To'lov qildi" → bo'lim RESOLVED (izoh — to'lov usuli)
   await db.callLog.create({
     data: {
       clientId,
       result: "PAID",
-      note: parsed.data.receiptNote ?? null,
+      note:
+        parsed.data.receiptNote ??
+        PAYMENT_METHOD[parsed.data.method as PaymentMethod] ??
+        null,
       operatorId: g.session.userId,
     },
   });

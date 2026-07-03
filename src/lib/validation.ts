@@ -8,6 +8,7 @@ import {
   EQUIPMENT_MODE,
   LEAD_OUTCOME,
   LEAD_STAGE,
+  PAYMENT_METHOD,
   TICKET_TYPE,
   TICKET_PRIORITY,
   TICKET_STATUS,
@@ -19,6 +20,7 @@ function keysOf(obj: Record<string, unknown>): [string, ...string[]] {
 }
 
 export const currencyEnum = z.enum(keysOf(CURRENCY)); // USD | UZS
+export const paymentMethodEnum = z.enum(keysOf(PAYMENT_METHOD)); // CARD | QR
 export const clientStatusEnum = z.enum(keysOf(CLIENT_STATUS)); // ACTIVE | INACTIVE | PENDING
 export const equipmentModeEnum = z.enum(keysOf(EQUIPMENT_MODE));
 export const leadOutcomeEnum = z.enum(keysOf(LEAD_OUTCOME));

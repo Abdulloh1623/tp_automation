@@ -14,7 +14,7 @@ import {
   type ImportReport,
   type ImportRow,
 } from "@/actions/import";
-import { parseCsvWithHeader, type ParsedCsv } from "@/lib/csv";
+import { parseCsvWithHeader, aoaToParsed, type ParsedCsv } from "@/lib/csv";
 import { IMPORT_FIELDS, guessMapping } from "@/lib/import-fields";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,11 +33,12 @@ export function CsvImport() {
   const [error, setError] = useState<string | null>(null);
   const [pasteText, setPasteText] = useState("");
   const [loading, setLoading] = useState(false);
+  // Excel'da bir nechta varaq bo'lsa — tanlash uchun (nom + tayyor parse natijasi)
+  const [sheets, setSheets] = useState<{ name: string; parsed: ParsedCsv }[] | null>(null);
 
-  function ingest(text: string) {
-    const p = parseCsvWithHeader(text);
+  function ingestParsed(p: ParsedCsv, sourceLabel = "Fayl") {
     if (p.headers.length === 0 || p.rows.length === 0) {
-      setError("CSV bo'sh yoki sarlavha/qatorlar topilmadi");
+      setError(`${sourceLabel} bo'sh yoki sarlavha/qatorlar topilmadi`);
       setParsed(null);
       return;
     }
@@ -47,9 +48,45 @@ export function CsvImport() {
     setMapping(guessMapping(p.headers));
   }
 
-  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+  function ingest(text: string) {
+    ingestParsed(parseCsvWithHeader(text), "CSV");
+  }
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setSheets(null);
+    if (/\.(xlsx|xls)$/i.test(file.name)) {
+      try {
+        const buf = await file.arrayBuffer();
+        const XLSX = await import("xlsx"); // faqat kerak bo'lganda yuklanadi
+        const wb = XLSX.read(buf, { type: "array" });
+        // raw:false — Excel'dagi ko'rinishdagi matn (sana/raqam formatlari saqlanadi)
+        const all = wb.SheetNames.map((name) => ({
+          name,
+          parsed: aoaToParsed(
+            XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[name], {
+              header: 1,
+              raw: false,
+              defval: "",
+            }),
+          ),
+        })).filter((s) => s.parsed.rows.length > 0);
+        if (all.length === 0) {
+          setError("Excel faylida ma'lumotli varaq topilmadi");
+          return;
+        }
+        if (all.length === 1) {
+          ingestParsed(all[0].parsed, "Excel");
+        } else {
+          setError(null);
+          setSheets(all); // foydalanuvchi varaqni tanlaydi
+        }
+      } catch {
+        setError("Excel faylni o'qib bo'lmadi — fayl buzuq bo'lishi mumkin");
+      }
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => ingest(String(reader.result ?? ""));
     reader.readAsText(file, "utf-8");
@@ -61,6 +98,7 @@ export function CsvImport() {
     setReport(null);
     setError(null);
     setPasteText("");
+    setSheets(null);
   }
 
   function buildRows(): ImportRow[] {
@@ -101,22 +139,48 @@ export function CsvImport() {
       {/* 1-qadam: fayl yoki matn */}
       <Card>
         <CardHeader>
-          <CardTitle>1. CSV faylni yuklang yoki joylashtiring</CardTitle>
+          <CardTitle>1. Excel yoki CSV faylni yuklang</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-6 py-8 text-center hover:border-blue-400 hover:bg-blue-50/40 dark:hover:bg-blue-950/40">
             <Upload className="h-6 w-6 text-slate-400 dark:text-slate-500" />
             <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-              CSV faylni tanlang
+              Excel yoki CSV faylni tanlang
             </span>
-            <span className="text-xs text-slate-400 dark:text-slate-500">.csv</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500">.xlsx · .xls · .csv</span>
             <input
               type="file"
-              accept=".csv,text/csv"
+              accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
               className="hidden"
               onChange={onFile}
             />
           </label>
+
+          {sheets && (
+            <div className="rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/30 p-4">
+              <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                <FileSpreadsheet className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                Excel'da bir nechta varaq bor — qaysi birini import qilamiz?
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {sheets.map((s) => (
+                  <Button
+                    key={s.name}
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      ingestParsed(s.parsed, `"${s.name}" varag'i`);
+                      setSheets(null);
+                    }}
+                  >
+                    {s.name}
+                    <span className="ml-1 text-xs text-slate-400">({s.parsed.rows.length})</span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <Label htmlFor="paste">Yoki CSV matnini joylashtiring</Label>

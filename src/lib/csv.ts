@@ -111,3 +111,32 @@ export function parseCsvWithHeader(input: string): ParsedCsv {
     lines: data.map((r) => r.line),
   };
 }
+
+/**
+ * Excel varag'idan olingan xom massivni (aoa — array of arrays) ParsedCsv'ga
+ * aylantiradi: sarlavha = birinchi bo'sh bo'lmagan qator, to'liq bo'sh qatorlar
+ * tashlanadi, `lines` Excel'dagi haqiqiy qator raqamini saqlaydi (1-asosli).
+ */
+export function aoaToParsed(aoa: unknown[][]): ParsedCsv {
+  const toCell = (v: unknown) => String(v ?? "").trim();
+  // Excel'da tepada bo'sh qatorlar uchraydi — sarlavhagacha o'tkazib yuboramiz
+  let headerIdx = 0;
+  while (headerIdx < aoa.length && (aoa[headerIdx] ?? []).every((c) => toCell(c) === "")) {
+    headerIdx += 1;
+  }
+  if (headerIdx >= aoa.length) return { headers: [], rows: [], lines: [] };
+  const headers = (aoa[headerIdx] ?? []).map(toCell);
+  // Sarlavhadagi oxirgi bo'sh ustunlarni qisqartiramiz
+  let width = headers.length;
+  while (width > 0 && headers[width - 1] === "") width -= 1;
+  const rows: string[][] = [];
+  const lines: number[] = [];
+  for (let i = headerIdx + 1; i < aoa.length; i++) {
+    const cells = (aoa[i] ?? []).slice(0, width).map(toCell);
+    while (cells.length < width) cells.push("");
+    if (cells.every((c) => c === "")) continue; // bo'sh qator
+    rows.push(cells);
+    lines.push(i + 1); // Excel qatori (1-asosli)
+  }
+  return { headers: headers.slice(0, width), rows, lines };
+}

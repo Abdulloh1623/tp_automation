@@ -81,6 +81,7 @@ export default async function PaymentsPage() {
       restaurantName: c.restaurantName,
       fullName: c.fullName,
       phone: c.phone,
+      region: c.region,
       state,
       stateLabel: PAYMENT_STATE_LABEL[state],
       nextPaymentFmt: formatDate(c.nextPaymentDate),

@@ -5,7 +5,8 @@ import { Resvg } from "@resvg/resvg-js";
 export function svgToPng(svg: string, width?: number): Buffer {
   const r = new Resvg(svg, {
     fitTo: width ? { mode: "width", value: width } : { mode: "original" },
-    font: { loadSystemFonts: true, defaultFontFamily: "Arial" },
+    // Docker'da DejaVu Sans (Dockerfile'da o'rnatiladi), Windows dev'da Arial topiladi
+    font: { loadSystemFonts: true, defaultFontFamily: "DejaVu Sans" },
   });
   return Buffer.from(r.render().asPng());
 }

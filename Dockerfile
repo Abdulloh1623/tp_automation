@@ -21,9 +21,10 @@ ENV NODE_ENV=production
 ENV TZ=Asia/Tashkent
 
 # openssl — Prisma uchun; postgresql-client-16 — worker pg_dump backup uchun (server pg16);
-# curl — healthcheck uchun.
+# curl — healthcheck uchun; fontconfig + DejaVu — hisobot rasmlari (resvg) matni uchun
+# (slim image'da shrift YO'Q — bo'lmasa chart'lar matnsiz "bo'sh" chiqadi).
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends openssl ca-certificates curl gnupg \
+  && apt-get install -y --no-install-recommends openssl ca-certificates curl gnupg fontconfig fonts-dejavu-core \
   && install -d /usr/share/postgresql-common/pgdg \
   && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
   && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \

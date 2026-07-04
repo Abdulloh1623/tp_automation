@@ -49,3 +49,6 @@ next-env.d.ts
 
 # import uchun xom manba fayllar (Excel/CSV — mijoz PII, hech qachon commit qilinmaydi)
 /_import/
+
+# AI/agent uchun ichki kontekst hujjati (lokalda ishlatiladi, GitHub'ga chiqmaydi)
+/AI_CONTEXT.md

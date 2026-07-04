@@ -48,6 +48,24 @@ export function toFieldErrors(err: z.ZodError): Record<string, string> {
   return out;
 }
 
+/**
+ * Faol (ACTIVE) mijoz profili keyingi to'lov sanasisiz saqlanmasin — biznes
+ * qoidasi: faol obuna doim to'lov tsikliga ega bo'lishi shart. `clientSchema`
+ * ga `.superRefine()` sifatida ulanadi. PENDING/INACTIVE mijozlarga tegmaydi.
+ */
+export function requireActivePaymentDate(
+  data: { status?: string | null; nextPaymentDate?: string | null },
+  ctx: z.RefinementCtx,
+): void {
+  if (data.status === "ACTIVE" && !data.nextPaymentDate) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["nextPaymentDate"],
+      message: "Faol mijoz uchun keyingi to'lov sanasi majburiy",
+    });
+  }
+}
+
 export const isCurrency = (v: unknown): boolean => currencyEnum.safeParse(v).success;
 export const isClientStatus = (v: unknown): boolean => clientStatusEnum.safeParse(v).success;
 export const isLeadOutcome = (v: unknown): boolean => leadOutcomeEnum.safeParse(v).success;

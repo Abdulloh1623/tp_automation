@@ -8,7 +8,14 @@ import { guardRole } from "@/lib/auth";
 import { canMutateClient, resolveAssignee } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { normalizeRegion } from "@/lib/constants";
-import { clientStatusEnum, currencyEnum, noteString, toFieldErrors } from "@/lib/validation";
+import { computeNextPaymentDate } from "@/lib/billing";
+import {
+  clientStatusEnum,
+  currencyEnum,
+  noteString,
+  requireActivePaymentDate,
+  toFieldErrors,
+} from "@/lib/validation";
 
 const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
 
@@ -33,7 +40,7 @@ const clientSchema = z.object({
   nextPaymentDate: z.string().optional(),
   notes: noteString.optional(),
   assignedToId: z.string().optional(),
-});
+}).superRefine(requireActivePaymentDate);
 
 export type ClientFormState = { error?: string; fieldErrors?: Record<string, string> };
 
@@ -51,20 +58,35 @@ function parsePhones(formData: FormData): { label: string; number: string }[] {
 }
 
 function parseForm(formData: FormData) {
+  const status = s(formData.get("status")) ?? "ACTIVE";
+  const contractDate = s(formData.get("contractDate"));
+  let nextPaymentDate = s(formData.get("nextPaymentDate"));
+
+  // Faol mijozga to'lov sanasi kiritilmagan, ammo shartnoma sanasi bor bo'lsa —
+  // uni shartnoma kunidan avtomatik hisoblaymiz (to'lov sanasi hech qachon bo'sh
+  // qolmasligi kerak). Shartnoma sanasi ham bo'lmasa — pastdagi Zod tekshiruvi
+  // (`requireActivePaymentDate`) xato qaytaradi.
+  if (status === "ACTIVE" && !nextPaymentDate && contractDate) {
+    const anchor = new Date(contractDate);
+    if (!Number.isNaN(anchor.getTime())) {
+      nextPaymentDate = computeNextPaymentDate(anchor).toISOString().slice(0, 10);
+    }
+  }
+
   return clientSchema.safeParse({
     fullName: s(formData.get("fullName")),
     restaurantName: s(formData.get("restaurantName")),
     region: s(formData.get("region")),
     phone: s(formData.get("phone")),
     contractNumber: s(formData.get("contractNumber")),
-    contractDate: s(formData.get("contractDate")),
+    contractDate,
     installerName: s(formData.get("installerName")),
     monoblokCount: s(formData.get("monoblokCount")) ?? 1,
     equipment: s(formData.get("equipment")),
-    status: s(formData.get("status")) ?? "ACTIVE",
+    status,
     monthlyAmount: s(formData.get("monthlyAmount")) ?? 0,
     currency: s(formData.get("currency")) ?? "USD",
-    nextPaymentDate: s(formData.get("nextPaymentDate")),
+    nextPaymentDate,
     notes: s(formData.get("notes")),
     assignedToId: s(formData.get("assignedToId")),
   });

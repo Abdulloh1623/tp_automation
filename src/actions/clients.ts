@@ -185,6 +185,74 @@ export async function quickCompleteClient(
   return { ok: true };
 }
 
+/**
+ * Mijozni "Otkaz" (xizmatdan voz kechgan) deb belgilash — mijoz kartochkasidan
+ * (`/mijozlar/[id]`) chaqiriladi.
+ *
+ * MUHIM: `quickCompleteClient` kabi bu ham egalik tekshiruvidan (`canMutateClient`)
+ * ATAYIN ISTISNO — ISTAGAN xodim (ADMIN/OPERATOR/MANAGER) mijozni otkaz qila oladi,
+ * lekin kim, qaysi mijozni belgilagani AuditLog'ga to'liq yoziladi. Belgilangach
+ * mijoz kunlik ish taxtasi (`/lidlar`) va faol ro'yxatlardan butunlay chiqadi
+ * (stage=REFUSED, status=INACTIVE, assignedToId va pendingStage tozalanadi).
+ */
+export async function refuseClient(
+  clientId: string,
+  reason?: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const g = await guardRole(STAFF);
+  if (!g.ok) return { ok: false, error: g.error };
+
+  const client = await db.client.findUnique({
+    where: { id: clientId },
+    select: { id: true, restaurantName: true, stage: true },
+  });
+  if (!client) return { ok: false, error: "Mijoz topilmadi" };
+  if (client.stage === "REFUSED") {
+    return { ok: false, error: "Mijoz allaqachon otkazda" };
+  }
+
+  const note = (reason ?? "").trim().slice(0, 2000) || null;
+
+  // Otkaz + nofaol qilamiz va kunlik ish holatini butunlay tozalaymiz, shunda
+  // mijoz na taxtada, na overdue qarzdorlar oqimida qayta paydo bo'lmaydi.
+  await db.client.update({
+    where: { id: clientId },
+    data: {
+      stage: "REFUSED",
+      status: "INACTIVE",
+      assignedToId: null,
+      pendingStage: null,
+      lastOutcome: "REFUSED",
+      lastContactedAt: new Date(),
+      missedCallCount: 0,
+      nextContactDate: null,
+    },
+  });
+
+  // Sabab /otkaz sahifasida "Sabab" bo'lib ko'rinishi uchun oxirgi izohli CallLog.
+  await db.callLog.create({
+    data: {
+      clientId,
+      result: "REFUSED",
+      note,
+      operatorId: g.session.userId,
+    },
+  });
+
+  await logAudit("Mijoz otkaz qilindi (kartochkadan)", {
+    entity: "Client",
+    entityId: clientId,
+    detail: note ? `${client.restaurantName}: ${note}` : client.restaurantName,
+  });
+
+  revalidatePath("/lidlar");
+  revalidatePath("/mijozlar");
+  revalidatePath(`/mijozlar/${clientId}`);
+  revalidatePath("/otkaz");
+  revalidatePath("/");
+  return { ok: true };
+}
+
 /** Bir nechta mijozni operatorga (yoki bo'sh — biriktirilmagan) ommaviy biriktirish. */
 export async function bulkAssignOperator(
   clientIds: string[],

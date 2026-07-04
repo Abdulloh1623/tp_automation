@@ -84,14 +84,43 @@ docker compose exec worker ls -lh backups
 ```
 Tavsiya: `backups` hajmini kuniga bir marta **S3**'ga sync qiling (cron + `aws s3 sync`), offsite nusxa uchun.
 
-## 7. Yangilash (deploy)
+## 7. Yangilash (deploy) va rollback
+
+Kod **serverda BUILD QILINMAYDI** — `main`'ga push bo'lганда GitHub Actions
+(`deploy.yml`) image quradi va GHCR'ga ikkita teg bilan yuklaydi: `:latest` va
+`:<git-sha>` (immutable). Server faqat tayyor image'ni **pull** qiladi
+(kichik EC2'da `next build` OOM'ini butunlay yo'q qiladi).
+
+**Deploy (serverda):**
 
 ```bash
 cd tp_automation
-git pull
-docker compose up -d --build      # migratsiya avtomatik qo'llanadi
+./scripts/deploy-pull.sh          # pre-deploy pg_dump → git pull → SHA'ga pin → up -d
 docker compose logs -f app worker # loglar
 ```
+
+`deploy-pull.sh` har deployда:
+1. **pre-deploy `pg_dump`** oladi (`backups/pre-deploy/`) — rollback uchun mos DB nusxasi;
+2. `TP_IMAGE` ni joriy commit **SHA**'ga pin qiladi va `.env`'ga saqlaydi
+   (reboot/manual `up -d` ham aynan shu versiyada qoladi — `:latest` emas);
+3. `.deploy-history`'ga yozadi (rollback shundan foydalanadi).
+
+**Rollback (buzuq reliz bo'lsa):**
+
+```bash
+./scripts/rollback.sh             # bir oldingi deployga qaytadi
+./scripts/rollback.sh <git-sha>   # aniq versiyaga qaytadi
+./scripts/rollback.sh --list      # so'nggi deploylar ro'yxati
+```
+
+Oldingi image lokalda tag'langan (dangling emas) → `image prune` uni o'chirmaydi →
+rollback tarmoqsiz, bir necha soniyada bajariladi.
+
+> ⚠️ **Schema rollback:** `rollback.sh` faqat **app image**'ini qaytaradi. Prisma
+> migratsiyalari `up -d`'da avtomatik qo'llanadi va **avtomatik orqaga qaytmaydi**.
+> Migratsiyalarни **additive** (ustun o'chirmaydigan/nom o'zgartirmaydigan) qilib
+> yozing — shunda image rollback har doim xavfsiz. Agar reliz destructive migratsiya
+> bo'lsa, mos `backups/pre-deploy/*.sql.gz` dump'ini tiklang.
 
 ## 8. Foydali buyruqlar
 

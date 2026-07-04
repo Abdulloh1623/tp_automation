@@ -28,6 +28,10 @@ export default async function LeadsPage({
     db.client.findMany({
       where: {
         assignedToId: viewerId,
+        // Otkaz qilingan / nofaol mijozlar kunlik taxtaga hech qachon chiqmaydi
+        // (otkaz on-demand ham, finishDay orqali ham shu yerda kesiladi).
+        stage: { not: "REFUSED" },
+        status: { not: "INACTIVE" },
         OR: [
           // Kunlik ish ro'yxati (faol bo'limlar, muddati kelgan)
           {

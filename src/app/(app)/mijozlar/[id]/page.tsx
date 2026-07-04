@@ -11,6 +11,7 @@ import {
   Calendar,
   Banknote,
   History,
+  Ban,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
@@ -30,6 +31,7 @@ import {
   TicketTypeBadge,
 } from "@/components/status-badge";
 import { CallLogForm } from "@/components/call-log-form";
+import { ClientRefuseButton } from "@/components/client-refuse-button";
 import { PaymentForm } from "@/components/payment-form";
 import { TicketForm } from "@/components/ticket-form";
 import { TicketStatusControl } from "@/components/ticket-status-control";
@@ -144,13 +146,26 @@ export default async function ClientDetailPage({
               {client.restaurantName}
             </h1>
             <ClientStatusBadge status={client.status} />
+            {client.stage === "REFUSED" && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-950 px-2.5 py-0.5 text-xs font-medium text-rose-700 dark:text-rose-300">
+                <Ban className="h-3 w-3" /> Otkaz
+              </span>
+            )}
           </div>
-          <Link href={`/mijozlar/${client.id}/tahrir`}>
-            <Button variant="outline" size="sm">
-              <Pencil className="h-4 w-4" />
-              Tahrirlash
-            </Button>
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            {client.stage !== "REFUSED" && (
+              <ClientRefuseButton
+                clientId={client.id}
+                restaurantName={client.restaurantName}
+              />
+            )}
+            <Link href={`/mijozlar/${client.id}/tahrir`}>
+              <Button variant="outline" size="sm">
+                <Pencil className="h-4 w-4" />
+                Tahrirlash
+              </Button>
+            </Link>
+          </div>
         </div>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{client.fullName}</p>
       </div>

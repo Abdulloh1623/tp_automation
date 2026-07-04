@@ -55,6 +55,10 @@ export default async function ClientsPage({
   }
   if (region) where.region = region;
   if (status) where.status = status;
+  // Otkaz qilingan mijozlar umumiy (faol) ro'yxatda ko'rinmaydi. Ular faqat
+  // /otkaz sahifasida yoki holat filtri (masalan "O'chirilgan") tanlanganda
+  // ochiladi — shu bilan faol ro'yxat toza qoladi.
+  else where.stage = { not: "REFUSED" };
   if (assigned === "__none__") where.assignedToId = null;
   else if (assigned) where.assignedToId = assigned;
 

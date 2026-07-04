@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ReceiptInput } from "@/components/receipt-input";
-import { CURRENCY } from "@/lib/constants";
+import { CURRENCY, PAYMENT_METHOD } from "@/lib/constants";
 
 export function PaymentForm({
   clientId,
@@ -30,7 +30,7 @@ export function PaymentForm({
   const [currency, setCurrency] = useState(defaultCurrency);
   const [months, setMonths] = useState("1");
   const [paidAt, setPaidAt] = useState("");
-  const [note, setNote] = useState("");
+  const [method, setMethod] = useState("CARD");
 
   function submit() {
     setError(null);
@@ -43,14 +43,13 @@ export function PaymentForm({
     fd.set("currency", currency);
     fd.set("months", months);
     if (paidAt) fd.set("paidAt", paidAt);
-    if (note) fd.set("receiptNote", note);
+    fd.set("method", method);
     fd.set("receipt", receipt);
     start(async () => {
       const res = await recordPayment(clientId, fd);
       if (res.ok) {
         setDone(true);
         setReceipt(null);
-        setNote("");
         router.refresh();
       } else {
         setError(res.error ?? "Xatolik");
@@ -102,8 +101,14 @@ export function PaymentForm({
         </div>
       </div>
       <div>
-        <Label>Izoh</Label>
-        <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="masalan: karta orqali" />
+        <Label>To'lov usuli</Label>
+        <Select value={method} onChange={(e) => setMethod(e.target.value)}>
+          {Object.entries(PAYMENT_METHOD).map(([key, label]) => (
+            <option key={key} value={key}>
+              {label}
+            </option>
+          ))}
+        </Select>
       </div>
       <div>
         <Label>Chek (rasm) *</Label>

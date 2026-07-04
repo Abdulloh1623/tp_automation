@@ -14,6 +14,17 @@ export const CURRENCY = {
 } as const;
 export type Currency = keyof typeof CURRENCY;
 
+// To'lov usuli — chek qabul qilishda tanlanadi (izoh o'rniga)
+export const PAYMENT_METHOD = {
+  CARD: "Karta orqali",
+  QR: "QR kod orqali",
+} as const;
+export type PaymentMethod = keyof typeof PAYMENT_METHOD;
+
+export function paymentMethodLabel(m?: string | null): string {
+  return PAYMENT_METHOD[m as PaymentMethod] ?? (m ?? "");
+}
+
 export const USER_ROLE = {
   ADMIN: "Administrator",
   MANAGER: "Texnik bo'lim boshlig'i",

@@ -440,6 +440,94 @@ export async function revertLead(
   return { ok: true };
 }
 
+// Lid jadvalidagi modal uchun mijozning to'liq ma'lumoti (faqat o'qish)
+export type ClientInfoData = {
+  id: string;
+  restaurantName: string;
+  fullName: string;
+  region: string | null;
+  status: string;
+  phone: string;
+  phones: { label: string; number: string }[];
+  contractNumber: string | null;
+  contractDate: string | null;
+  installerName: string | null;
+  equipment: string | null;
+  equipmentMode: string;
+  monoblokCount: number;
+  equipmentItems: { name: string; quantity: number; ownership: string }[];
+  monthlyAmount: number;
+  currency: string;
+  nextPaymentDate: string | null;
+  notes: string | null;
+  operatorName: string | null;
+  lastPayment: { amount: number; currency: string; paidAt: string } | null;
+};
+
+export type ClientInfoState =
+  | { ok: true; info: ClientInfoData }
+  | { ok: false; error: string };
+
+/** Lidlar jadvalida mijoz nomiga bosilganda ko'rsatiladigan ma'lumotlar. */
+export async function getClientInfo(clientId: string): Promise<ClientInfoState> {
+  const g = await guardRole(STAFF);
+  if (!g.ok) return { ok: false, error: g.error };
+  if (!(await canMutateClient(g.session, clientId))) {
+    return { ok: false, error: "Bu mijoz sizga biriktirilmagan" };
+  }
+
+  const c = await db.client.findUnique({
+    where: { id: clientId },
+    include: {
+      phones: { orderBy: { createdAt: "asc" } },
+      equipmentItems: { include: { equipmentType: { select: { name: true } } } },
+      assignedTo: { select: { name: true } },
+      payments: {
+        orderBy: { paidAt: "desc" },
+        take: 1,
+        select: { amount: true, currency: true, paidAt: true },
+      },
+    },
+  });
+  if (!c) return { ok: false, error: "Mijoz topilmadi" };
+
+  return {
+    ok: true,
+    info: {
+      id: c.id,
+      restaurantName: c.restaurantName,
+      fullName: c.fullName,
+      region: c.region,
+      status: c.status,
+      phone: c.phone,
+      phones: c.phones.map((p) => ({ label: p.label, number: p.number })),
+      contractNumber: c.contractNumber,
+      contractDate: c.contractDate ? c.contractDate.toISOString() : null,
+      installerName: c.installerName,
+      equipment: c.equipment,
+      equipmentMode: c.equipmentMode,
+      monoblokCount: c.monoblokCount,
+      equipmentItems: c.equipmentItems.map((e) => ({
+        name: e.equipmentType.name,
+        quantity: e.quantity,
+        ownership: e.ownership,
+      })),
+      monthlyAmount: c.monthlyAmount,
+      currency: c.currency,
+      nextPaymentDate: c.nextPaymentDate ? c.nextPaymentDate.toISOString() : null,
+      notes: c.notes,
+      operatorName: c.assignedTo?.name ?? null,
+      lastPayment: c.payments[0]
+        ? {
+            amount: c.payments[0].amount,
+            currency: c.payments[0].currency,
+            paidAt: c.payments[0].paidAt.toISOString(),
+          }
+        : null,
+    },
+  };
+}
+
 /** Qo'lda eskalatsiya — lid darhol boshliq navbatiga (ESCALATED) o'tadi. */
 export async function escalateLead(
   clientId: string,

@@ -195,7 +195,9 @@ export function ClientForm({
             name="nextPaymentDate"
             type="date"
             defaultValue={toDateInputValue(v.nextPaymentDate)}
+            aria-invalid={!!fe.nextPaymentDate}
           />
+          <FieldError message={fe.nextPaymentDate} />
         </div>
       </div>
 

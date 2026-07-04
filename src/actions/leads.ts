@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { guardRole } from "@/lib/auth";
 import { canMutateClient } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
+import { computeNextPaymentDate } from "@/lib/billing";
 
 const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
 import {
@@ -197,6 +198,9 @@ export async function finishDay(
 
     // Keyingi aloqa sanasini tizim holatga qarab belgilaydi
     let nextContactDate: Date | null;
+    // Hal bo'lgan (obuna faol) mijozning to'lov sanasi bo'sh qolsa — shartnoma
+    // sanasidan hisoblaymiz, faol mijoz hech qachon to'lov sanasisiz qolmasin.
+    let paymentPatch: Date | undefined;
     switch (target) {
       case "NO_ANSWER":
         nextContactDate = addDays(today, 1); // ertaga qayta urinish
@@ -214,7 +218,12 @@ export async function finishDay(
         nextContactDate = addDays(today, 1); // usta tez ko'rib chiqsin
         break;
       case "RESOLVED":
-        nextContactDate = lead.nextPaymentDate ?? null;
+        if (lead.status === "ACTIVE" && !lead.nextPaymentDate) {
+          paymentPatch = computeNextPaymentDate(lead.contractDate ?? lead.createdAt);
+          nextContactDate = paymentPatch;
+        } else {
+          nextContactDate = lead.nextPaymentDate ?? null;
+        }
         break;
       default: // DEACTIVATED yoki noma'lum
         nextContactDate = null;
@@ -222,7 +231,12 @@ export async function finishDay(
 
     await db.client.update({
       where: { id: lead.id },
-      data: { stage: target, pendingStage: null, nextContactDate },
+      data: {
+        stage: target,
+        pendingStage: null,
+        nextContactDate,
+        ...(paymentPatch ? { nextPaymentDate: paymentPatch } : {}),
+      },
     });
   }
 

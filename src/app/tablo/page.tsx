@@ -9,7 +9,8 @@ export const metadata = {
 };
 
 export default async function TabloPage() {
-  await requireSession();
+  const session = await requireSession();
   const initial = await getAnalytics();
-  return <TvBoard initial={initial} />;
+  const canManage = session.role === "ADMIN" || session.role === "MANAGER";
+  return <TvBoard initial={initial} canManage={canManage} />;
 }

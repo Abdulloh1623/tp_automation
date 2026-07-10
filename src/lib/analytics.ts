@@ -1,4 +1,4 @@
-import { startOfDay, startOfMonth, startOfWeek } from "date-fns";
+import { addDays, startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { db } from "@/lib/db";
 import {
   CLIENT_STATUS,
@@ -16,11 +16,49 @@ export function isDayShift(name: string): boolean {
   return !/kechki/i.test(name);
 }
 
+// --- Smena (shift) oynalari ---
+// Kunduzgi: bugun 09:00 → 18:00. Kechki: 18:00 → ertasi 09:00 (yarim tunni kesib o'tadi).
+export type Shift = "DAY" | "NIGHT";
+
+const DAY_START_HOUR = 9;
+const DAY_END_HOUR = 18;
+
+/** `base` sanasining aynan shu kunidagi soatni (00 daqiqa) qaytaradi. */
+function atHour(base: Date, hour: number): Date {
+  const d = new Date(base);
+  d.setHours(hour, 0, 0, 0);
+  return d;
+}
+
+/** Berilgan vaqtdagi joriy smena: 09:00–18:00 oralig'i — kunduzgi, aks holda kechki. */
+export function currentShift(now: Date): Shift {
+  const h = now.getHours();
+  return h >= DAY_START_HOUR && h < DAY_END_HOUR ? "DAY" : "NIGHT";
+}
+
+/**
+ * Smenaning [start, end) vaqt chegarasi. Kechki smena yarim tunni xavfsiz kesib o'tadi:
+ * - agar hozir ertalab (00:00–09:00) bo'lsa — kechki smena kecha 18:00 dan bugun 09:00 gacha;
+ * - aks holda (kunduzi/kechqurun) — bugun 18:00 dan ertaga 09:00 gacha.
+ */
+export function shiftRange(shift: Shift, now: Date): { start: Date; end: Date } {
+  const nine = atHour(now, DAY_START_HOUR);
+  const eighteen = atHour(now, DAY_END_HOUR);
+  if (shift === "DAY") return { start: nine, end: eighteen };
+  // NIGHT — yarim tunni kesib o'tadi
+  if (now < nine) {
+    return { start: atHour(addDays(now, -1), DAY_END_HOUR), end: nine };
+  }
+  return { start: eighteen, end: atHour(addDays(now, 1), DAY_START_HOUR) };
+}
+
 export type OperatorStat = {
   id: string;
   name: string;
   dayShift: boolean;
   assigned: number;
+  dailyLimit: number; // kunlik biriktirish kvotasi (tahrirlanadi)
+  // "today*" — tanlangan smena oynasidagi ko'rsatkichlar (smenaga qat'iy scope qilingan)
   todayCalls: number;
   todayTalked: number;
   weekCalls: number;
@@ -33,6 +71,9 @@ export type Breakdown = { key: string; label: string; count: number };
 
 export type Analytics = {
   ts: string;
+  shift: Shift; // ushbu ma'lumot qaysi smena oynasi uchun hisoblangan
+  shiftStart: string;
+  shiftEnd: string;
   clients: {
     total: number;
     assigned: number;
@@ -57,17 +98,20 @@ export type Analytics = {
  * "Gaplashildi" = operator mijozga yetgan natija (TALKED_RESULTS) — ko'tarmadi/
  * o'chiq/band emas. Operator lid holatini o'zgartirsa (natija tanlasa) +1 bo'ladi.
  */
-export async function getAnalytics(): Promise<Analytics> {
+export async function getAnalytics(shift?: Shift): Promise<Analytics> {
   const now = new Date();
-  const todayStart = startOfDay(now);
+  const activeShift = shift ?? currentShift(now);
+  const { start: shiftStart, end: shiftEnd } = shiftRange(activeShift, now);
   const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // dushanba
   const monthStart = startOfMonth(now);
+  // Loglarni oy boshidan yoki (kechki smena kechadan boshlansa) smena boshidan — qaysi biri erta bo'lsa
+  const logsSince = shiftStart < monthStart ? shiftStart : monthStart;
 
   const [operators, assignedGroups, statusGroups, stageGroups, total, logs] =
     await Promise.all([
       db.user.findMany({
         where: { role: "OPERATOR", isActive: true },
-        select: { id: true, name: true },
+        select: { id: true, name: true, dailyLimit: true },
         orderBy: { name: "asc" },
       }),
       db.client.groupBy({ by: ["assignedToId"], _count: true }),
@@ -75,7 +119,7 @@ export async function getAnalytics(): Promise<Analytics> {
       db.client.groupBy({ by: ["stage"], _count: true }),
       db.client.count(),
       db.callLog.findMany({
-        where: { calledAt: { gte: monthStart } },
+        where: { calledAt: { gte: logsSince } },
         select: { operatorId: true, result: true, calledAt: true },
       }),
     ]);
@@ -104,7 +148,8 @@ export async function getAnalytics(): Promise<Analytics> {
     // "Gaplashildi" — operator mijozga haqiqatan yetgan natija (ko'tarmadi/o'chiq/band emas)
     const talked = TALKED_RESULTS.includes(l.result);
     const inWeek = l.calledAt >= weekStart;
-    const inToday = l.calledAt >= todayStart;
+    // "today" endi tanlangan smena oynasi: [shiftStart, shiftEnd)
+    const inToday = l.calledAt >= shiftStart && l.calledAt < shiftEnd;
 
     totals.monthCalls++;
     if (talked) totals.monthTalked++;
@@ -127,6 +172,7 @@ export async function getAnalytics(): Promise<Analytics> {
       name: o.name,
       dayShift: isDayShift(o.name),
       assigned: assignedMap.get(o.id) ?? 0,
+      dailyLimit: o.dailyLimit,
       ...a,
     };
   });
@@ -147,6 +193,9 @@ export async function getAnalytics(): Promise<Analytics> {
 
   return {
     ts: now.toISOString(),
+    shift: activeShift,
+    shiftStart: shiftStart.toISOString(),
+    shiftEnd: shiftEnd.toISOString(),
     clients: { total, assigned, unassigned, byStatus, byStage },
     totals,
     operators: operatorStats,

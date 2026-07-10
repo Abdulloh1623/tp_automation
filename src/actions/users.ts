@@ -149,6 +149,37 @@ export async function resetPassword(
   return { ok: true };
 }
 
+/**
+ * Operatorning kunlik biriktirish kvotasini (dailyLimit) yangilash — boshliq/admin.
+ * Tablo/monitoring ekranidan inline tahrirlanadi.
+ */
+export async function updateUserDailyLimit(
+  userId: string,
+  limit: number,
+): Promise<UserActionState> {
+  const session = await requireSession();
+  if (session.role !== "ADMIN" && session.role !== "MANAGER") {
+    return { ok: false, error: "Ruxsat yo'q" };
+  }
+
+  const parsed = z.coerce.number().int().min(0).max(500).safeParse(limit);
+  if (!parsed.success) return { ok: false, error: "Limit 0–500 oralig'ida bo'lishi kerak" };
+
+  const user = await db.user.findUnique({ where: { id: userId }, select: { name: true } });
+  if (!user) return { ok: false, error: "Xodim topilmadi" };
+
+  await db.user.update({ where: { id: userId }, data: { dailyLimit: parsed.data } });
+  await logAudit("Kunlik limit o'zgartirildi", {
+    entity: "User",
+    entityId: userId,
+    detail: `${user.name}: ${parsed.data}`,
+  });
+  revalidatePath("/tablo");
+  revalidatePath("/analitika");
+  revalidatePath("/foydalanuvchilar");
+  return { ok: true };
+}
+
 export async function setUserActive(
   id: string,
   active: boolean,

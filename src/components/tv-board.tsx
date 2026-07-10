@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Crown, PhoneCall, Users, Wifi, WifiOff } from "lucide-react";
-import type { Analytics } from "@/lib/analytics";
+import { Crown, PhoneCall, Users, Wifi, WifiOff, Sun, Moon } from "lucide-react";
+import type { Analytics, Shift } from "@/lib/analytics";
 import { LEAD_LIMITS } from "@/lib/constants";
+import { OperatorLimitControls } from "@/components/operator-limit-controls";
 
 const POLL_MS = 5000;
 
@@ -40,8 +41,15 @@ function Meter({
   );
 }
 
-export function TvBoard({ initial }: { initial: Analytics }) {
+export function TvBoard({
+  initial,
+  canManage = false,
+}: {
+  initial: Analytics;
+  canManage?: boolean;
+}) {
   const [data, setData] = useState<Analytics>(initial);
+  const [shift, setShift] = useState<Shift>(initial.shift);
   const [live, setLive] = useState(true);
   const [clock, setClock] = useState<Date | null>(null);
   const [flash, setFlash] = useState<Set<string>>(new Set());
@@ -50,7 +58,7 @@ export function TvBoard({ initial }: { initial: Analytics }) {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/analytics", { cache: "no-store" });
+      const res = await fetch(`/api/analytics?shift=${shift}`, { cache: "no-store" });
       if (!res.ok) throw new Error(String(res.status));
       const next: Analytics = await res.json();
       const changed = new Set<string>();
@@ -69,21 +77,26 @@ export function TvBoard({ initial }: { initial: Analytics }) {
     } catch {
       setLive(false);
     }
-  }, []);
+  }, [shift]);
 
   useEffect(() => {
     setClock(new Date());
     const c = setInterval(() => setClock(new Date()), 1000);
+    return () => clearInterval(c);
+  }, []);
+
+  useEffect(() => {
+    // Smena o'zgarganda darhol yangilaymiz, so'ng muntazam polling
+    refresh();
     const p = setInterval(refresh, POLL_MS);
     return () => {
-      clearInterval(c);
       clearInterval(p);
       timers.current.forEach(clearTimeout);
     };
   }, [refresh]);
 
   const day = [...data.operators]
-    .filter((o) => o.dayShift)
+    .filter((o) => (shift === "DAY" ? o.dayShift : !o.dayShift))
     .sort((a, b) => b.todayTalked - a.todayTalked || b.todayCalls - a.todayCalls);
   const leader = day[0];
   const rest = day.slice(1);
@@ -99,8 +112,34 @@ export function TvBoard({ initial }: { initial: Analytics }) {
         <div>
           <h1 className="text-3xl font-black tracking-tight lg:text-5xl">TP TEXNIK XIZMAT</h1>
           <p className="mt-1 text-base text-amber-300 lg:text-xl">
-            Kunduzgi smena · jonli natijalar · limit {LEAD_LIMITS.daily}/kun
+            {shift === "DAY" ? "Kunduzgi smena (09:00–18:00)" : "Kechki smena (18:00–09:00)"} · jonli
+            natijalar · limit {LEAD_LIMITS.daily}/kun
           </p>
+          {/* Smena tanlagich — sukut bo'yicha joriy real-time smena */}
+          <div className="mt-3 inline-flex rounded-xl border border-white/15 bg-white/5 p-1 text-sm">
+            <button
+              type="button"
+              onClick={() => setShift("DAY")}
+              className={
+                "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium transition " +
+                (shift === "DAY" ? "bg-amber-400 text-slate-900" : "text-slate-300 hover:bg-white/10")
+              }
+            >
+              <Sun className="h-4 w-4" /> Kunduzgi smena
+              <span className="hidden text-xs opacity-70 sm:inline">09:00–18:00</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShift("NIGHT")}
+              className={
+                "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium transition " +
+                (shift === "NIGHT" ? "bg-indigo-400 text-slate-900" : "text-slate-300 hover:bg-white/10")
+              }
+            >
+              <Moon className="h-4 w-4" /> Kechki smena
+              <span className="hidden text-xs opacity-70 sm:inline">18:00–09:00</span>
+            </button>
+          </div>
         </div>
         <div className="text-right">
           <div className="font-mono text-4xl font-bold tabular-nums lg:text-6xl">
@@ -152,6 +191,16 @@ export function TvBoard({ initial }: { initial: Analytics }) {
               <div className="mt-5 grid max-w-xl gap-3 sm:grid-cols-2">
                 <Meter label="Bu hafta" value={leader.weekTalked} limit={LEAD_LIMITS.weekly} color="bg-emerald-400" />
                 <Meter label="Bu oy" value={leader.monthTalked} limit={LEAD_LIMITS.monthly} color="bg-blue-400" />
+              </div>
+              {/* Kunlik biriktirish kvotasi — indikator + tahrir + qo'shimcha biriktirish */}
+              <div className="max-w-xl">
+                <OperatorLimitControls
+                  operatorId={leader.id}
+                  operatorName={leader.name}
+                  assigned={leader.assigned}
+                  dailyLimit={leader.dailyLimit}
+                  canManage={canManage}
+                />
               </div>
             </div>
             <div className="text-right">
@@ -211,6 +260,14 @@ export function TvBoard({ initial }: { initial: Analytics }) {
                 <Meter label="Bu hafta" value={o.weekTalked} limit={LEAD_LIMITS.weekly} color="bg-emerald-400" />
                 <Meter label="Bu oy" value={o.monthTalked} limit={LEAD_LIMITS.monthly} color="bg-blue-400" />
               </div>
+              {/* Kunlik biriktirish kvotasi — indikator + tahrir + qo'shimcha biriktirish */}
+              <OperatorLimitControls
+                operatorId={o.id}
+                operatorName={o.name}
+                assigned={o.assigned}
+                dailyLimit={o.dailyLimit}
+                canManage={canManage}
+              />
             </div>
           );
         })}
@@ -218,7 +275,7 @@ export function TvBoard({ initial }: { initial: Analytics }) {
 
       {day.length === 0 && (
         <p className="mt-20 text-center text-2xl text-slate-500">
-          Kunduzgi smenada faol operator topilmadi
+          {shift === "DAY" ? "Kunduzgi" : "Kechki"} smenada faol operator topilmadi
         </p>
       )}
 

@@ -366,10 +366,24 @@ export async function bulkAssignOperator(
         role: { in: ["OPERATOR", "ADMIN", "MANAGER"] },
         isActive: true,
       },
-      select: { name: true },
+      select: { name: true, role: true, dailyLimit: true },
     });
     if (!op) return { ok: false, error: "Operator topilmadi yoki mos rol emas" };
     opName = op.name;
+
+    // Kvota nazorati — faqat OPERATOR uchun. Limit to'lgan bo'lsa oddiy biriktirish bloklanadi;
+    // limitdan tashqari biriktirish uchun `assignExtraClient` (Qo'shimcha biriktirish) ishlatiladi.
+    if (op.role === "OPERATOR") {
+      const activeCount = await db.client.count({
+        where: { assignedToId: operatorId, status: "ACTIVE" },
+      });
+      if (activeCount >= op.dailyLimit) {
+        return {
+          ok: false,
+          error: `Limit to'ldi (${activeCount}/${op.dailyLimit}). "Qo'shimcha biriktirish"dan foydalaning.`,
+        };
+      }
+    }
   }
 
   const res = await db.client.updateMany({
@@ -383,6 +397,67 @@ export async function bulkAssignOperator(
   revalidatePath("/mijozlar");
   revalidatePath("/lidlar");
   return { ok: true, count: res.count };
+}
+
+/**
+ * Qo'shimcha biriktirish — kunlik limitni ATAYLAB chetlab o'tib, operatorga bitta
+ * qo'shimcha mijoz biriktiradi. Faqat ADMIN/MANAGER; audit izi majburiy qoldiriladi.
+ */
+export async function assignExtraClient(
+  userId: string,
+  clientId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const g = await guardRole(["ADMIN", "MANAGER"]);
+  if (!g.ok) return { ok: false, error: g.error };
+  if (!userId || !clientId) return { ok: false, error: "Operator yoki mijoz tanlanmadi" };
+
+  const op = await db.user.findFirst({
+    where: { id: userId, role: { in: ["OPERATOR", "ADMIN", "MANAGER"] }, isActive: true },
+    select: { name: true, dailyLimit: true },
+  });
+  if (!op) return { ok: false, error: "Operator topilmadi yoki mos rol emas" };
+
+  const client = await db.client.findUnique({
+    where: { id: clientId },
+    select: { restaurantName: true },
+  });
+  if (!client) return { ok: false, error: "Mijoz topilmadi" };
+
+  const activeCount = await db.client.count({
+    where: { assignedToId: userId, status: "ACTIVE" },
+  });
+
+  await db.client.update({ where: { id: clientId }, data: { assignedToId: userId } });
+
+  // Limitdan tashqari biriktirish — audit izida aniq belgilanadi
+  await logAudit("Qo'shimcha biriktirish (limitdan tashqari)", {
+    entity: "Client",
+    entityId: clientId,
+    detail: `${client.restaurantName} → ${op.name} (${activeCount + 1}/${op.dailyLimit}, limit chetlab o'tildi)`,
+  });
+
+  revalidatePath("/tablo");
+  revalidatePath("/analitika");
+  revalidatePath("/mijozlar");
+  revalidatePath("/lidlar");
+  return { ok: true };
+}
+
+/**
+ * "Qo'shimcha biriktirish" tanlagichi uchun biriktirilmagan faol mijozlar ro'yxati.
+ * Faqat ADMIN/MANAGER; ro'yxat qisqartiriladi (tez tanlash uchun).
+ */
+export async function listAssignableClients(): Promise<
+  { id: string; restaurantName: string; fullName: string }[]
+> {
+  const g = await guardRole(["ADMIN", "MANAGER"]);
+  if (!g.ok) return [];
+  return db.client.findMany({
+    where: { assignedToId: null, status: "ACTIVE" },
+    select: { id: true, restaurantName: true, fullName: true },
+    orderBy: { restaurantName: "asc" },
+    take: 200,
+  });
 }
 
 export async function deleteClient(id: string): Promise<void> {

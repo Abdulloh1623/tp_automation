@@ -44,7 +44,7 @@ export default async function TicketsPage({
   if (type) where.type = type;
   if (priority) where.priority = priority;
 
-  const [ticketsRaw, clients, ustalar] = await Promise.all([
+  const [ticketsRaw, clients, ustalar, xodimlar] = await Promise.all([
     db.ticket.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -70,6 +70,7 @@ export default async function TicketsPage({
         },
         assignedTo: { select: { name: true } },
         assignedUsta: { select: { id: true, name: true, phone: true } },
+        assignedStaff: { select: { id: true, name: true, phone: true } },
       },
     }),
     db.client.findMany({
@@ -78,6 +79,12 @@ export default async function TicketsPage({
     }),
     db.user.findMany({
       where: { role: "INSTALLER", isActive: true },
+      select: { id: true, name: true, phone: true },
+      orderBy: { name: "asc" },
+    }),
+    // Ofis xodimlari — muammoni online hal etish uchun biriktiriladi
+    db.user.findMany({
+      where: { role: { in: ["ADMIN", "MANAGER", "OPERATOR"] }, isActive: true },
       select: { id: true, name: true, phone: true },
       orderBy: { name: "asc" },
     }),
@@ -213,15 +220,20 @@ export default async function TicketsPage({
                   </div>
                 )}
 
-                {/* Integrator (usta) — boshliq biriktiradi, TP xodimlari holatni yuritadi */}
+                {/* Biriktirish — boshliq ustaga (joyida) yoki xodimga (online) biriktiradi */}
                 <div className="mt-3">
                   <TicketIntegratorControl
                     ticketId={t.id}
                     canAssign={canAssign}
-                    assignedId={t.assignedUsta?.id ?? null}
-                    assignedName={t.assignedUsta?.name ?? null}
-                    assignedPhone={t.assignedUsta?.phone ?? null}
+                    assigneeType={
+                      (t.assigneeType as "USTA" | "XODIM" | null) ??
+                      (t.assignedUsta ? "USTA" : null)
+                    }
+                    assignedId={(t.assignedStaff ?? t.assignedUsta)?.id ?? null}
+                    assignedName={(t.assignedStaff ?? t.assignedUsta)?.name ?? null}
+                    assignedPhone={(t.assignedStaff ?? t.assignedUsta)?.phone ?? null}
                     ustalar={ustalar}
+                    xodimlar={xodimlar}
                   />
                 </div>
 

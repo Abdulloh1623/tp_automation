@@ -124,43 +124,94 @@ export async function setTicketStatus(
   }
 }
 
+export type TicketAssigneeType = "USTA" | "XODIM";
+
+// XODIM sifatida biriktirilishi mumkin bo'lgan ofis xodimlari (usta emas)
+const ASSIGNABLE_STAFF_ROLES = ["ADMIN", "MANAGER", "OPERATOR"];
+
 /**
- * Muammoni integratorga (usta) biriktirish/olib tashlash. Faqat boshliq/admin.
- * Biriktirilganda muammo "Jarayonda" holatiga o'tadi. ustaId=null — biriktiruv olinadi.
+ * Muammoni hal qiluvchiga biriktirish/olib tashlash — polimorf. Faqat boshliq/admin.
+ *
+ * - `assigneeType: "USTA"` — integrator (usta) joyida hal etadi.
+ * - `assigneeType: "XODIM"` — ofis xodimi (operator/menejer/admin) online hal etadi.
+ * - `assigneeId: null` (yoki assigneeType: null) — biriktiruv butunlay olinadi.
+ *
+ * Biriktirilganda muammo "Jarayonda" holatiga o'tadi; ikki tur bir vaqtda saqlanmaydi.
  */
-export async function assignTicketUsta(
+export async function assignTicket(
   ticketId: string,
-  ustaId: string | null,
+  assigneeType: TicketAssigneeType | null,
+  assigneeId: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
   const g = await guardRole(["ADMIN", "MANAGER"]);
   if (!g.ok) return { ok: false, error: g.error };
 
-  if (ustaId) {
-    const usta = await db.user.findUnique({
-      where: { id: ustaId },
-      select: { role: true, isActive: true },
-    });
-    if (!usta || usta.role !== "INSTALLER") {
-      return { ok: false, error: "Integrator (usta) topilmadi" };
+  // Biriktiruvni olib tashlash
+  if (!assigneeType || !assigneeId) {
+    try {
+      const ticket = await db.ticket.update({
+        where: { id: ticketId },
+        data: { assigneeType: null, assignedUstaId: null, assignedStaffId: null },
+      });
+      await logAudit("Muammo biriktiruvi olindi", { entity: "Ticket", entityId: ticketId });
+      revalidateTicket(ticket.clientId);
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Muammo topilmadi" };
     }
+  }
+
+  if (assigneeType !== "USTA" && assigneeType !== "XODIM") {
+    return { ok: false, error: "Biriktiruv turi noto'g'ri" };
+  }
+
+  // Biriktiriluvchini tekshirish (rol + faollik)
+  const assignee = await db.user.findUnique({
+    where: { id: assigneeId },
+    select: { name: true, role: true, isActive: true },
+  });
+  if (!assignee || !assignee.isActive) {
+    return { ok: false, error: "Biriktiriluvchi topilmadi yoki faol emas" };
+  }
+  if (assigneeType === "USTA" && assignee.role !== "INSTALLER") {
+    return { ok: false, error: "Integrator (usta) topilmadi" };
+  }
+  if (assigneeType === "XODIM" && !ASSIGNABLE_STAFF_ROLES.includes(assignee.role)) {
+    return { ok: false, error: "Xodim (ofis) topilmadi" };
   }
 
   try {
     const ticket = await db.ticket.update({
       where: { id: ticketId },
       data: {
-        assignedUstaId: ustaId,
-        // Integratorga biriktirilganda ish boshlandi hisoblanadi
-        ...(ustaId ? { status: "IN_PROGRESS" } : {}),
+        assigneeType,
+        // Faqat bitta biriktiruv turi saqlanadi — ikkinchisi tozalanadi
+        assignedUstaId: assigneeType === "USTA" ? assigneeId : null,
+        assignedStaffId: assigneeType === "XODIM" ? assigneeId : null,
+        // Biriktirilganda ish boshlandi hisoblanadi
+        status: "IN_PROGRESS",
       },
     });
     await logAudit(
-      ustaId ? "Muammo integratorga biriktirildi" : "Integrator biriktiruvi olindi",
-      { entity: "Ticket", entityId: ticketId },
+      assigneeType === "USTA"
+        ? `Muammo joyida hal qilish uchun ${assignee.name} (usta)ga biriktirildi`
+        : `Muammo online hal qilish uchun ${assignee.name} (xodim)ga biriktirildi`,
+      { entity: "Ticket", entityId: ticketId, detail: assigneeType },
     );
     revalidateTicket(ticket.clientId);
     return { ok: true };
   } catch {
     return { ok: false, error: "Muammo topilmadi" };
   }
+}
+
+/**
+ * Eski chaqiruvlar bilan moslik uchun ingichka o'ram — usta biriktirish/olib tashlash.
+ * @deprecated `assignTicket(ticketId, "USTA", ustaId)` dan foydalaning.
+ */
+export async function assignTicketUsta(
+  ticketId: string,
+  ustaId: string | null,
+): Promise<{ ok: boolean; error?: string }> {
+  return assignTicket(ticketId, ustaId ? "USTA" : null, ustaId);
 }

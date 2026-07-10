@@ -2,14 +2,21 @@ import { Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
 import { MOVEMENT_REASONS, type MovementRow } from "@/lib/movements";
+import { HandoutDocCell } from "@/components/handout-doc-cell";
+import { HandoutEditButton } from "@/components/handout-edit-button";
+
+// Ustaga taqsimot yozuvi — faqat shu turdagi qatorlar tahrirlanadi.
+const HANDOUT_REASON = "Ustaga taqsimot";
 
 export function MovementsHistory({
   rows,
   types,
+  ustalar,
   filter,
 }: {
   rows: MovementRow[];
   types: { id: string; name: string }[];
+  ustalar: { id: string; name: string }[];
   filter: { type: string; reason: string; days: string };
 }) {
   const exportHref =
@@ -93,12 +100,14 @@ export function MovementsHistory({
                 <th className="px-3 py-2.5 font-medium">Amal</th>
                 <th className="px-3 py-2.5 font-medium">Kim</th>
                 <th className="px-3 py-2.5 font-medium">Izoh</th>
+                <th className="px-3 py-2.5 font-medium">Hujjat</th>
+                <th className="px-3 py-2.5 font-medium"></th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-slate-400 dark:text-slate-500">
+                  <td colSpan={10} className="px-3 py-8 text-center text-slate-400 dark:text-slate-500">
                     Bu davr/filtr bo'yicha harakat yo'q
                   </td>
                 </tr>
@@ -119,6 +128,27 @@ export function MovementsHistory({
                   </td>
                   <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{r.user}</td>
                   <td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">{r.note ?? "—"}</td>
+                  <td className="px-3 py-2">
+                    <HandoutDocCell
+                      movementId={r.id}
+                      documentStatus={r.documentStatus}
+                      hasDoc={r.hasDoc}
+                    />
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {r.reason === HANDOUT_REASON && (
+                      <HandoutEditButton
+                        movementId={r.id}
+                        quantity={r.quantity}
+                        note={r.note}
+                        documentStatus={r.documentStatus}
+                        toId={r.toId}
+                        equipmentTypeId={r.equipmentTypeId}
+                        ustalar={ustalar}
+                        types={types}
+                      />
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

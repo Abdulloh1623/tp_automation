@@ -18,6 +18,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    # Xotira chegarasi (cheklov, rezervatsiya emas) — t3.small (2GB) da OOM'ni oldini oladi.
+    deploy:
+      resources:
+        limits:
+          memory: 768M
 
   # Bir martalik: sxemani qo'llaydi va to'xtaydi (app/worker shundan keyin ishga tushadi)
   migrate:
@@ -48,6 +53,10 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 640M
 
   # Reverse proxy + avtomatik HTTPS (Let's Encrypt). DOMAIN .env da belgilanadi.
   caddy:
@@ -63,7 +72,12 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - app
+      app:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 128M
 
   # Telegram bot + cron (hisobot, eslatma, kunlik taqsimot, backup)
   worker:
@@ -79,6 +93,35 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    # Liveness: bot.ts har 30s heartbeat faylni yangilaydi; 120s dan eski bo'lsa unhealthy.
+    # node ishlatiladi (image'da bor) — find/procps'ga bog'liq emas.
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"const{statSync}=require('fs');process.exit(Date.now()-statSync(process.env.WORKER_HEARTBEAT_FILE||'/tmp/tp-worker-heartbeat').mtimeMs<120000?0:1)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 448M
+
+  # Auto-heal: "unhealthy" bo'lib qolgan konteynerlarni avtomatik qayta ishga tushiradi.
+  # restart:unless-stopped o'zi unhealthy'da qayta ishga tushirMAYDI — shu sidecar buni bajaradi.
+  # DIQQAT: docker.sock host ustidan root-teng nazorat beradi (autoheal ishlashi uchun zarur).
+  autoheal:
+    image: willfarrell/autoheal:latest
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: all   # barcha healthcheckli konteynerlarni kuzatadi
+      AUTOHEAL_INTERVAL: 10           # har 10 soniyada tekshiradi
+      AUTOHEAL_START_PERIOD: 60       # ishga tushgach 60s kutib turadi
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      resources:
+        limits:
+          memory: 64M
 
 volumes:
   pgdata:

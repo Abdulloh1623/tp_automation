@@ -108,6 +108,13 @@ export const TICKET_PRIORITY = {
 } as const;
 export type TicketPriority = keyof typeof TICKET_PRIORITY;
 
+// Muammoni kim hal qiladi — usta (joyida) yoki xodim (online)
+export const TICKET_ASSIGNEE_TYPE = {
+  USTA: "Ustaga (joyida hal etish)",
+  XODIM: "Xodimga (online hal etish)",
+} as const;
+export type TicketAssigneeType = keyof typeof TICKET_ASSIGNEE_TYPE;
+
 // --- Lid workflow (kunlik qo'ng'iroq jarayoni) ---
 
 // Lid bo'limlari (board ustunlari / joriy holat)

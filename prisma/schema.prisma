@@ -22,7 +22,8 @@ model User {
   regions         String? // usta/xodim qoplaydigan viloyatlar — vergulli ro'yxat (ko'p viloyat)
   isActive        Boolean  @default(true)
   telegramId      String?  @unique // Telegram bot ruxsati/DM uchun
-  dailyLeadTarget Int      @default(20) // kunlik lid soni
+  dailyLeadTarget Int      @default(20) // kunlik lid soni (ko'rsatkich maqsadi)
+  dailyLimit      Int      @default(20) // kunlik avtomatik biriktirish chegarasi (kvota)
   createdAt       DateTime @default(now())
 
   assignedClients Client[]         @relation("AssignedOperator")
@@ -32,6 +33,7 @@ model User {
   payments        Payment[]
   tickets         Ticket[]               @relation("TicketOperator")
   ustaTickets     Ticket[]               @relation("TicketUsta")
+  staffTickets    Ticket[]               @relation("TicketStaff")
   dailyGrants     DailyLeadGrant[]
   passwordResets  PasswordResetRequest[]
   notifications   NotificationRecipient[]
@@ -228,9 +230,14 @@ model Ticket {
   priority       String    @default("MEDIUM") // LOW | MEDIUM | HIGH
   assignedToId   String?
   assignedTo     User?     @relation("TicketOperator", fields: [assignedToId], references: [id])
-  // Integrator (usta) — boshliq muammoni biriktiradi; TP xodimlari holatni yuritadi
+  // Muammoni hal qiluvchi biriktiruv — polimorf: joyida (usta) yoki online (xodim)
+  assigneeType   String? // USTA (joyida hal etish) | XODIM (online hal etish)
+  // Integrator (usta) — boshliq muammoni biriktiradi; joyida hal etadi
   assignedUstaId String?
   assignedUsta   User?     @relation("TicketUsta", fields: [assignedUstaId], references: [id])
+  // Xodim (operator/menejer/admin) — muammoni online hal etish uchun biriktiriladi
+  assignedStaffId String?
+  assignedStaff  User?     @relation("TicketStaff", fields: [assignedStaffId], references: [id])
   resolutionNote String?
   createdAt      DateTime  @default(now())
   resolvedAt     DateTime?
@@ -238,6 +245,7 @@ model Ticket {
   @@index([clientId])
   @@index([status])
   @@index([assignedUstaId])
+  @@index([assignedStaffId])
 }
 
 // --- Ombor (inventar) ---

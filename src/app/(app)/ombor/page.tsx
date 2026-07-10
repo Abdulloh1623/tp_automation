@@ -164,6 +164,7 @@ export default async function OmborPage({
       <MovementsHistory
         rows={movementRows}
         types={types.map((t) => ({ id: t.id, name: t.name }))}
+        ustalar={ustalar}
         filter={{ type: movType, reason: movReason, days: String(movDays) }}
       />
     </div>

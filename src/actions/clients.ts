@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { guardRole } from "@/lib/auth";
-import { canMutateClient, resolveAssignee } from "@/lib/access";
+import { resolveAssignee } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { normalizeRegion } from "@/lib/constants";
 import { computeNextPaymentDate } from "@/lib/billing";
@@ -114,6 +114,49 @@ function toData(parsed: z.infer<typeof clientSchema>) {
   };
 }
 
+type ClientData = ReturnType<typeof toData>;
+
+/**
+ * Mijoz yozuvidagi o'zgargan maydonlarni (eski -> yangi) audit uchun hisoblaydi.
+ * Faqat haqiqatan o'zgargan maydonlar qaytadi; sanalar YYYY-MM-DD ko'rinishida,
+ * telefonlar to'plami (yorliq+raqam) imzosi bo'yicha solishtiriladi.
+ */
+function diffClient(
+  before: ClientData & { phones: { label: string; number: string }[] },
+  after: ClientData,
+  newPhones: { label: string; number: string }[],
+): Record<string, { from: unknown; to: unknown }> {
+  const day = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  const cmp = (field: string, from: unknown, to: unknown) => {
+    if (from !== to) changes[field] = { from, to };
+  };
+
+  cmp("fullName", before.fullName, after.fullName);
+  cmp("restaurantName", before.restaurantName, after.restaurantName);
+  cmp("region", before.region, after.region);
+  cmp("phone", before.phone, after.phone);
+  cmp("contractNumber", before.contractNumber, after.contractNumber);
+  cmp("contractDate", day(before.contractDate), day(after.contractDate));
+  cmp("installerName", before.installerName, after.installerName);
+  cmp("monoblokCount", before.monoblokCount, after.monoblokCount);
+  cmp("equipment", before.equipment, after.equipment);
+  cmp("status", before.status, after.status);
+  cmp("monthlyAmount", before.monthlyAmount, after.monthlyAmount);
+  cmp("currency", before.currency, after.currency);
+  cmp("nextPaymentDate", day(before.nextPaymentDate), day(after.nextPaymentDate));
+  cmp("notes", before.notes, after.notes);
+  cmp("assignedToId", before.assignedToId, after.assignedToId);
+
+  const sig = (ps: { label: string; number: string }[]) =>
+    ps.map((p) => `${p.label}:${p.number}`).sort().join("|");
+  if (sig(before.phones) !== sig(newPhones)) {
+    changes.phones = { from: before.phones, to: newPhones };
+  }
+
+  return changes;
+}
+
 export async function createClient(
   _prev: ClientFormState,
   formData: FormData,
@@ -149,9 +192,18 @@ export async function updateClient(
 ): Promise<ClientFormState> {
   const g = await guardRole(STAFF);
   if (!g.ok) return { error: g.error };
-  if (!(await canMutateClient(g.session, id))) {
-    return { error: "Bu mijoz sizga biriktirilmagan" };
-  }
+
+  // Egalik cheklovi ATAYIN olib tashlandi: ISTALGAN staff roli (ADMIN/MANAGER/
+  // OPERATOR) istalgan mijozni tahrirlashi mumkin (`canMutateClient` bu yerda
+  // qo'llanmaydi). Buning evaziga kim, qaysi mijozda, NIMANI o'zgartirgani
+  // (eski -> yangi) to'liq AuditLog'ga yoziladi (quyida). Mavjudlik baribir
+  // tekshiriladi + eski qiymatlar diff uchun o'qib olinadi.
+  const before = await db.client.findUnique({
+    where: { id },
+    include: { phones: { select: { label: true, number: true } } },
+  });
+  if (!before) return { error: "Mijoz topilmadi" };
+
   const parsed = parseForm(formData);
   if (!parsed.success) {
     return {
@@ -160,16 +212,37 @@ export async function updateClient(
     };
   }
   const phones = parsePhones(formData);
-  const assignedToId = await resolveAssignee(g.session, parsed.data.assignedToId);
+
+  // Biriktiruv: ADMIN/MANAGER formadagi qiymatni (validatsiya bilan) o'zgartira
+  // oladi. OPERATOR esa boshqaning mijozini tahrirlaganda uni O'ZIGA "o'g'irlab"
+  // olmasligi uchun mavjud biriktiruv saqlanadi (resolveAssignee OPERATOR uchun
+  // doim o'zini qaytaradi — bu yerda unga tayanmaymiz).
+  const assignedToId =
+    g.session.role === "OPERATOR"
+      ? before.assignedToId
+      : await resolveAssignee(g.session, parsed.data.assignedToId);
+
+  const after = { ...toData(parsed.data), assignedToId };
+
   await db.client.update({
     where: { id },
-    data: { ...toData(parsed.data), assignedToId, phones: { deleteMany: {}, create: phones } },
+    data: { ...after, phones: { deleteMany: {}, create: phones } },
   });
-  await logAudit("Mijoz tahrirlandi", {
+
+  // Har bir tahrir AuditLog'ga: kim (userId — logAudit sessiyadan oladi), qaysi
+  // mijoz (entityId), va nima o'zgargani (eski -> yangi JSON) yoziladi.
+  const changes = diffClient(before, after, phones);
+  await logAudit("CLIENT_UPDATE", {
     entity: "Client",
     entityId: id,
-    detail: parsed.data.restaurantName,
+    detail: JSON.stringify({
+      restaurantName: parsed.data.restaurantName,
+      editorRole: g.session.role,
+      fields: Object.keys(changes),
+      changes,
+    }),
   });
+
   revalidatePath("/mijozlar");
   revalidatePath(`/mijozlar/${id}`);
   redirect(`/mijozlar/${id}`);

@@ -12,6 +12,8 @@ export type RawMovement = {
   toId: string | null;
   byUserId: string | null;
   equipmentTypeId: string;
+  documentStatus: string | null;
+  signedDocUrl: string | null;
 };
 
 export type MovementRow = {
@@ -24,6 +26,10 @@ export type MovementRow = {
   reason: string;
   user: string;
   note: string | null;
+  documentStatus: string | null;
+  hasDoc: boolean; // imzolangan hujjat biriktirilganmi
+  equipmentTypeId: string; // tahrirlash uchun xom id
+  toId: string | null; // taqsimotda usta id (tahrirlash uchun)
 };
 
 /** Harakatlar jurnalida filtrlash uchun sabablar. */
@@ -68,5 +74,9 @@ export function resolveMovements(
     reason: m.reason ?? "—",
     user: m.byUserId ? (userName.get(m.byUserId) ?? "—") : "—",
     note: m.note,
+    documentStatus: m.documentStatus,
+    hasDoc: !!m.signedDocUrl,
+    equipmentTypeId: m.equipmentTypeId,
+    toId: m.toId,
   }));
 }

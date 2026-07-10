@@ -15,6 +15,8 @@ import { formatMoney, formatDate, formatPhone, normalizePhone } from "@/lib/util
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { callResultLabel } from "@/lib/constants";
 import { paymentState, paymentUrgency } from "@/lib/payment-status";
+import { getOperatorActivity } from "@/lib/analytics";
+import { OperatorActivityMonitor } from "@/components/operator-activity-monitor";
 
 type Money = { USD: number; UZS: number };
 function addMoney(m: Money, cur: string, amt: number) {
@@ -64,8 +66,7 @@ export default async function DashboardPage() {
   const [
     statusGroups,
     monthPayments,
-    operators,
-    callsByOp,
+    operatorActivity,
     callsToday,
     newClients,
     doneCalls,
@@ -92,8 +93,7 @@ export default async function DashboardPage() {
         recordedBy: { select: { name: true } },
       },
     }),
-    db.user.findMany({ where: { role: "OPERATOR", isActive: true }, select: { id: true, name: true, dailyLeadTarget: true }, orderBy: { name: "asc" } }),
-    db.callLog.groupBy({ by: ["operatorId"], where: { calledAt: { gte: todayStart }, operatorId: { not: null } }, _count: true }),
+    getOperatorActivity(),
     db.callLog.findMany({
       where: { calledAt: { gte: todayStart } },
       orderBy: { calledAt: "desc" },
@@ -215,11 +215,6 @@ export default async function DashboardPage() {
     if (trendMap.has(k)) trendMap.set(k, (trendMap.get(k) ?? 0) + 1);
   }
   const trendItems = dayKeys.map((k) => ({ label: `${k.slice(8)}.${k.slice(5, 7)}`, value: trendMap.get(k) ?? 0 }));
-
-  const opCall = new Map(callsByOp.map((g) => [g.operatorId, g._count]));
-  const opStats = operators
-    .map((o) => ({ name: o.name, calls: opCall.get(o.id) ?? 0, target: o.dailyLeadTarget }))
-    .sort((a, b) => b.calls - a.calls);
 
   const attention = [
     { label: "Eskalatsiya navbati", count: escalatedCount, href: "/eskalatsiya" },
@@ -375,34 +370,9 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Operatorlar + Diqqat */}
+      {/* Operatorlar faolligi (jonli) + Diqqat */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>Operatorlar (bugun)</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            {opStats.length === 0 && <p className="text-sm text-slate-400 dark:text-slate-500">Operator yo'q</p>}
-            {opStats.map((o) => {
-              const pct = o.target > 0 ? Math.min(100, Math.round((o.calls / o.target) * 100)) : 0;
-              return (
-                <div key={o.name}>
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="text-slate-700 dark:text-slate-200">{o.name}</span>
-                    <span className="font-medium text-slate-900 dark:text-slate-100">
-                      {o.calls}
-                      <span className="text-slate-400 dark:text-slate-500"> / {o.target}</span>
-                    </span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                    <div
-                      className={"h-full rounded-full " + (pct >= 100 ? "bg-emerald-500" : pct >= 50 ? "bg-blue-500" : "bg-amber-500")}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
+        <OperatorActivityMonitor initial={operatorActivity} />
 
         <Card>
           <CardHeader><CardTitle>Diqqat talab qiladi</CardTitle></CardHeader>

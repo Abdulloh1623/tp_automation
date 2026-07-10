@@ -12,9 +12,13 @@ import {
   Banknote,
   History,
   Ban,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
+import { getBiznexSubscription, type BiznexSubscription } from "@/lib/billing";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,6 +63,51 @@ function InfoRow({
   );
 }
 
+/**
+ * Biznex obuna holati — mijoz sarlavhasida ko'rinadigan rangli badge. Qolgan
+ * kunlar (`remainingDays`) bo'yicha shoshilinchlik darajasini rang bilan bildiradi:
+ *   <= 0 / expired / inactive  → qizil  ("To'lov muddati o'tgan (Joyida emas!)")
+ *   1..5 kun                   → amber  ("To'lov yaqin (X kun qoldi)")
+ *   > 5 kun                    → yashil ("Faol (X kun bor)")
+ */
+function BiznexSubscriptionBadge({ sub }: { sub: BiznexSubscription }) {
+  // Sozlanmagan/noma'lum — badge ko'rsatilmaydi. "not_found" alohida ogohlantirish
+  // banneri orqali ko'rsatiladi.
+  if (sub.status === "unknown" || sub.status === "not_found") return null;
+
+  const days = sub.remainingDays;
+  const base =
+    "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium";
+
+  // Qizil — muddati o'tgan yoki nofaol
+  if (sub.status === "expired" || sub.status === "inactive" || days <= 0) {
+    return (
+      <span className={`${base} bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300`}>
+        <XCircle className="h-3 w-3" />
+        To&apos;lov muddati o&apos;tgan (Joyida emas!)
+      </span>
+    );
+  }
+
+  // Amber — to'lov yaqin (1..5 kun)
+  if (days <= 5) {
+    return (
+      <span className={`${base} bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300`}>
+        <AlertTriangle className="h-3 w-3" />
+        To&apos;lov yaqin (<span className="font-semibold tabular-nums">{days}</span> kun qoldi)
+      </span>
+    );
+  }
+
+  // Yashil — faol, muddat uzoq
+  return (
+    <span className={`${base} bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300`}>
+      <CheckCircle2 className="h-3 w-3" />
+      Faol (<span className="font-semibold tabular-nums">{days}</span> kun bor)
+    </span>
+  );
+}
+
 export default async function ClientDetailPage({
   params,
 }: {
@@ -87,6 +136,11 @@ export default async function ClientDetailPage({
   });
 
   if (!client) notFound();
+
+  // Biznex obuna holati — mijozning ASOSIY TELEFON raqami bo'yicha. Xatolik/
+  // sozlanmagan bo'lsa "unknown" qaytadi (badge ko'rsatilmaydi); raqam topilmasa
+  // "not_found" (ogohlantirish banneri). Sahifa render'i hech qachon buzilmaydi.
+  const subscription = await getBiznexSubscription(client.phone);
 
   // Faoliyat jurnali — shu mijozga tegishli barcha amallar (audit)
   const activity = await db.auditLog.findMany({
@@ -151,6 +205,7 @@ export default async function ClientDetailPage({
                 <Ban className="h-3 w-3" /> Otkaz
               </span>
             )}
+            <BiznexSubscriptionBadge sub={subscription} />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {client.stage !== "REFUSED" && (
@@ -169,6 +224,24 @@ export default async function ClientDetailPage({
         </div>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{client.fullName}</p>
       </div>
+
+      {subscription.status === "not_found" && (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/50"
+        >
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+          <div className="text-sm text-amber-900 dark:text-amber-200">
+            <span className="font-semibold">
+              ⚠️ Telefon raqami Biznex tizimidan topilmadi.
+            </span>{" "}
+            Iltimos, raqamni tekshiring va yangilang.
+            <span className="ml-1 text-amber-700/80 dark:text-amber-300/80">
+              (Joriy: {formatPhone(client.phone)})
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Chap ustun */}

@@ -474,7 +474,7 @@ function JoriyTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {rows.map((r, i) => (
             <tr
               key={r.id}
               className={
@@ -488,6 +488,9 @@ function JoriyTable({
             >
               <td className="px-3 py-2">
                 <div className="flex items-center gap-1.5">
+                  <span className="inline-flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-slate-100 px-1 text-xs font-medium tabular-nums text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                    {i + 1}
+                  </span>
                   <button
                     type="button"
                     title="Mijoz ma'lumotlarini ko'rish"
@@ -613,7 +616,7 @@ function JoriyTable({
 
     {/* Mobil kartalar */}
     <div className="space-y-2 md:hidden">
-      {rows.map((r) => (
+      {rows.map((r, i) => (
         <div
           key={r.id}
           className={
@@ -628,6 +631,9 @@ function JoriyTable({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
+                <span className="inline-flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-slate-100 px-1 text-xs font-medium tabular-nums text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                  {i + 1}
+                </span>
                 <button
                   type="button"
                   onClick={() => onInfo(r)}
@@ -774,12 +780,15 @@ function TarixTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => {
+          {rows.map((r, i) => {
             const byDate = new Map(r.history.map((h) => [h.date, h]));
             return (
               <tr key={r.id}>
                 <td className="sticky left-0 z-10 border-b border-r border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2">
                   <div className="flex items-center gap-1.5">
+                    <span className="inline-flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-slate-100 px-1 text-xs font-medium tabular-nums text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                      {i + 1}
+                    </span>
                     <button
                       type="button"
                       title="Mijoz ma'lumotlarini ko'rish"

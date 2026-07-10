@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { LeadTable, type LeadRow, type LeadHistory } from "@/components/lead-table";
+import { OperatorProgress } from "@/components/operator-progress";
+import { getOperatorDailyStats } from "@/lib/analytics";
 import { ACTIVE_STAGES } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
 
@@ -24,7 +26,7 @@ export default async function LeadsPage({
   const today = endOfDay(new Date());
   const todayStart = startOfDay(new Date());
 
-  const [leadsRaw, operators] = await Promise.all([
+  const [leadsRaw, operators, dailyStats] = await Promise.all([
     db.client.findMany({
       where: {
         assignedToId: viewerId,
@@ -68,6 +70,7 @@ export default async function LeadsPage({
           orderBy: { name: "asc" },
         })
       : Promise.resolve([]),
+    getOperatorDailyStats(viewerId),
   ]);
 
   const leads: LeadRow[] = leadsRaw.map((c) => {
@@ -127,6 +130,8 @@ export default async function LeadsPage({
           </p>
         </div>
       </div>
+
+      <OperatorProgress initial={dailyStats} />
 
       {isAdmin && (
         <Card className="p-4">

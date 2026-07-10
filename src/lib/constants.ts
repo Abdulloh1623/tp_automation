@@ -25,6 +25,27 @@ export function paymentMethodLabel(m?: string | null): string {
   return PAYMENT_METHOD[m as PaymentMethod] ?? (m ?? "");
 }
 
+// Ustaga topshirish rejimi — hujjat bilan (imzolangan hujjat yuklanadi) yoki
+// hujjatsiz (izoh majburiy).
+export const HANDOUT_MODE = {
+  WITH_DOC: "Hujjat bilan yuborish",
+  WITHOUT_DOC: "Hujjatsiz yuborish",
+} as const;
+export type HandoutMode = keyof typeof HANDOUT_MODE;
+
+// Topshirish hujjati holati (EquipmentMovement.documentStatus)
+export const DOCUMENT_STATUS = {
+  PENDING_DOC: "Imzo kutilmoqda",
+  UPLOADED: "Yuklandi",
+  APPROVED: "Tasdiqlandi",
+  NOT_REQUIRED: "Talab qilinmaydi",
+} as const;
+export type DocumentStatus = keyof typeof DOCUMENT_STATUS;
+
+export function documentStatusLabel(s?: string | null): string {
+  return DOCUMENT_STATUS[s as DocumentStatus] ?? (s ?? "");
+}
+
 export const USER_ROLE = {
   ADMIN: "Administrator",
   MANAGER: "Texnik bo'lim boshlig'i",

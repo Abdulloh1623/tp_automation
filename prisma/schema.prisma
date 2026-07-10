@@ -147,6 +147,11 @@ model Client {
   lastContactedAt DateTime? // oxirgi aloqa vaqti
   missedCallCount Int       @default(0) // ketma-ket ko'tarilmagan qo'ng'iroqlar (3+ da avtomatik ustaga)
 
+  // Biznex integratsiyasi — telefon bo'yicha moslashtirilgan obuna holati
+  // (fon skripti `npm run sync-biznex` orqali yangilanadi). null = hali tekshirilmagan.
+  biznexStatus    String? // ACTIVE | EXPIRED | INACTIVE | NOT_FOUND
+  biznexCheckedAt DateTime? // oxirgi Biznex tekshiruvi vaqti
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -162,6 +167,7 @@ model Client {
   @@index([assignedToId, stage])
   @@index([assignedToId, nextContactDate])
   @@index([assignedUstaId])
+  @@index([biznexStatus])
 }
 
 model ClientPhone {
@@ -284,9 +290,14 @@ model EquipmentMovement {
   reason          String?
   note            String? // ombor→usta va →brak da majburiy
   byUserId        String?
+  // Hujjatli topshirish (Chiqarib yuborish / Qabul qilish hujjati) — faqat
+  // ombor→usta taqsimotida ishlatiladi. Boshqa harakatlarda null.
+  documentStatus  String? // PENDING_DOC | NOT_REQUIRED | UPLOADED | APPROVED
+  signedDocUrl    String? // imzolangan hujjat (uploads/handouts/...) — pdf/jpg
   createdAt       DateTime @default(now())
 
   @@index([createdAt])
+  @@index([documentStatus])
 }
 
 model EquipmentReturnRequest {

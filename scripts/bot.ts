@@ -4,6 +4,7 @@
 //
 // Bu jarayon Next.js'dan ALOHIDA ishlaydi (long-polling + cron uchun uzluksiz).
 import "dotenv/config";
+import { writeFileSync } from "fs";
 import cron from "node-cron";
 import { db } from "../src/lib/db";
 import { sendToChannel, sendAlbumToChannel, telegramEnabled, channelId } from "../src/lib/telegram";
@@ -151,6 +152,19 @@ async function main() {
   // Kunlik random taqsimot — ish boshlanishidan oldin (08:00)
   cron.schedule("0 8 * * *", () => runDistribute(), { timezone: TZ });
   log("Cron jadvallari o'rnatildi: taqsimot 08:00, eslatma 09:30 & 15:00, kunlik 18:30, haftalik Dush 09:00, oylik 1-kun 09:00, yangilanish 00:00, backup 03:00");
+
+  // Liveness heartbeat — Docker healthcheck shu faylning yangiligini tekshiradi.
+  // .unref(): heartbeat o'zi o'lik jarayonni tirik ushlab turmasin (soxta-healthy'ni oldini oladi).
+  const HEARTBEAT_FILE = process.env.WORKER_HEARTBEAT_FILE || "/tmp/tp-worker-heartbeat";
+  const beat = () => {
+    try {
+      writeFileSync(HEARTBEAT_FILE, String(Date.now()));
+    } catch {
+      // yozib bo'lmasa — healthcheck faylni eskirgan deb ko'radi (kutilgan holat)
+    }
+  };
+  beat();
+  setInterval(beat, 30_000).unref();
 
   // Telegram bot (interaktiv menyu) — token bo'lsa
   await startBot();

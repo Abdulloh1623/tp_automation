@@ -13,6 +13,7 @@ type SearchParams = Promise<{
   region?: string;
   status?: string;
   assigned?: string;
+  biznex?: string;
   sort?: string;
   dir?: string;
   page?: string;
@@ -40,6 +41,7 @@ export default async function ClientsPage({
   const region = sp.region || "";
   const status = sp.status || "";
   const assigned = sp.assigned || "";
+  const biznex = sp.biznex || "";
   const sort = sp.sort && SORTABLE[sp.sort] ? sp.sort : "createdAt";
   const dir: "asc" | "desc" = sp.dir === "asc" ? "asc" : "desc";
   const page = Math.max(1, parseInt(sp.page || "1", 10) || 1);
@@ -61,6 +63,8 @@ export default async function ClientsPage({
   else where.stage = { not: "REFUSED" };
   if (assigned === "__none__") where.assignedToId = null;
   else if (assigned) where.assignedToId = assigned;
+  // "Biznex-da topilmaganlar" — fon skripti (`npm run sync-biznex`) qo'ygan flag.
+  if (biznex === "not_found") where.biznexStatus = "NOT_FOUND";
 
   const operators = await db.user.findMany({
     where: { role: { in: ["OPERATOR", "ADMIN", "MANAGER"] }, isActive: true },
@@ -106,6 +110,7 @@ export default async function ClientsPage({
     if (region) u.set("region", region);
     if (status) u.set("status", status);
     if (assigned) u.set("assigned", assigned);
+    if (biznex) u.set("biznex", biznex);
     if (sort !== "createdAt") u.set("sort", sort);
     if (dir !== "desc") u.set("dir", dir);
     u.set("page", String(p));

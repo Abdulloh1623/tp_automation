@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { normalizePhone, formatPhone, formatMoney, daysUntil } from "./utils";
+import {
+  normalizePhone,
+  formatPhone,
+  formatMoney,
+  daysUntil,
+  formatAmountInput,
+  parseAmountInput,
+  formatPhoneInput,
+} from "./utils";
 
 describe("normalizePhone", () => {
   it("faqat raqamlarni qoldiradi", () => {
@@ -32,6 +40,52 @@ describe("formatMoney", () => {
   it("UZS yoniga so'm qo'yadi va butunga yaxlitlaydi", () => {
     expect(formatMoney(500, "UZS")).toBe("500 so'm");
     expect(formatMoney(29.6, "UZS")).toBe("30 so'm");
+  });
+});
+
+describe("formatAmountInput", () => {
+  it("mingliklarni probel bilan ajratadi", () => {
+    expect(formatAmountInput("9000000")).toBe("9 000 000");
+    expect(formatAmountInput("1500")).toBe("1 500");
+    expect(formatAmountInput("500")).toBe("500");
+  });
+  it("allaqachon formatlangan qiymatni buzmaydi (idempotent)", () => {
+    expect(formatAmountInput("9 000 000")).toBe("9 000 000");
+  });
+  it("kasr qismini 2 xonagacha saqlaydi", () => {
+    expect(formatAmountInput("1234.5")).toBe("1 234.5");
+    expect(formatAmountInput("1000.567")).toBe("1 000.56");
+  });
+  it("boshdagi nollarni tozalaydi, bo'sh → bo'sh", () => {
+    expect(formatAmountInput("007")).toBe("7");
+    expect(formatAmountInput("")).toBe("");
+    expect(formatAmountInput("0")).toBe("0");
+  });
+});
+
+describe("parseAmountInput", () => {
+  it("probel/harflarni olib xom raqam qaytaradi", () => {
+    expect(parseAmountInput("9 000 000")).toBe("9000000");
+    expect(parseAmountInput("1 234.50 so'm")).toBe("1234.50");
+  });
+  it("faqat bitta nuqta va 2 xona kasr", () => {
+    expect(parseAmountInput("1.2.3")).toBe("1.23");
+  });
+});
+
+describe("formatPhoneInput", () => {
+  it("998 bilan boshlansa guruhlaydi", () => {
+    expect(formatPhoneInput("998904814375")).toBe("+998 90 481 43 75");
+    expect(formatPhoneInput("+998 90 481 43 75")).toBe("+998 90 481 43 75");
+  });
+  it("yozilayotgan qismni progressiv formatlaydi", () => {
+    expect(formatPhoneInput("+998")).toBe("+998");
+    expect(formatPhoneInput("+99890")).toBe("+998 90");
+    expect(formatPhoneInput("+998 90 4")).toBe("+998 90 4");
+  });
+  it("998 bo'lmasa foydalanuvchi kiritganini (+ bilan) saqlaydi", () => {
+    expect(formatPhoneInput("+7999")).toBe("+7999");
+    expect(formatPhoneInput("")).toBe("");
   });
 });
 

@@ -51,7 +51,9 @@ function parsePhones(formData: FormData): { label: string; number: string }[] {
   const out: { label: string; number: string }[] = [];
   for (let i = 0; i < numbers.length; i++) {
     const number = (numbers[i] ?? "").trim();
-    if (!number) continue; // raqamsiz qator saqlanmaydi
+    // Raqamsiz yoki juda qisqa (masalan faqat "+998" prefiksi qolgan) qator
+    // saqlanmaydi — telefon input default "+998 " qo'yadi, uni junk qilmaymiz.
+    if (number.replace(/\D/g, "").length < 7) continue;
     out.push({ label: (labels[i] ?? "").trim() || "Boshqa", number });
   }
   return out;

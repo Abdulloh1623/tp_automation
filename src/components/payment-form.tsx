@@ -6,6 +6,7 @@ import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { recordPayment } from "@/actions/payments";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ReceiptInput } from "@/components/receipt-input";
@@ -79,7 +80,7 @@ export function PaymentForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <Label>Summa</Label>
-          <Input type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <MoneyInput value={amount} onValueChange={setAmount} />
         </div>
         <div>
           <Label>Valyuta</Label>

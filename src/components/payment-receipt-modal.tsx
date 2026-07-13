@@ -5,6 +5,7 @@ import { X, AlertCircle, CheckCircle2 } from "lucide-react";
 import { recordLeadPayment } from "@/actions/payments";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ReceiptInput } from "@/components/receipt-input";
@@ -75,7 +76,7 @@ export function PaymentReceiptModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Summa</Label>
-              <Input type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              <MoneyInput value={amount} onValueChange={setAmount} />
             </div>
             <div>
               <Label>Valyuta</Label>

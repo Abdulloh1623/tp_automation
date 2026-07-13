@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Label } from "@/components/ui/label";
 
 export type PhoneValue = { label: string; number: string };
@@ -42,10 +43,9 @@ export function ClientPhonesField({
             placeholder="Yorliq (masalan Egasi)"
             className="w-44"
           />
-          <Input
+          <PhoneInput
             name="phoneNumber"
             defaultValue={r.number}
-            placeholder="+998 ..."
             className="flex-1"
           />
           <button

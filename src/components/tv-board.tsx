@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Crown, PhoneCall, Users, Wifi, WifiOff, Sun, Moon } from "lucide-react";
 import type { Analytics, Shift } from "@/lib/analytics";
 import { LEAD_LIMITS } from "@/lib/constants";
-import { OperatorLimitControls } from "@/components/operator-limit-controls";
 
 const POLL_MS = 5000;
 
@@ -43,10 +42,8 @@ function Meter({
 
 export function TvBoard({
   initial,
-  canManage = false,
 }: {
   initial: Analytics;
-  canManage?: boolean;
 }) {
   const [data, setData] = useState<Analytics>(initial);
   const [shift, setShift] = useState<Shift>(initial.shift);
@@ -192,16 +189,6 @@ export function TvBoard({
                 <Meter label="Bu hafta" value={leader.weekTalked} limit={LEAD_LIMITS.weekly} color="bg-emerald-400" />
                 <Meter label="Bu oy" value={leader.monthTalked} limit={LEAD_LIMITS.monthly} color="bg-blue-400" />
               </div>
-              {/* Kunlik biriktirish kvotasi — indikator + tahrir + qo'shimcha biriktirish */}
-              <div className="max-w-xl">
-                <OperatorLimitControls
-                  operatorId={leader.id}
-                  operatorName={leader.name}
-                  assigned={leader.assigned}
-                  dailyLimit={leader.dailyLimit}
-                  canManage={canManage}
-                />
-              </div>
             </div>
             <div className="text-right">
               <div className="text-7xl font-black leading-none text-amber-300 lg:text-9xl">
@@ -260,14 +247,6 @@ export function TvBoard({
                 <Meter label="Bu hafta" value={o.weekTalked} limit={LEAD_LIMITS.weekly} color="bg-emerald-400" />
                 <Meter label="Bu oy" value={o.monthTalked} limit={LEAD_LIMITS.monthly} color="bg-blue-400" />
               </div>
-              {/* Kunlik biriktirish kvotasi — indikator + tahrir + qo'shimcha biriktirish */}
-              <OperatorLimitControls
-                operatorId={o.id}
-                operatorName={o.name}
-                assigned={o.assigned}
-                dailyLimit={o.dailyLimit}
-                canManage={canManage}
-              />
             </div>
           );
         })}

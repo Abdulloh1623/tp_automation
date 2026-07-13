@@ -16,6 +16,7 @@ import { PhoneCopyButton } from "@/components/phone-copy";
 import { callResultLabel } from "@/lib/constants";
 import { paymentState, paymentUrgency } from "@/lib/payment-status";
 import { getOperatorActivity } from "@/lib/analytics";
+import { slaThreshold } from "@/lib/sla";
 import { OperatorActivityMonitor } from "@/components/operator-activity-monitor";
 
 type Money = { USD: number; UZS: number };
@@ -78,6 +79,9 @@ export default async function DashboardPage() {
     whStockRows,
     unassignedCount,
     incompleteCount,
+    openTicketCount,
+    ticketSlaBreached,
+    escSlaBreached,
   ] = await Promise.all([
     db.client.groupBy({ by: ["status"], _count: true }),
     db.payment.findMany({
@@ -149,6 +153,19 @@ export default async function DashboardPage() {
     db.inventoryStock.findMany({ where: { locationType: "WAREHOUSE" }, select: { equipmentTypeId: true, quantity: true } }),
     db.client.count({ where: { assignedToId: null } }),
     db.client.count({ where: { OR: [{ phone: "" }, { restaurantName: "" }] } }),
+    // Muammolar: ochiq (hal bo'lmagan) va 3 kundan oshgani
+    db.ticket.count({ where: { status: { not: "RESOLVED" } } }),
+    db.ticket.count({ where: { status: { not: "RESOLVED" }, createdAt: { lt: slaThreshold(now) } } }),
+    // 3 kundan oshgan eskalatsiyalar (escalatedAt yoki updatedAt bo'yicha)
+    db.client.count({
+      where: {
+        stage: { in: ["ESCALATED", "FORWARDED"] },
+        OR: [
+          { escalatedAt: { lt: slaThreshold(now) } },
+          { escalatedAt: null, updatedAt: { lt: slaThreshold(now) } },
+        ],
+      },
+    }),
   ]);
 
   // KPI / hisob-kitoblar
@@ -218,6 +235,9 @@ export default async function DashboardPage() {
 
   const attention = [
     { label: "Eskalatsiya navbati", count: escalatedCount, href: "/eskalatsiya" },
+    { label: "Ochiq muammolar", count: openTicketCount, href: "/muammolar?status=OPEN" },
+    { label: "3 kundan oshgan muammo", count: ticketSlaBreached, href: "/muammolar" },
+    { label: "3 kundan oshgan eskalatsiya", count: escSlaBreached, href: "/eskalatsiya" },
     { label: "Uskuna qaytarish arizalari", count: pendingReturns, href: "/ombor" },
     { label: "Biriktirilmagan mijozlar", count: unassignedCount, href: "/mijozlar?assigned=__none__" },
     { label: "To'ldirilmagan ma'lumot", count: incompleteCount, href: "/toldirilmagan" },

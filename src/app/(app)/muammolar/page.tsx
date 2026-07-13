@@ -15,8 +15,10 @@ import { TicketStatusControl } from "@/components/ticket-status-control";
 import { TicketIntegratorControl } from "@/components/ticket-integrator-control";
 import { TicketForm } from "@/components/ticket-form";
 import { PhoneCopyButton } from "@/components/phone-copy";
+import { CountStrip, type CountItem } from "@/components/count-strip";
 import { TICKET_STATUS, TICKET_TYPE, TICKET_PRIORITY } from "@/lib/constants";
 import { formatDate, formatPhone, normalizePhone } from "@/lib/utils";
+import { slaThreshold } from "@/lib/sla";
 
 type SearchParams = Promise<{
   status?: string;
@@ -44,7 +46,7 @@ export default async function TicketsPage({
   if (type) where.type = type;
   if (priority) where.priority = priority;
 
-  const [ticketsRaw, clients, ustalar, xodimlar] = await Promise.all([
+  const [ticketsRaw, clients, ustalar, xodimlar, byStatus, slaBreached] = await Promise.all([
     db.ticket.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -88,6 +90,12 @@ export default async function TicketsPage({
       select: { id: true, name: true, phone: true },
       orderBy: { name: "asc" },
     }),
+    // Umumiy ko'rinish uchun — filtrga bog'liq bo'lmagan holat sanog'i
+    db.ticket.groupBy({ by: ["status"], _count: true }),
+    // 3 kundan oshgan hal bo'lmagan muammolar (SLA buzilishi)
+    db.ticket.count({
+      where: { status: { not: "RESOLVED" }, createdAt: { lt: slaThreshold() } },
+    }),
   ]);
 
   const tickets = ticketsRaw.sort(
@@ -96,6 +104,16 @@ export default async function TicketsPage({
 
   const openCount = ticketsRaw.filter((t) => t.status !== "RESOLVED").length;
 
+  const statusCount = (k: string) => byStatus.find((g) => g.status === k)?._count ?? 0;
+  const totalTickets = byStatus.reduce((s, g) => s + g._count, 0);
+  const summary: CountItem[] = [
+    { label: "Jami", value: totalTickets },
+    { label: TICKET_STATUS.OPEN, value: statusCount("OPEN"), tone: "amber" },
+    { label: TICKET_STATUS.IN_PROGRESS, value: statusCount("IN_PROGRESS"), tone: "sky" },
+    { label: TICKET_STATUS.RESOLVED, value: statusCount("RESOLVED"), tone: "emerald" },
+    { label: "3 kundan oshgan", value: slaBreached, tone: "red" },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -103,6 +121,9 @@ export default async function TicketsPage({
         <p className="text-sm text-slate-500 dark:text-slate-400">
           {tickets.length} ta muammo · {openCount} ta ochiq
         </p>
+        <div className="mt-3">
+          <CountStrip items={summary} />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -225,13 +246,8 @@ export default async function TicketsPage({
                   <TicketIntegratorControl
                     ticketId={t.id}
                     canAssign={canAssign}
-                    assigneeType={
-                      (t.assigneeType as "USTA" | "XODIM" | null) ??
-                      (t.assignedUsta ? "USTA" : null)
-                    }
-                    assignedId={(t.assignedStaff ?? t.assignedUsta)?.id ?? null}
-                    assignedName={(t.assignedStaff ?? t.assignedUsta)?.name ?? null}
-                    assignedPhone={(t.assignedStaff ?? t.assignedUsta)?.phone ?? null}
+                    staff={t.assignedStaff ?? null}
+                    usta={t.assignedUsta ?? null}
                     ustalar={ustalar}
                     xodimlar={xodimlar}
                   />

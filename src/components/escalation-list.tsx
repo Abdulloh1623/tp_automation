@@ -2,11 +2,15 @@
 
 // Eskalatsiya ro'yxatlari (yangi navbat + ustada) — qidiruv + viloyat filtri bilan.
 import { useMemo, useState } from "react";
-import { Phone, PhoneOff, MapPin, Wrench } from "lucide-react";
+import { Phone, PhoneOff, MapPin, Wrench, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { AssignUstaForm } from "@/components/assign-usta-form";
 import { UstaStatusControl } from "@/components/usta-status-control";
 import { LeadRevertButton } from "@/components/lead-revert-button";
+import {
+  AssignEscalationStaff,
+  type StaffOption,
+} from "@/components/assign-escalation-staff";
 import { PhoneCopyButton } from "@/components/phone-copy";
 import {
   SearchInput,
@@ -29,6 +33,9 @@ export type EscalatedItem = {
   specialNote: string | null;
   lastNote: string | null;
   suggestedUstaId: string | null;
+  staffId: string | null;
+  staffName: string | null;
+  overdue: boolean;
 };
 
 export type ForwardedItem = {
@@ -40,7 +47,19 @@ export type ForwardedItem = {
   ustaName: string | null;
   ustaPhone: string | null;
   ustaStatus: string | null;
+  staffId: string | null;
+  staffName: string | null;
+  overdue: boolean;
 };
+
+/** 3 kundan oshgan eskalatsiya belgisi. */
+function OverdueBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-950 px-2.5 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">
+      <AlertTriangle className="h-3 w-3" /> 3 kundan oshgan
+    </span>
+  );
+}
 
 export type UstaOption = {
   id: string;
@@ -53,11 +72,13 @@ export function EscalationList({
   escalated,
   forwarded,
   ustalar,
+  staffOptions,
   isManager,
 }: {
   escalated: EscalatedItem[];
   forwarded: ForwardedItem[];
   ustalar: UstaOption[];
+  staffOptions: StaffOption[];
   isManager: boolean;
 }) {
   const [query, setQuery] = useState("");
@@ -123,12 +144,15 @@ export function EscalationList({
                           {c.operatorName && <span>· operator: {c.operatorName}</span>}
                         </div>
                       </div>
-                      {c.missedCallCount > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-950 px-2.5 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">
-                          <PhoneOff className="h-3 w-3" />
-                          {c.missedCallCount} marta ko'tarilmagan
-                        </span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {c.overdue && <OverdueBadge />}
+                        {c.missedCallCount > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-950 px-2.5 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">
+                            <PhoneOff className="h-3 w-3" />
+                            {c.missedCallCount} marta ko'tarilmagan
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {(c.specialNote || c.lastNote) && (
@@ -142,27 +166,35 @@ export function EscalationList({
                       </div>
                     )}
 
-                    {isManager ? (
-                      <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
-                        <AssignUstaForm
-                          clientId={c.id}
-                          ustalar={ustalar}
-                          suggestedUstaId={c.suggestedUstaId}
-                        />
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-xs text-slate-400 dark:text-slate-500">
-                            Noto'g'ri yo'naltirilgan bo'lsa:
-                          </span>
-                          <LeadRevertButton clientId={c.id} label={c.restaurantName} />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+                    <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+                      {/* Mas'ul xodim — jarayonni yakuniga yetkazadi (hamma ko'radi) */}
+                      <AssignEscalationStaff
+                        clientId={c.id}
+                        staffId={c.staffId}
+                        staffName={c.staffName}
+                        options={staffOptions}
+                        canAssign={isManager}
+                      />
+                      {isManager ? (
+                        <>
+                          <AssignUstaForm
+                            clientId={c.id}
+                            ustalar={ustalar}
+                            suggestedUstaId={c.suggestedUstaId}
+                          />
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs text-slate-400 dark:text-slate-500">
+                              Noto'g'ri yo'naltirilgan bo'lsa:
+                            </span>
+                            <LeadRevertButton clientId={c.id} label={c.restaurantName} />
+                          </div>
+                        </>
+                      ) : (
                         <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
                           Usta biriktirilishi kutilmoqda
                         </span>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -215,13 +247,25 @@ export function EscalationList({
                           )}
                         </div>
                       </div>
-                      <span className="rounded-full bg-amber-100 dark:bg-amber-950 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
-                        {ustaStatusLabel(c.ustaStatus ?? "ASSIGNED")}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {c.overdue && <OverdueBadge />}
+                        <span className="rounded-full bg-amber-100 dark:bg-amber-950 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                          {ustaStatusLabel(c.ustaStatus ?? "ASSIGNED")}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 dark:border-slate-800 pt-3">
-                      <UstaStatusControl clientId={c.id} current={c.ustaStatus} />
-                      {isManager && <LeadRevertButton clientId={c.id} label={c.restaurantName} />}
+                    <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+                      <AssignEscalationStaff
+                        clientId={c.id}
+                        staffId={c.staffId}
+                        staffName={c.staffName}
+                        options={staffOptions}
+                        canAssign={isManager}
+                      />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <UstaStatusControl clientId={c.id} current={c.ustaStatus} />
+                        {isManager && <LeadRevertButton clientId={c.id} label={c.restaurantName} />}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

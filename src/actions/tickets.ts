@@ -124,36 +124,33 @@ export async function setTicketStatus(
   }
 }
 
-export type TicketAssigneeType = "USTA" | "XODIM";
-
-// XODIM sifatida biriktirilishi mumkin bo'lgan ofis xodimlari (usta emas)
+// XODIM (ofis xodimi) sifatida mas'ul qilib biriktirilishi mumkin bo'lgan rollar
 const ASSIGNABLE_STAFF_ROLES = ["ADMIN", "MANAGER", "OPERATOR"];
 
+/** OPEN muammoni biriktirilganda "Jarayonda"ga o'tkazadi (boshqa holatga tegmaydi). */
+function progressIfOpen(status: string): "IN_PROGRESS" | undefined {
+  return status === "OPEN" ? "IN_PROGRESS" : undefined;
+}
+
 /**
- * Muammoni hal qiluvchiga biriktirish/olib tashlash — polimorf. Faqat boshliq/admin.
- *
- * - `assigneeType: "USTA"` — integrator (usta) joyida hal etadi.
- * - `assigneeType: "XODIM"` — ofis xodimi (operator/menejer/admin) online hal etadi.
- * - `assigneeId: null` (yoki assigneeType: null) — biriktiruv butunlay olinadi.
- *
- * Biriktirilganda muammo "Jarayonda" holatiga o'tadi; ikki tur bir vaqtda saqlanmaydi.
+ * Muammoga mas'ul TP xodimini biriktirish/olib tashlash — faqat boshliq/admin.
+ * Mas'ul xodim jarayonni to'liq nazorat qilib yakunlaydi (usta bilan birga
+ * bo'lishi mumkin — ular bir-birini almashtirmaydi). `staffId: null` — olib tashlaydi.
  */
-export async function assignTicket(
+export async function assignTicketStaff(
   ticketId: string,
-  assigneeType: TicketAssigneeType | null,
-  assigneeId: string | null,
+  staffId: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
   const g = await guardRole(["ADMIN", "MANAGER"]);
   if (!g.ok) return { ok: false, error: g.error };
 
-  // Biriktiruvni olib tashlash
-  if (!assigneeType || !assigneeId) {
+  if (!staffId) {
     try {
       const ticket = await db.ticket.update({
         where: { id: ticketId },
-        data: { assigneeType: null, assignedUstaId: null, assignedStaffId: null },
+        data: { assignedStaffId: null },
       });
-      await logAudit("Muammo biriktiruvi olindi", { entity: "Ticket", entityId: ticketId });
+      await logAudit("Muammo mas'uli olindi", { entity: "Ticket", entityId: ticketId });
       revalidateTicket(ticket.clientId);
       return { ok: true };
     } catch {
@@ -161,43 +158,22 @@ export async function assignTicket(
     }
   }
 
-  if (assigneeType !== "USTA" && assigneeType !== "XODIM") {
-    return { ok: false, error: "Biriktiruv turi noto'g'ri" };
-  }
-
-  // Biriktiriluvchini tekshirish (rol + faollik)
-  const assignee = await db.user.findUnique({
-    where: { id: assigneeId },
+  const u = await db.user.findUnique({
+    where: { id: staffId },
     select: { name: true, role: true, isActive: true },
   });
-  if (!assignee || !assignee.isActive) {
-    return { ok: false, error: "Biriktiriluvchi topilmadi yoki faol emas" };
-  }
-  if (assigneeType === "USTA" && assignee.role !== "INSTALLER") {
-    return { ok: false, error: "Integrator (usta) topilmadi" };
-  }
-  if (assigneeType === "XODIM" && !ASSIGNABLE_STAFF_ROLES.includes(assignee.role)) {
-    return { ok: false, error: "Xodim (ofis) topilmadi" };
+  if (!u || !u.isActive || !ASSIGNABLE_STAFF_ROLES.includes(u.role)) {
+    return { ok: false, error: "Xodim topilmadi yoki faol emas" };
   }
 
   try {
+    const current = await db.ticket.findUnique({ where: { id: ticketId }, select: { status: true } });
+    if (!current) return { ok: false, error: "Muammo topilmadi" };
     const ticket = await db.ticket.update({
       where: { id: ticketId },
-      data: {
-        assigneeType,
-        // Faqat bitta biriktiruv turi saqlanadi — ikkinchisi tozalanadi
-        assignedUstaId: assigneeType === "USTA" ? assigneeId : null,
-        assignedStaffId: assigneeType === "XODIM" ? assigneeId : null,
-        // Biriktirilganda ish boshlandi hisoblanadi
-        status: "IN_PROGRESS",
-      },
+      data: { assignedStaffId: staffId, assigneeType: "XODIM", status: progressIfOpen(current.status) },
     });
-    await logAudit(
-      assigneeType === "USTA"
-        ? `Muammo joyida hal qilish uchun ${assignee.name} (usta)ga biriktirildi`
-        : `Muammo online hal qilish uchun ${assignee.name} (xodim)ga biriktirildi`,
-      { entity: "Ticket", entityId: ticketId, detail: assigneeType },
-    );
+    await logAudit(`Muammo mas'uli: ${u.name} (xodim)`, { entity: "Ticket", entityId: ticketId });
     revalidateTicket(ticket.clientId);
     return { ok: true };
   } catch {
@@ -206,12 +182,49 @@ export async function assignTicket(
 }
 
 /**
- * Eski chaqiruvlar bilan moslik uchun ingichka o'ram — usta biriktirish/olib tashlash.
- * @deprecated `assignTicket(ticketId, "USTA", ustaId)` dan foydalaning.
+ * Muammoga usta (integrator, joyida) biriktirish/olib tashlash — faqat boshliq/admin.
+ * Mas'ul xodim bilan birga bo'lishi mumkin. `ustaId: null` — olib tashlaydi.
  */
 export async function assignTicketUsta(
   ticketId: string,
   ustaId: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
-  return assignTicket(ticketId, ustaId ? "USTA" : null, ustaId);
+  const g = await guardRole(["ADMIN", "MANAGER"]);
+  if (!g.ok) return { ok: false, error: g.error };
+
+  if (!ustaId) {
+    try {
+      const ticket = await db.ticket.update({
+        where: { id: ticketId },
+        data: { assignedUstaId: null },
+      });
+      await logAudit("Muammodan usta olindi", { entity: "Ticket", entityId: ticketId });
+      revalidateTicket(ticket.clientId);
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Muammo topilmadi" };
+    }
+  }
+
+  const u = await db.user.findUnique({
+    where: { id: ustaId },
+    select: { name: true, role: true, isActive: true },
+  });
+  if (!u || !u.isActive || u.role !== "INSTALLER") {
+    return { ok: false, error: "Usta topilmadi yoki faol emas" };
+  }
+
+  try {
+    const current = await db.ticket.findUnique({ where: { id: ticketId }, select: { status: true } });
+    if (!current) return { ok: false, error: "Muammo topilmadi" };
+    const ticket = await db.ticket.update({
+      where: { id: ticketId },
+      data: { assignedUstaId: ustaId, status: progressIfOpen(current.status) },
+    });
+    await logAudit(`Muammoga usta: ${u.name}`, { entity: "Ticket", entityId: ticketId });
+    revalidateTicket(ticket.clientId);
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Muammo topilmadi" };
+  }
 }

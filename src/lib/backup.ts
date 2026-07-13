@@ -27,12 +27,12 @@ export type BackupResult = {
 };
 
 /** Buyruqni ishga tushiradi va stdout'ni Buffer sifatida qaytaradi. */
-function run(cmd: string, args: string[]): Promise<Buffer> {
+function run(cmd: string, args: string[], env?: NodeJS.ProcessEnv): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     execFile(
       cmd,
       args,
-      { maxBuffer: 1024 * 1024 * 256, encoding: "buffer" },
+      { maxBuffer: 1024 * 1024 * 256, encoding: "buffer", env: env ?? process.env },
       (err, stdout) => (err ? reject(err) : resolve(stdout as Buffer)),
     );
   });
@@ -60,25 +60,37 @@ async function pgDump(): Promise<Buffer> {
   }
   const cfg = parseDbUrl(url);
   const dumpArgs = ["--no-owner", "--no-acl", "--clean", "--if-exists"];
+  // MUHIM: pg_dump'ni to'liq URL bilan chaqirMAYMIZ — Prisma URL'idagi
+  // `?schema=public` libpq uchun yaroqsiz query param bo'lib, pg_dump
+  // "invalid URI query parameter: schema" xatosini beradi. Buning o'rniga
+  // aniq -h/-p/-U/-d va parolni PGPASSWORD orqali uzatamiz.
+  const connArgs = ["-h", cfg.host, "-p", cfg.port, "-U", cfg.user, "-d", cfg.database];
+  const dumpEnv = { ...process.env, PGPASSWORD: cfg.password };
 
   try {
-    // 1) Host'da pg_dump bor (production / postgresql-client o'rnatilgan)
-    return await run("pg_dump", [url, ...dumpArgs]);
-  } catch {
-    // 2) Docker konteyner ichidagi pg_dump (lokal dev)
+    // 1) Host/image ichida pg_dump bor (production: postgresql-client-16)
+    return await run("pg_dump", [...connArgs, ...dumpArgs], dumpEnv);
+  } catch (primaryErr) {
+    // 2) Lokal dev: host'da pg_dump yo'q bo'lsa — Docker konteyner orqali.
     const container = process.env.PG_CONTAINER || "tp-postgres";
-    return await run("docker", [
-      "exec",
-      "-e",
-      `PGPASSWORD=${cfg.password}`,
-      container,
-      "pg_dump",
-      "-U",
-      cfg.user,
-      "-d",
-      cfg.database,
-      ...dumpArgs,
-    ]);
+    try {
+      return await run("docker", [
+        "exec",
+        "-e",
+        `PGPASSWORD=${cfg.password}`,
+        container,
+        "pg_dump",
+        "-U",
+        cfg.user,
+        "-d",
+        cfg.database,
+        ...dumpArgs,
+      ]);
+    } catch {
+      // Fallback ham ishlamadi (prod'da docker yo'q) — birlamchi pg_dump
+      // xatosini ko'rsatamiz, chalg'ituvchi "spawn docker ENOENT" o'rniga.
+      throw primaryErr;
+    }
   }
 }
 

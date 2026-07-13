@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Crown, PhoneCall, Users, Wifi, WifiOff, Sun, Moon } from "lucide-react";
-import type { Analytics, Shift } from "@/lib/analytics";
+import type { Analytics, OperatorStat, Shift } from "@/lib/analytics";
 import { LEAD_LIMITS } from "@/lib/constants";
 
 const POLL_MS = 5000;
@@ -36,6 +36,51 @@ function Meter({
           style={{ width: `${pct}%` }}
         />
       </div>
+    </div>
+  );
+}
+
+/** Xodim ustiga hover qilinganda — bugungi tafsilot: ishlangan/gaplashilgan + holatlar. */
+function DetailPopover({ o }: { o: OperatorStat }) {
+  return (
+    <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 hidden w-72 -translate-x-1/2 rounded-2xl border border-white/15 bg-slate-900/95 p-4 text-left shadow-2xl backdrop-blur-sm group-hover:block">
+      <div className="mb-2 flex items-center justify-between border-b border-white/10 pb-2">
+        <span className="font-bold text-white">{o.name}</span>
+        <span className="text-xs text-slate-400">bugun</span>
+      </div>
+      <div className="space-y-1 text-sm">
+        <div className="flex justify-between">
+          <span className="text-slate-400">Ishlangan</span>
+          <span className="font-semibold tabular-nums text-amber-300">
+            {o.todayProcessed} / {o.target}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-slate-400">Gaplashildi</span>
+          <span className="font-semibold tabular-nums text-emerald-300">
+            {o.todayTalkedClients} / {o.target}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-slate-400">Qo&apos;ng&apos;iroqlar</span>
+          <span className="font-semibold tabular-nums text-slate-200">{o.todayCalls}</span>
+        </div>
+      </div>
+      {o.breakdown.length > 0 ? (
+        <div className="mt-3 border-t border-white/10 pt-2">
+          <div className="mb-1 text-xs uppercase tracking-wide text-slate-500">Holatlar bo&apos;yicha</div>
+          <div className="space-y-1 text-sm">
+            {o.breakdown.map((b) => (
+              <div key={b.key} className="flex justify-between">
+                <span className="text-slate-300">{b.label}</span>
+                <span className="font-semibold tabular-nums text-white">{b.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-2 text-xs text-slate-500">Bugun hali natija yozilmagan</div>
+      )}
     </div>
   );
 }
@@ -112,11 +157,17 @@ export function TvBoard({
   const nightCount = data.operators.length - dayCount;
   const day = [...data.operators]
     .filter((o) => (shift === "DAY" ? o.dayShift : !o.dayShift))
-    .sort((a, b) => b.todayTalked - a.todayTalked || b.todayCalls - a.todayCalls);
+    .sort(
+      (a, b) =>
+        b.todayProcessed - a.todayProcessed ||
+        b.todayTalkedClients - a.todayTalkedClients ||
+        b.todayCalls - a.todayCalls,
+    );
   const leader = day[0];
   const rest = day.slice(1);
   const n = Math.max(1, day.length);
-  const teamToday = day.reduce((s, o) => s + o.todayTalked, 0);
+  const teamProcessed = day.reduce((s, o) => s + o.todayProcessed, 0);
+  const teamTarget = day.reduce((s, o) => s + o.target, 0);
   const teamWeek = day.reduce((s, o) => s + o.weekTalked, 0);
   const teamMonth = day.reduce((s, o) => s + o.monthTalked, 0);
 
@@ -182,9 +233,10 @@ export function TvBoard({
 
       {/* Eng yaxshi xodim — katta hero box */}
       {leader && (
+        <div className="group relative mt-8">
         <div
           className={
-            "relative mt-8 overflow-hidden rounded-3xl border-2 p-8 transition-all duration-700 lg:p-10 " +
+            "relative overflow-hidden rounded-3xl border-2 p-8 transition-all duration-700 lg:p-10 " +
             (flash.has(leader.id) ? "scale-[1.01] " : "") +
             "border-amber-400/60 bg-gradient-to-br from-amber-500/25 via-amber-400/10 to-transparent shadow-[0_0_60px_-15px_rgba(251,191,36,0.5)]"
           }
@@ -215,20 +267,27 @@ export function TvBoard({
             </div>
             <div className="text-right">
               <div className="text-7xl font-black leading-none text-amber-300 lg:text-9xl">
-                {leader.todayTalked}
-                <span className="text-3xl font-bold text-amber-200/60 lg:text-5xl"> / {LEAD_LIMITS.daily}</span>
+                {leader.todayProcessed}
+                <span className="text-3xl font-bold text-amber-200/60 lg:text-5xl"> / {leader.target}</span>
               </div>
               <div className="mt-1 text-lg font-medium uppercase tracking-wide text-amber-200/80 lg:text-2xl">
-                bugun · gaplashgan lid
+                bugun · ishlangan lid
+              </div>
+              <div className="mt-1 text-sm text-emerald-300/90 lg:text-base">
+                {leader.todayTalkedClients} ta bilan gaplashildi
               </div>
               <div className="ml-auto mt-3 h-3 w-full max-w-md overflow-hidden rounded-full bg-white/10">
                 <div
                   className="h-full rounded-full bg-amber-400 transition-all duration-500"
-                  style={{ width: `${Math.min(100, Math.round((leader.todayTalked / LEAD_LIMITS.daily) * 100))}%` }}
+                  style={{
+                    width: `${leader.target > 0 ? Math.min(100, Math.round((leader.todayProcessed / leader.target) * 100)) : 0}%`,
+                  }}
                 />
               </div>
             </div>
           </div>
+        </div>
+        <DetailPopover o={leader} />
         </div>
       )}
 
@@ -236,13 +295,13 @@ export function TvBoard({
       <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {rest.map((o, i) => {
           const rank = i + 2;
-          const pct = Math.min(100, Math.round((o.todayTalked / LEAD_LIMITS.daily) * 100));
+          const pct = o.target > 0 ? Math.min(100, Math.round((o.todayProcessed / o.target) * 100)) : 0;
           const accent = rank === 2 ? "text-slate-200" : rank === 3 ? "text-orange-300" : "text-slate-300";
           return (
             <div
               key={o.id}
               className={
-                "rounded-2xl border p-6 transition-all duration-700 " +
+                "group relative rounded-2xl border p-6 transition-all duration-700 " +
                 (flash.has(o.id)
                   ? "scale-[1.02] border-emerald-400/70 bg-emerald-500/10"
                   : "border-white/10 bg-white/5")
@@ -256,10 +315,12 @@ export function TvBoard({
               </div>
               <div className="mt-3 text-3xl font-bold lg:text-4xl">{o.name}</div>
               <div className="mt-3 flex items-end gap-2">
-                <span className={"text-6xl font-black lg:text-7xl " + accent}>{o.todayTalked}</span>
-                <span className="mb-2 text-2xl font-bold text-slate-500">/ {LEAD_LIMITS.daily}</span>
+                <span className={"text-6xl font-black lg:text-7xl " + accent}>{o.todayProcessed}</span>
+                <span className="mb-2 text-2xl font-bold text-slate-500">/ {o.target}</span>
               </div>
-              <div className="text-sm text-slate-400">bugun gaplashgan lid · {o.todayCalls} qo'ng'iroq</div>
+              <div className="text-sm text-slate-400">
+                bugun ishlangan · {o.todayTalkedClients} gaplashildi · {o.todayCalls} qo&apos;ng&apos;iroq
+              </div>
               <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-white/10">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-500"
@@ -270,6 +331,7 @@ export function TvBoard({
                 <Meter label="Bu hafta" value={o.weekTalked} limit={LEAD_LIMITS.weekly} color="bg-emerald-400" />
                 <Meter label="Bu oy" value={o.monthTalked} limit={LEAD_LIMITS.monthly} color="bg-blue-400" />
               </div>
+              <DetailPopover o={o} />
             </div>
           );
         })}
@@ -283,7 +345,7 @@ export function TvBoard({
 
       {/* Pastki qator — jamoa natijalari (limit = limit × xodim soni) */}
       <div className="mt-8 grid grid-cols-1 gap-5 border-t border-white/10 pt-6 sm:grid-cols-3">
-        <TeamStat label="Bugun (jamoa)" value={teamToday} limit={LEAD_LIMITS.daily * n} tone="amber" />
+        <TeamStat label="Bugun (jamoa · ishlangan)" value={teamProcessed} limit={teamTarget} tone="amber" />
         <TeamStat label="Bu hafta (jamoa)" value={teamWeek} limit={LEAD_LIMITS.weekly * n} tone="emerald" />
         <TeamStat label="Bu oy (jamoa)" value={teamMonth} limit={LEAD_LIMITS.monthly * n} tone="blue" />
       </div>
@@ -330,7 +392,7 @@ function TeamStat({
 }) {
   const color = { amber: "text-amber-300", emerald: "text-emerald-300", blue: "text-blue-300" }[tone];
   const bar = { amber: "bg-amber-400", emerald: "bg-emerald-400", blue: "bg-blue-400" }[tone];
-  const pct = Math.min(100, Math.round((value / limit) * 100));
+  const pct = limit > 0 ? Math.min(100, Math.round((value / limit) * 100)) : 0;
   return (
     <div className="rounded-2xl bg-white/5 p-5 text-center">
       <div className={"text-5xl font-black lg:text-6xl " + color}>

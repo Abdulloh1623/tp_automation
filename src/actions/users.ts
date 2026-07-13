@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
+import { isUserShift } from "@/lib/constants";
 
 export type UserActionState = { ok: boolean; error?: string };
 
@@ -23,7 +24,13 @@ const baseSchema = z.object({
   phone: z.string().optional(),
   telegramId: z.string().optional(),
   dailyLeadTarget: z.coerce.number().int().min(0).default(20),
+  shift: z.string().optional(),
 });
+
+/** Faqat DAY/NIGHT qabul qilinadi; boshqasi (yoki bo'sh) — DAY. */
+function normShift(v?: string): "DAY" | "NIGHT" {
+  return v && isUserShift(v) ? v : "DAY";
+}
 
 function clean(v?: string): string | null {
   const t = (v ?? "").trim();
@@ -44,6 +51,7 @@ export async function createUser(input: {
   regions?: string[];
   phone?: string;
   dailyLeadTarget?: number | string;
+  shift?: string;
 }): Promise<UserActionState> {
   const admin = await requireAdmin();
   if (!admin.ok) return admin;
@@ -74,6 +82,7 @@ export async function createUser(input: {
         ...regionData(input.regions),
         phone: clean(parsed.data.phone),
         dailyLeadTarget: parsed.data.dailyLeadTarget,
+        shift: normShift(parsed.data.shift),
       },
     });
   } catch {
@@ -97,6 +106,7 @@ export async function updateUser(
     phone?: string;
     telegramId?: string;
     dailyLeadTarget?: number | string;
+    shift?: string;
   },
 ): Promise<UserActionState> {
   const admin = await requireAdmin();
@@ -120,6 +130,7 @@ export async function updateUser(
         phone: clean(parsed.data.phone),
         telegramId: clean(parsed.data.telegramId),
         dailyLeadTarget: parsed.data.dailyLeadTarget,
+        shift: normShift(parsed.data.shift),
       },
     });
   } catch {

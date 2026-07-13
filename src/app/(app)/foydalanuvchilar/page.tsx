@@ -29,6 +29,7 @@ export default async function UsersPage() {
       phone: true,
       telegramId: true,
       dailyLeadTarget: true,
+      shift: true,
       isActive: true,
     },
   });

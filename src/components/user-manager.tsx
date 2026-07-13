@@ -23,7 +23,7 @@ import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { RegionMultiSelect } from "@/components/region-multi-select";
-import { USER_ROLE, userRoleLabel, parseRegions } from "@/lib/constants";
+import { USER_ROLE, USER_SHIFT, userRoleLabel, parseRegions } from "@/lib/constants";
 
 export type ManagedUser = {
   id: string;
@@ -35,6 +35,7 @@ export type ManagedUser = {
   phone: string | null;
   telegramId: string | null;
   dailyLeadTarget: number;
+  shift: string;
   isActive: boolean;
 };
 
@@ -53,6 +54,7 @@ type Form = {
   phone: string;
   telegramId: string;
   dailyLeadTarget: string;
+  shift: string;
 };
 
 const emptyForm: Form = {
@@ -64,6 +66,7 @@ const emptyForm: Form = {
   phone: "",
   telegramId: "",
   dailyLeadTarget: "20",
+  shift: "DAY",
 };
 
 const roleTone: Record<string, "blue" | "amber" | "slate"> = {
@@ -94,6 +97,7 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
       phone: u.phone ?? "",
       telegramId: u.telegramId ?? "",
       dailyLeadTarget: String(u.dailyLeadTarget),
+      shift: u.shift || "DAY",
     });
     setError(null);
     setMode({ kind: "edit", user: u });
@@ -122,6 +126,7 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
           regions: form.regions,
           phone: form.phone,
           dailyLeadTarget: form.dailyLeadTarget,
+          shift: form.shift,
         });
       } else if (mode.kind === "edit") {
         res = await updateUser(mode.user.id, {
@@ -131,6 +136,7 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
           phone: form.phone,
           telegramId: form.telegramId,
           dailyLeadTarget: form.dailyLeadTarget,
+          shift: form.shift,
         });
       } else {
         res = await resetPassword(mode.user.id, form.password);
@@ -361,6 +367,22 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                       />
                     </div>
                   </div>
+                  {form.role === "OPERATOR" && (
+                    <div>
+                      <Label htmlFor="shift">Ish smenasi</Label>
+                      <Select
+                        id="shift"
+                        value={form.shift}
+                        onChange={(e) => set("shift", e.target.value)}
+                      >
+                        {Object.entries(USER_SHIFT).map(([key, label]) => (
+                          <option key={key} value={key}>
+                            {label}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  )}
                   {mode.kind === "edit" && (
                     <div>
                       <Label htmlFor="tg">Telegram ID</Label>

@@ -8,14 +8,6 @@ import {
   leadStageLabel,
 } from "@/lib/constants";
 
-/**
- * Kunduzgi smena belgisi: hozircha ism ichidagi "(kechki ...)" markeriga qarab
- * aniqlanadi (Mehroj = kechki). Kelajakda User.shift maydoni qo'shilsa shu yerda almashtiriladi.
- */
-export function isDayShift(name: string): boolean {
-  return !/kechki/i.test(name);
-}
-
 // --- Smena (shift) oynalari ---
 // Kunduzgi: bugun 09:00 → 18:00. Kechki: 18:00 → ertasi 09:00 (yarim tunni kesib o'tadi).
 export type Shift = "DAY" | "NIGHT";
@@ -104,14 +96,18 @@ export async function getAnalytics(shift?: Shift): Promise<Analytics> {
   const { start: shiftStart, end: shiftEnd } = shiftRange(activeShift, now);
   const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // dushanba
   const monthStart = startOfMonth(now);
-  // Loglarni oy boshidan yoki (kechki smena kechadan boshlansa) smena boshidan — qaysi biri erta bo'lsa
-  const logsSince = shiftStart < monthStart ? shiftStart : monthStart;
+  // Loglar barcha oynalarni (smena/hafta/oy) qamrashi uchun — eng erta boshidan.
+  // (Oy boshida hafta boshi oy boshidan oldin bo'lishi mumkin — shunda weekTalked
+  //  kam sanalmasligi uchun weekStart ham hisobga olinadi.)
+  const logsSince = new Date(
+    Math.min(shiftStart.getTime(), weekStart.getTime(), monthStart.getTime()),
+  );
 
   const [operators, assignedGroups, statusGroups, stageGroups, total, logs] =
     await Promise.all([
       db.user.findMany({
         where: { role: "OPERATOR", isActive: true },
-        select: { id: true, name: true, dailyLimit: true },
+        select: { id: true, name: true, dailyLimit: true, shift: true },
         orderBy: { name: "asc" },
       }),
       db.client.groupBy({ by: ["assignedToId"], _count: true }),
@@ -170,7 +166,7 @@ export async function getAnalytics(shift?: Shift): Promise<Analytics> {
     return {
       id: o.id,
       name: o.name,
-      dayShift: isDayShift(o.name),
+      dayShift: o.shift !== "NIGHT",
       assigned: assignedMap.get(o.id) ?? 0,
       dailyLimit: o.dailyLimit,
       ...a,

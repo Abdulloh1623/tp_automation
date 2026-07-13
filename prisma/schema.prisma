@@ -24,6 +24,7 @@ model User {
   telegramId      String?  @unique // Telegram bot ruxsati/DM uchun
   dailyLeadTarget Int      @default(20) // kunlik lid soni (ko'rsatkich maqsadi)
   dailyLimit      Int      @default(20) // kunlik avtomatik biriktirish chegarasi (kvota)
+  sessionVersion  Int      @default(0) // faol sessiya versiyasi — yangi kirish eskisini bekor qiladi (bitta qurilma)
   createdAt       DateTime @default(now())
 
   assignedClients Client[]         @relation("AssignedOperator")

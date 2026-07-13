@@ -58,11 +58,14 @@ export async function requireSession(): Promise<SessionPayload> {
   if (!session) redirect("/login");
   const u = await db.user.findUnique({
     where: { id: session.userId },
-    select: { isActive: true },
+    select: { isActive: true, sessionVersion: true },
   });
   // Foydalanuvchi o'chirilgan/faolsiz — cookie'ni route handler tozalaydi
   // (RSC render'da cookie o'zgartirib bo'lmaydi; middleware tsiklini ham oldini oladi).
-  if (!u || !u.isActive) redirect("/api/logout");
+  // sessionVersion mos kelmasa — bu account boshqa qurilmada qayta kirgan (bitta qurilma siyosati).
+  if (!u || !u.isActive || u.sessionVersion !== session.version) {
+    redirect("/api/logout");
+  }
   return session;
 }
 
@@ -86,9 +89,12 @@ export async function guardRole(
   if (!session) return { ok: false, error: "Tizimga kiring" };
   const u = await db.user.findUnique({
     where: { id: session.userId },
-    select: { isActive: true, role: true },
+    select: { isActive: true, role: true, sessionVersion: true },
   });
   if (!u || !u.isActive) return { ok: false, error: "Hisob faol emas" };
+  if (u.sessionVersion !== session.version) {
+    return { ok: false, error: "Sessiya boshqa qurilmada yangilandi — qayta kiring" };
+  }
   if (!roles.includes(u.role)) return { ok: false, error: "Ruxsat yo'q" };
   return { ok: true, session };
 }

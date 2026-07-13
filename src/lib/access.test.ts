@@ -22,6 +22,7 @@ const sess = (role: string, userId = "u1"): SessionPayload => ({
   name: "Test",
   username: "test",
   role,
+  version: 0,
 });
 
 beforeEach(() => vi.clearAllMocks());

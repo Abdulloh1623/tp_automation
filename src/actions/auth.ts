@@ -87,11 +87,21 @@ export async function login(
   }
 
   attempts.delete(key); // muvaffaqiyatda nollash
+
+  // Bitta account = bitta faol qurilma: har kirishda sessionVersion oshiriladi.
+  // Eski qurilmaning JWT'sidagi versiya endi mos kelmay, keyingi so'rovda chiqariladi.
+  const { sessionVersion } = await db.user.update({
+    where: { id: user.id },
+    data: { sessionVersion: { increment: 1 } },
+    select: { sessionVersion: true },
+  });
+
   await createSession({
     userId: user.id,
     name: user.name,
     username: user.username,
     role: user.role,
+    version: sessionVersion,
   });
 
   // Audit: getSession hali yangi cookie'ni o'qiy olmaydi — to'g'ridan-to'g'ri yozamiz

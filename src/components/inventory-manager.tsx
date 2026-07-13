@@ -34,6 +34,7 @@ import { HANDOUT_MODE, type HandoutMode } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
@@ -558,8 +559,8 @@ export function InventoryManager({
                 <Input value={nt.name} onChange={(e) => setNt((p) => ({ ...p, name: e.target.value }))} placeholder="masalan: Skaner" />
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <div><Label>Ijara</Label><Input type="number" min={0} value={nt.r} onChange={(e) => setNt((p) => ({ ...p, r: e.target.value }))} /></div>
-                <div><Label>Sotuv</Label><Input type="number" min={0} value={nt.s} onChange={(e) => setNt((p) => ({ ...p, s: e.target.value }))} /></div>
+                <div><Label>Ijara</Label><MoneyInput value={nt.r} onValueChange={(v) => setNt((p) => ({ ...p, r: v }))} /></div>
+                <div><Label>Sotuv</Label><MoneyInput value={nt.s} onValueChange={(v) => setNt((p) => ({ ...p, s: v }))} /></div>
                 <div><Label>Min.</Label><Input type="number" min={0} value={nt.m} onChange={(e) => setNt((p) => ({ ...p, m: e.target.value }))} /></div>
               </div>
             </div>
@@ -592,8 +593,8 @@ export function InventoryManager({
                 <Input value={ef.name} onChange={(e) => { setEf((p) => ({ ...p, name: e.target.value })); setConfirmEdit(false); }} />
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <div><Label>Ijara</Label><Input type="number" min={0} value={ef.r} onChange={(e) => { setEf((p) => ({ ...p, r: e.target.value })); setConfirmEdit(false); }} /></div>
-                <div><Label>Sotuv</Label><Input type="number" min={0} value={ef.s} onChange={(e) => { setEf((p) => ({ ...p, s: e.target.value })); setConfirmEdit(false); }} /></div>
+                <div><Label>Ijara</Label><MoneyInput value={ef.r} onValueChange={(v) => { setEf((p) => ({ ...p, r: v })); setConfirmEdit(false); }} /></div>
+                <div><Label>Sotuv</Label><MoneyInput value={ef.s} onValueChange={(v) => { setEf((p) => ({ ...p, s: v })); setConfirmEdit(false); }} /></div>
                 <div><Label>Min.</Label><Input type="number" min={0} value={ef.m} onChange={(e) => { setEf((p) => ({ ...p, m: e.target.value })); setConfirmEdit(false); }} /></div>
               </div>
             </div>

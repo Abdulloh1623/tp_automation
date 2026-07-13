@@ -18,6 +18,7 @@ import {
 } from "@/actions/users";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -343,10 +344,10 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label htmlFor="phone">Telefon</Label>
-                      <Input
+                      <PhoneInput
                         id="phone"
                         value={form.phone}
-                        onChange={(e) => set("phone", e.target.value)}
+                        onValueChange={(v) => set("phone", v)}
                       />
                     </div>
                     <div>

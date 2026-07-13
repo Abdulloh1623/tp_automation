@@ -48,6 +48,53 @@ export function daysUntil(date: Date | string | null | undefined): number | null
   return Math.round((target.getTime() - today.getTime()) / 86400000);
 }
 
+/**
+ * Summa input'idan xom qiymatni ajratadi: "9 000 000" -> "9000000".
+ * Faqat raqamlar va bitta nuqta (kasr 2 xonagacha) qoldiriladi.
+ */
+export function parseAmountInput(display: string | null | undefined): string {
+  const s = String(display ?? "").replace(/[^\d.]/g, "");
+  const dot = s.indexOf(".");
+  if (dot === -1) return s;
+  return s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, "").slice(0, 2);
+}
+
+/**
+ * Kiritilayotgan summani mingliklarga ajratib ko'rsatadi: "9000000" -> "9 000 000".
+ * Kasr qismi (USD uchun) saqlanadi. Faqat ko'rsatish uchun — saqlashда probel
+ * olib tashlanadi (parseAmountInput). uz-UZ standarti: probel ajratuvchi.
+ */
+export function formatAmountInput(raw: string | null | undefined): string {
+  const s = parseAmountInput(raw);
+  if (s === "") return "";
+  const dot = s.indexOf(".");
+  const intPart = (dot === -1 ? s : s.slice(0, dot)).replace(/^0+(?=\d)/, "");
+  const grouped = (intPart || "0").replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return dot === -1 ? grouped : grouped + "." + s.slice(dot + 1);
+}
+
+/**
+ * Telefon input uchun jonli format: "+998 90 481 43 75" ko'rinishiga keltiradi.
+ * 998 bilan boshlansa guruhlaydi; aks holda foydalanuvchi kiritganini (+ bilan)
+ * saqlaydi — ya'ni +998 ni o'chirish/o'zgartirishga to'sqinlik qilmaydi.
+ */
+export function formatPhoneInput(raw: string | null | undefined): string {
+  if (raw == null) return "";
+  const hasPlus = String(raw).trimStart().startsWith("+");
+  const d = String(raw).replace(/\D/g, "");
+  if (d.startsWith("998")) {
+    const rest = d.slice(3, 12); // kompaniya kodi + mobil (9 raqam)
+    const parts = [
+      rest.slice(0, 2),
+      rest.slice(2, 5),
+      rest.slice(5, 7),
+      rest.slice(7, 9),
+    ].filter(Boolean);
+    return "+998" + (parts.length ? " " + parts.join(" ") : "");
+  }
+  return (hasPlus ? "+" : "") + d;
+}
+
 /** Telefon raqamini solishtirish uchun normallashtirish (faqat raqamlar). */
 export function normalizePhone(raw: string | null | undefined): string {
   if (!raw) return "";

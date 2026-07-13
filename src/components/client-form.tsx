@@ -4,6 +4,8 @@ import { useActionState } from "react";
 import { AlertCircle } from "lucide-react";
 import type { ClientFormState } from "@/actions/clients";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -86,7 +88,7 @@ export function ClientForm({
         </div>
         <div>
           <Label htmlFor="phone">Asosiy telefon *</Label>
-          <Input id="phone" name="phone" defaultValue={v.phone ?? ""} required aria-invalid={!!fe.phone} />
+          <PhoneInput id="phone" name="phone" defaultValue={v.phone ?? ""} required aria-invalid={!!fe.phone} />
           <FieldError message={fe.phone} />
         </div>
         <div>
@@ -167,12 +169,9 @@ export function ClientForm({
       <div className="grid gap-4 sm:grid-cols-3">
         <div>
           <Label htmlFor="monthlyAmount">Oylik to'lov</Label>
-          <Input
+          <MoneyInput
             id="monthlyAmount"
             name="monthlyAmount"
-            type="number"
-            min={0}
-            step="0.01"
             defaultValue={v.monthlyAmount ?? 0}
             aria-invalid={!!fe.monthlyAmount}
           />

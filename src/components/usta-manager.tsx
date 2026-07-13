@@ -6,6 +6,7 @@ import { UserPlus, Pencil, Power, Trash2, X, AlertCircle } from "lucide-react";
 import { createUsta, updateUsta, setUstaActive, deleteUsta } from "@/actions/ustalar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { RegionMultiSelect } from "@/components/region-multi-select";
@@ -168,7 +169,7 @@ export function UstaManager({ ustalar }: { ustalar: ManagedUsta[] }) {
               </div>
               <div>
                 <Label>Telefon</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+998 ..." />
+                <PhoneInput value={phone} onValueChange={setPhone} />
               </div>
               <div>
                 <Label>Viloyatlar (bir nechta tanlash mumkin)</Label>

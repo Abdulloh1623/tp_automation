@@ -54,6 +54,16 @@ export const USER_ROLE = {
 } as const;
 export type UserRole = keyof typeof USER_ROLE;
 
+// Ish smenasi (operator) — tablo shu bo'yicha filtrlaydi
+export const USER_SHIFT = {
+  DAY: "Kunduzgi (09:00–18:00)",
+  NIGHT: "Kechki (18:00–09:00)",
+} as const;
+export type UserShift = keyof typeof USER_SHIFT;
+export function isUserShift(v: string): v is UserShift {
+  return v === "DAY" || v === "NIGHT";
+}
+
 // Mijoz – texnika munosabati
 export const EQUIPMENT_MODE = {
   RENTAL: "Ijara",

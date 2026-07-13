@@ -52,10 +52,20 @@ export function TvBoard({
   const [flash, setFlash] = useState<Set<string>>(new Set());
   const prev = useRef<Analytics>(initial);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const inFlight = useRef<AbortController | null>(null);
 
   const refresh = useCallback(async () => {
+    // Oldingi tugallanmagan so'rovni bekor qilamiz — pollinglar ustma-ust tushmasin
+    inFlight.current?.abort();
+    const ctrl = new AbortController();
+    inFlight.current = ctrl;
+    // Osilib qolgan so'rovni keyingi tsikldan oldin uzamiz (sekin tarmoq himoyasi)
+    const killer = setTimeout(() => ctrl.abort(), POLL_MS - 500);
     try {
-      const res = await fetch(`/api/analytics?shift=${shift}`, { cache: "no-store" });
+      const res = await fetch(`/api/analytics?shift=${shift}`, {
+        cache: "no-store",
+        signal: ctrl.signal,
+      });
       if (!res.ok) throw new Error(String(res.status));
       const next: Analytics = await res.json();
       const changed = new Set<string>();
@@ -72,7 +82,11 @@ export function TvBoard({
         timers.current.push(setTimeout(() => setFlash(new Set()), 2200));
       }
     } catch {
-      setLive(false);
+      // Ataylab bekor qilingan (abort) bo'lsa — offline deb belgilamaymiz
+      if (!ctrl.signal.aborted) setLive(false);
+    } finally {
+      clearTimeout(killer);
+      if (inFlight.current === ctrl) inFlight.current = null;
     }
   }, [shift]);
 
@@ -86,12 +100,16 @@ export function TvBoard({
     // Smena o'zgarganda darhol yangilaymiz, so'ng muntazam polling
     refresh();
     const p = setInterval(refresh, POLL_MS);
+    const flashTimers = timers.current;
     return () => {
       clearInterval(p);
-      timers.current.forEach(clearTimeout);
+      inFlight.current?.abort();
+      flashTimers.forEach(clearTimeout);
     };
   }, [refresh]);
 
+  const dayCount = data.operators.filter((o) => o.dayShift).length;
+  const nightCount = data.operators.length - dayCount;
   const day = [...data.operators]
     .filter((o) => (shift === "DAY" ? o.dayShift : !o.dayShift))
     .sort((a, b) => b.todayTalked - a.todayTalked || b.todayCalls - a.todayCalls);
@@ -123,7 +141,7 @@ export function TvBoard({
               }
             >
               <Sun className="h-4 w-4" /> Kunduzgi smena
-              <span className="hidden text-xs opacity-70 sm:inline">09:00–18:00</span>
+              <span className="hidden text-xs opacity-70 sm:inline">{dayCount} kishi · 09:00–18:00</span>
             </button>
             <button
               type="button"
@@ -134,7 +152,7 @@ export function TvBoard({
               }
             >
               <Moon className="h-4 w-4" /> Kechki smena
-              <span className="hidden text-xs opacity-70 sm:inline">18:00–09:00</span>
+              <span className="hidden text-xs opacity-70 sm:inline">{nightCount} kishi · 18:00–09:00</span>
             </button>
           </div>
         </div>
@@ -153,6 +171,11 @@ export function TvBoard({
               {live ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
               {live ? "Jonli" : "Ulanmoqda"}
             </span>
+            {clock && (
+              <span className="text-xs text-slate-500">
+                yangilandi {new Date(data.ts).toLocaleTimeString("ru-RU")}
+              </span>
+            )}
           </div>
         </div>
       </div>

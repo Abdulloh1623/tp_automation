@@ -13,6 +13,7 @@ import { createBackup } from "../src/lib/backup";
 import { startBot } from "../src/lib/bot";
 import { sendDailyReminders, sendOperatorReminders } from "../src/lib/reminders";
 import { distributeLeadsCore } from "../src/lib/leads-distribution";
+import { runSlaCheck } from "../src/lib/sla";
 import { reportError } from "../src/lib/error-report";
 
 const TZ = "Asia/Tashkent";
@@ -91,6 +92,17 @@ async function runReminders(operatorsOnly = false) {
   }
 }
 
+/** 3-kunlik SLA tekshiruvi: hal bo'lmagan muammo/eskalatsiyalar bo'yicha ogohlantirish. */
+async function runSla() {
+  try {
+    const r = await runSlaCheck();
+    log(`SLA → muammo:${r.tickets} eskalatsiya:${r.escalations} ogohlantirildi`);
+  } catch (e) {
+    log("SLA XATO:", e instanceof Error ? e.message : e);
+    await reportError(e, { source: "worker", path: "sla" });
+  }
+}
+
 /** 00:00 kun yangilanishi: muddati o'tgan 1-kunlik lid grantlarini tozalaydi. */
 async function dailyRollover() {
   try {
@@ -137,6 +149,13 @@ async function main() {
     return;
   }
 
+  if (argv.includes("--sla")) {
+    log("Qo'lda SLA tekshiruvi");
+    await runSla();
+    await db.$disconnect();
+    return;
+  }
+
   log("Worker ishga tushdi.");
   log("Telegram:", telegramEnabled() ? "token bor" : "TOKEN YO'Q", "· kanal:", channelId() ?? "yo'q (log rejimi)");
 
@@ -151,7 +170,9 @@ async function main() {
   cron.schedule("0 15 * * *", () => runReminders(true), { timezone: TZ });
   // Kunlik random taqsimot — ish boshlanishidan oldin (08:00)
   cron.schedule("0 8 * * *", () => runDistribute(), { timezone: TZ });
-  log("Cron jadvallari o'rnatildi: taqsimot 08:00, eslatma 09:30 & 15:00, kunlik 18:30, haftalik Dush 09:00, oylik 1-kun 09:00, yangilanish 00:00, backup 03:00");
+  // 3-kunlik SLA ogohlantirishi — har kuni 10:00
+  cron.schedule("0 10 * * *", () => runSla(), { timezone: TZ });
+  log("Cron jadvallari o'rnatildi: taqsimot 08:00, eslatma 09:30 & 15:00, SLA 10:00, kunlik 18:30, haftalik Dush 09:00, oylik 1-kun 09:00, yangilanish 00:00, backup 03:00");
 
   // Liveness heartbeat — Docker healthcheck shu faylning yangiligini tekshiradi.
   // .unref(): heartbeat o'zi o'lik jarayonni tirik ushlab turmasin (soxta-healthy'ni oldini oladi).

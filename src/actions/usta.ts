@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { USTA_STATUS, ustaStatusLabel } from "@/lib/constants";
+import { escalationStagePatch } from "@/lib/escalation";
 
 export type AssignState = { ok: boolean; error?: string };
 
@@ -24,6 +25,12 @@ export async function assignUsta(
     return { ok: false, error: "Usta topilmadi" };
   }
 
+  const current = await db.client.findUnique({
+    where: { id: clientId },
+    select: { stage: true, escalatedAt: true },
+  });
+  if (!current) return { ok: false, error: "Mijoz topilmadi" };
+
   await db.client.update({
     where: { id: clientId },
     data: {
@@ -31,6 +38,8 @@ export async function assignUsta(
       stage: "FORWARDED", // ustada
       ustaStatus: "ASSIGNED",
       pendingStage: null,
+      // FORWARDED — eskalatsiya bosqichi; escalatedAt saqlanadi (yoki qo'yiladi)
+      ...escalationStagePatch("FORWARDED", current),
     },
   });
 
@@ -76,12 +85,16 @@ export async function updateUstaStatus(
     ustaStatus: string;
     stage?: string;
     nextContactDate?: Date | null;
+    escalatedAt?: Date | null;
+    escalationStaffId?: string | null;
+    slaNotifiedAt?: Date | null;
   } = { ustaStatus: status };
 
   if (status === "DONE") {
-    // Bajarildi — odatdagi siklga qaytadi
+    // Bajarildi — odatdagi siklga qaytadi; eskalatsiya belgilari tozalanadi
     data.stage = "RESOLVED";
     data.nextContactDate = client.nextPaymentDate ?? null;
+    Object.assign(data, escalationStagePatch("RESOLVED", client));
   }
 
   await db.client.update({ where: { id: clientId }, data });
@@ -102,4 +115,49 @@ export async function updateUstaStatus(
   revalidatePath("/eskalatsiya");
   revalidatePath(`/mijozlar/${clientId}`);
   return { ok: true, ustaStatus: status };
+}
+
+// Eskalatsiyaga mas'ul qilib biriktirilishi mumkin bo'lgan TP xodimi rollari
+const ESCALATION_STAFF_ROLES = ["ADMIN", "MANAGER", "OPERATOR"];
+
+/**
+ * Eskalatsiyaga mas'ul TP xodimini biriktirish/olib tashlash — faqat boshliq/admin.
+ * Mas'ul xodim usta + mijoz bilan bog'lanib jarayonni yakuniga yetkazadi.
+ * `staffId: null` — mas'ulni olib tashlaydi.
+ */
+export async function assignEscalationStaff(
+  clientId: string,
+  staffId: string | null,
+): Promise<AssignState> {
+  const session = await requireSession();
+  if (!["ADMIN", "MANAGER"].includes(session.role)) {
+    return { ok: false, error: "Ruxsat yo'q" };
+  }
+
+  if (staffId) {
+    const staff = await db.user.findUnique({
+      where: { id: staffId },
+      select: { name: true, role: true, isActive: true },
+    });
+    if (!staff || !staff.isActive || !ESCALATION_STAFF_ROLES.includes(staff.role)) {
+      return { ok: false, error: "Xodim topilmadi yoki faol emas" };
+    }
+  }
+
+  try {
+    await db.client.update({
+      where: { id: clientId },
+      data: { escalationStaffId: staffId },
+    });
+  } catch {
+    return { ok: false, error: "Mijoz topilmadi" };
+  }
+
+  await logAudit(staffId ? "Eskalatsiyaga mas'ul biriktirildi" : "Eskalatsiya mas'uli olindi", {
+    entity: "Client",
+    entityId: clientId,
+  });
+  revalidatePath("/eskalatsiya");
+  revalidatePath(`/mijozlar/${clientId}`);
+  return { ok: true };
 }

@@ -35,6 +35,7 @@ model User {
   tickets         Ticket[]               @relation("TicketOperator")
   ustaTickets     Ticket[]               @relation("TicketUsta")
   staffTickets    Ticket[]               @relation("TicketStaff")
+  escalationClients Client[]             @relation("EscalationStaff")
   dailyGrants     DailyLeadGrant[]
   passwordResets  PasswordResetRequest[]
   notifications   NotificationRecipient[]
@@ -150,6 +151,12 @@ model Client {
   lastContactedAt DateTime? // oxirgi aloqa vaqti
   missedCallCount Int       @default(0) // ketma-ket ko'tarilmagan qo'ng'iroqlar (3+ da avtomatik ustaga)
 
+  // Eskalatsiya mas'uli — admin biriktiradi; usta+mijoz bilan ishlab yakunlaydi
+  escalationStaffId String?
+  escalationStaff   User?     @relation("EscalationStaff", fields: [escalationStaffId], references: [id])
+  escalatedAt       DateTime? // eskalatsiya boshlangan vaqt (3-kunlik SLA hisobi uchun)
+  slaNotifiedAt     DateTime? // oxirgi 3-kunlik SLA ogohlantirishi yuborilgan vaqt
+
   // Biznex integratsiyasi — telefon bo'yicha moslashtirilgan obuna holati
   // (fon skripti `npm run sync-biznex` orqali yangilanadi). null = hali tekshirilmagan.
   biznexStatus    String? // ACTIVE | EXPIRED | INACTIVE | NOT_FOUND
@@ -170,6 +177,7 @@ model Client {
   @@index([assignedToId, stage])
   @@index([assignedToId, nextContactDate])
   @@index([assignedUstaId])
+  @@index([escalationStaffId])
   @@index([biznexStatus])
 }
 
@@ -242,6 +250,7 @@ model Ticket {
   resolutionNote String?
   createdAt      DateTime  @default(now())
   resolvedAt     DateTime?
+  slaNotifiedAt  DateTime? // oxirgi 3-kunlik SLA ogohlantirishi yuborilgan vaqt
 
   @@index([clientId])
   @@index([status])

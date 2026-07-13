@@ -1,0 +1,126 @@
+// 3-kunlik SLA — muammo/eskalatsiya belgilangan muddatda hal bo'lmasa
+// ogohlantiriladi. `runSlaCheck` worker cron'ida (scripts/bot.ts) kuniga
+// chaqiriladi: buzilganlarni topib, ilova bildirishnomasi + Telegram yuboradi.
+import { db } from "./db";
+import { escapeHtml, sendMessage } from "./telegram";
+import { createNotification } from "./notifications";
+import { ESCALATION_STAGES } from "./escalation";
+
+/** SLA muddati (kun). Muammo/eskalatsiya shu kundan oshsa — buzilgan hisoblanadi. */
+export const SLA_DAYS = 3;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Shu vaqtdan oldingi narsalar SLA'ni buzgan. */
+export function slaThreshold(now: Date = new Date()): Date {
+  return new Date(now.getTime() - SLA_DAYS * DAY_MS);
+}
+
+function daysSince(from: Date, now: Date): number {
+  return Math.max(1, Math.floor((now.getTime() - from.getTime()) / DAY_MS));
+}
+
+async function pushTelegram(chatIds: Set<string>, title: string, body: string) {
+  const text = `🔴 <b>${escapeHtml(title)}</b>\n${escapeHtml(body)}`;
+  for (const chat of chatIds) {
+    try {
+      await sendMessage(chat, text);
+    } catch {
+      /* eng yaxshi harakat — bittasi yiqilsa qolganlarini to'xtatmaymiz */
+    }
+  }
+}
+
+/**
+ * 3 kundan oshgan hal bo'lmagan muammo va eskalatsiyalarni topib, mas'ul +
+ * boshliqlarga ilova bildirishnomasi va Telegram ogohlantirishi yuboradi.
+ * Takror spam bo'lmasligi uchun `slaNotifiedAt` belgilanadi — bir element
+ * har SLA_DAYS kunda ko'pi bilan bir marta ogohlantiriladi.
+ */
+export async function runSlaCheck(
+  now: Date = new Date(),
+): Promise<{ tickets: number; escalations: number }> {
+  const threshold = slaThreshold(now);
+
+  // Ogohlantiriladigan boshliqlar (admin + menejer) — bir marta olinadi
+  const managers = await db.user.findMany({
+    where: { role: { in: ["ADMIN", "MANAGER"] }, isActive: true },
+    select: { id: true, telegramId: true },
+  });
+  const managerIds = managers.map((m) => m.id);
+  const managerTg = managers.map((m) => m.telegramId).filter((x): x is string => !!x);
+
+  // Yaqinda (oxirgi SLA_DAYS kun ichida) ogohlantirilganini o'tkazib yuboramiz
+  const notifiedRecently = (at: Date | null) => at != null && at >= threshold;
+
+  // --- Muammolar (Ticket) ---
+  const tickets = await db.ticket.findMany({
+    where: { status: { not: "RESOLVED" }, createdAt: { lt: threshold } },
+    select: {
+      id: true,
+      title: true,
+      createdAt: true,
+      slaNotifiedAt: true,
+      client: { select: { restaurantName: true } },
+      assignedStaff: { select: { id: true, telegramId: true } },
+    },
+  });
+  let ticketCount = 0;
+  for (const t of tickets) {
+    if (notifiedRecently(t.slaNotifiedAt)) continue;
+    const days = daysSince(t.createdAt, now);
+    const title = "Muammo 3 kundan beri hal bo'lmadi";
+    const body = `"${t.title}" — ${t.client.restaurantName} (${days} kun). Iltimos yakuniga yetkazing.`;
+
+    const userIds = [...managerIds];
+    if (t.assignedStaff) userIds.push(t.assignedStaff.id);
+    await createNotification({ title, body, userIds });
+
+    const tg = new Set(managerTg);
+    if (t.assignedStaff?.telegramId) tg.add(t.assignedStaff.telegramId);
+    await pushTelegram(tg, title, body);
+
+    await db.ticket.update({ where: { id: t.id }, data: { slaNotifiedAt: now } });
+    ticketCount++;
+  }
+
+  // --- Eskalatsiya (Client stage) ---
+  const escClients = await db.client.findMany({
+    where: {
+      stage: { in: [...ESCALATION_STAGES] },
+      OR: [
+        { escalatedAt: { lt: threshold } },
+        // escalatedAt yo'q (eski yozuv) — updatedAt bo'yicha taxminlaymiz
+        { escalatedAt: null, updatedAt: { lt: threshold } },
+      ],
+    },
+    select: {
+      id: true,
+      restaurantName: true,
+      escalatedAt: true,
+      updatedAt: true,
+      slaNotifiedAt: true,
+      escalationStaff: { select: { id: true, telegramId: true } },
+    },
+  });
+  let escCount = 0;
+  for (const c of escClients) {
+    if (notifiedRecently(c.slaNotifiedAt)) continue;
+    const days = daysSince(c.escalatedAt ?? c.updatedAt, now);
+    const title = "Eskalatsiya 3 kundan beri yakunlanmadi";
+    const body = `${c.restaurantName} (${days} kun). Usta/mijoz bilan bog'lanib yakuniga yetkazing.`;
+
+    const userIds = [...managerIds];
+    if (c.escalationStaff) userIds.push(c.escalationStaff.id);
+    await createNotification({ title, body, userIds });
+
+    const tg = new Set(managerTg);
+    if (c.escalationStaff?.telegramId) tg.add(c.escalationStaff.telegramId);
+    await pushTelegram(tg, title, body);
+
+    await db.client.update({ where: { id: c.id }, data: { slaNotifiedAt: now } });
+    escCount++;
+  }
+
+  return { tickets: ticketCount, escalations: escCount };
+}

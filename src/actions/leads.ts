@@ -8,6 +8,7 @@ import { guardRole } from "@/lib/auth";
 import { canMutateClient } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { computeNextPaymentDate } from "@/lib/billing";
+import { escalationStagePatch } from "@/lib/escalation";
 
 const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
 import {
@@ -236,6 +237,7 @@ export async function finishDay(
         pendingStage: null,
         nextContactDate,
         ...(paymentPatch ? { nextPaymentDate: paymentPatch } : {}),
+        ...escalationStagePatch(target, { stage: lead.stage, escalatedAt: lead.escalatedAt }),
       },
     });
   }
@@ -260,9 +262,18 @@ export async function moveLeadStage(
   if (!isLeadStage(stage)) return;
   if (!(await canMutateClient(g.session, clientId))) return;
   try {
+    const current = await db.client.findUnique({
+      where: { id: clientId },
+      select: { stage: true, escalatedAt: true },
+    });
+    if (!current) return;
     await db.client.update({
       where: { id: clientId },
-      data: { stage, pendingStage: null },
+      data: {
+        stage,
+        pendingStage: null,
+        ...escalationStagePatch(stage, current),
+      },
     });
     await logAudit(`Lid bo'lim: ${LEAD_STAGE[stage as keyof typeof LEAD_STAGE] ?? stage}`, {
       entity: "Client",
@@ -440,6 +451,10 @@ export async function revertLead(
         ustaStatus: null,
         missedCallCount: 0,
         nextContactDate: new Date(), // bugungi kunlik ro'yxatga qaytadi
+        // Eskalatsiya belgilarini tozalash (mas'ul + SLA soati)
+        escalatedAt: null,
+        escalationStaffId: null,
+        slaNotifiedAt: null,
       },
     });
     await logAudit("Lid orqaga qaytarildi (kunlik ishga)", {
@@ -550,9 +565,18 @@ export async function escalateLead(
   if (!g.ok) return { ok: false };
   if (!(await canMutateClient(g.session, clientId))) return { ok: false };
   try {
+    const current = await db.client.findUnique({
+      where: { id: clientId },
+      select: { stage: true, escalatedAt: true },
+    });
+    if (!current) return { ok: false };
     await db.client.update({
       where: { id: clientId },
-      data: { stage: "ESCALATED", pendingStage: null },
+      data: {
+        stage: "ESCALATED",
+        pendingStage: null,
+        ...escalationStagePatch("ESCALATED", current),
+      },
     });
     await logAudit("Boshliqqa eskalatsiya (qo'lda)", {
       entity: "Client",

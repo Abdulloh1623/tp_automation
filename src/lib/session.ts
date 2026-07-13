@@ -9,6 +9,7 @@ export type SessionPayload = {
   name: string;
   username: string;
   role: string;
+  version: number; // User.sessionVersion nusxasi — bitta faol qurilma uchun
 };
 
 function getSecret(): Uint8Array {
@@ -40,6 +41,7 @@ export async function decodeSession(
       name: payload.name as string,
       username: payload.username as string,
       role: payload.role as string,
+      version: (payload.version as number | undefined) ?? 0,
     };
   } catch {
     return null;

@@ -64,17 +64,21 @@ export async function createUser(input: {
   const exists = await db.user.findUnique({ where: { username } });
   if (exists) return { ok: false, error: "Bu login band" };
 
-  await db.user.create({
-    data: {
-      name: parsed.data.name.trim(),
-      username,
-      passwordHash: await bcrypt.hash(parsed.data.password, 10),
-      role: parsed.data.role,
-      ...regionData(input.regions),
-      phone: clean(parsed.data.phone),
-      dailyLeadTarget: parsed.data.dailyLeadTarget,
-    },
-  });
+  try {
+    await db.user.create({
+      data: {
+        name: parsed.data.name.trim(),
+        username,
+        passwordHash: await bcrypt.hash(parsed.data.password, 10),
+        role: parsed.data.role,
+        ...regionData(input.regions),
+        phone: clean(parsed.data.phone),
+        dailyLeadTarget: parsed.data.dailyLeadTarget,
+      },
+    });
+  } catch {
+    return { ok: false, error: "Xodim qo'shishda xato (login band bo'lishi mumkin)" };
+  }
 
   await logAudit("Xodim qo'shildi", {
     entity: "User",

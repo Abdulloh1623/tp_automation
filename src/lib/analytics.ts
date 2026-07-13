@@ -1,9 +1,11 @@
-import { addDays, startOfDay, startOfMonth, startOfWeek } from "date-fns";
+import { addDays, endOfDay, startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { db } from "@/lib/db";
 import {
+  ACTIVE_STAGES,
   CLIENT_STATUS,
   LEAD_STAGE,
   TALKED_RESULTS,
+  callResultLabel,
   clientStatusLabel,
   leadStageLabel,
 } from "@/lib/constants";
@@ -50,6 +52,11 @@ export type OperatorStat = {
   dayShift: boolean;
   assigned: number;
   dailyLimit: number; // kunlik biriktirish kvotasi (tahrirlanadi)
+  // Kunlik lid jarayoni (tablo asosiy ko'rsatkichi):
+  target: number; // bugungi lidlar (biriktirilgan kunlik ro'yxat) — maxraj
+  todayProcessed: number; // ishlangan lidlar (bugun natija yozilgan distinct mijoz) — surat
+  todayTalkedClients: number; // shulardan gaplashilgan distinct mijoz
+  breakdown: Breakdown[]; // holatlar bo'yicha (distinct mijoz, oxirgi natija) — hover uchun
   // "today*" — tanlangan smena oynasidagi ko'rsatkichlar (smenaga qat'iy scope qilingan)
   todayCalls: number;
   todayTalked: number;
@@ -103,7 +110,10 @@ export async function getAnalytics(shift?: Shift): Promise<Analytics> {
     Math.min(shiftStart.getTime(), weekStart.getTime(), monthStart.getTime()),
   );
 
-  const [operators, assignedGroups, statusGroups, stageGroups, total, logs] =
+  const todayStart = startOfDay(now);
+  const todayEnd = endOfDay(now);
+
+  const [operators, assignedGroups, statusGroups, stageGroups, total, logs, dailyLeads] =
     await Promise.all([
       db.user.findMany({
         where: { role: "OPERATOR", isActive: true },
@@ -116,7 +126,28 @@ export async function getAnalytics(shift?: Shift): Promise<Analytics> {
       db.client.count(),
       db.callLog.findMany({
         where: { calledAt: { gte: logsSince } },
-        select: { operatorId: true, result: true, calledAt: true },
+        select: { operatorId: true, clientId: true, result: true, calledAt: true },
+      }),
+      // Operatorlarning BUGUNGI lid ro'yxati (maxraj) — /lidlar bilan bir xil mezon:
+      // faol bosqichdagi muddati kelganlar + bugun ishlangan (pendingStage) + qarzdorlar.
+      db.client.findMany({
+        where: {
+          assignedToId: { not: null },
+          stage: { not: "REFUSED" },
+          status: { not: "INACTIVE" },
+          OR: [
+            {
+              stage: { in: [...ACTIVE_STAGES] },
+              OR: [
+                { pendingStage: { not: null } },
+                { nextContactDate: null },
+                { nextContactDate: { lte: todayEnd } },
+              ],
+            },
+            { status: "ACTIVE", nextPaymentDate: { lt: todayStart } },
+          ],
+        },
+        select: { id: true, assignedToId: true },
       }),
     ]);
 
@@ -128,7 +159,16 @@ export async function getAnalytics(shift?: Shift): Promise<Analytics> {
   }
   const assigned = total - unassigned;
 
-  // Operator bo'yicha qo'ng'iroqlarni davr kesimida yig'ish
+  // Bugungi lid ro'yxati (maxraj) — operator bo'yicha mijoz to'plami
+  const dailySet = new Map<string, Set<string>>();
+  for (const c of dailyLeads) {
+    if (!c.assignedToId) continue;
+    let s = dailySet.get(c.assignedToId);
+    if (!s) { s = new Set(); dailySet.set(c.assignedToId, s); }
+    s.add(c.id);
+  }
+
+  // Operator bo'yicha qo'ng'iroqlarni davr kesimida yig'ish (hafta/oy — log soni)
   type Acc = {
     todayCalls: number; todayTalked: number;
     weekCalls: number; weekTalked: number;
@@ -140,11 +180,16 @@ export async function getAnalytics(shift?: Shift): Promise<Analytics> {
   const byOp = new Map<string, Acc>();
   const totals = blank();
 
+  // Bugungi (smena oynasi) DISTINCT mijoz kesimlari:
+  const processedSet = new Map<string, Set<string>>(); // ishlangan (har qanday natija)
+  const talkedSet = new Map<string, Set<string>>(); // shulardan gaplashilgan
+  const latestResult = new Map<string, Map<string, { at: Date; result: string }>>(); // mijoz oxirgi natijasi
+
   for (const l of logs) {
     // "Gaplashildi" — operator mijozga haqiqatan yetgan natija (ko'tarmadi/o'chiq/band emas)
     const talked = TALKED_RESULTS.includes(l.result);
     const inWeek = l.calledAt >= weekStart;
-    // "today" endi tanlangan smena oynasi: [shiftStart, shiftEnd)
+    // "today" — tanlangan smena oynasi: [shiftStart, shiftEnd)
     const inToday = l.calledAt >= shiftStart && l.calledAt < shiftEnd;
 
     totals.monthCalls++;
@@ -158,17 +203,54 @@ export async function getAnalytics(shift?: Shift): Promise<Analytics> {
     a.monthCalls++;
     if (talked) a.monthTalked++;
     if (inWeek) { a.weekCalls++; if (talked) a.weekTalked++; }
-    if (inToday) { a.todayCalls++; if (talked) a.todayTalked++; }
+    if (inToday) {
+      a.todayCalls++;
+      if (talked) a.todayTalked++;
+      if (l.clientId) {
+        // Ishlangan — bugun natija yozilgan distinct mijoz (ko'tarmadi ham kiradi)
+        let ps = processedSet.get(l.operatorId);
+        if (!ps) { ps = new Set(); processedSet.set(l.operatorId, ps); }
+        ps.add(l.clientId);
+        if (talked) {
+          let ts = talkedSet.get(l.operatorId);
+          if (!ts) { ts = new Set(); talkedSet.set(l.operatorId, ts); }
+          ts.add(l.clientId);
+        }
+        // Mijozning eng so'nggi bugungi natijasi (holat breakdown uchun)
+        let lr = latestResult.get(l.operatorId);
+        if (!lr) { lr = new Map(); latestResult.set(l.operatorId, lr); }
+        const prev = lr.get(l.clientId);
+        if (!prev || l.calledAt >= prev.at) lr.set(l.clientId, { at: l.calledAt, result: l.result });
+      }
+    }
   }
 
   const operatorStats: OperatorStat[] = operators.map((o) => {
     const a = byOp.get(o.id) ?? blank();
+    const proc = processedSet.get(o.id) ?? new Set<string>();
+    const talk = talkedSet.get(o.id) ?? new Set<string>();
+    // Maxraj = bugungi lid ro'yxati ∪ bugun ishlangan (ro'yxatdan chiqqan REFUSED ham sanaladi)
+    const targetSet = new Set<string>(dailySet.get(o.id) ?? []);
+    for (const id of proc) targetSet.add(id);
+
+    // Holat breakdown — distinct mijoz, oxirgi natija bo'yicha
+    const tally = new Map<string, number>();
+    const lr = latestResult.get(o.id);
+    if (lr) for (const { result } of lr.values()) tally.set(result, (tally.get(result) ?? 0) + 1);
+    const breakdown: Breakdown[] = [...tally.entries()]
+      .map(([key, count]) => ({ key, label: callResultLabel(key), count }))
+      .sort((x, y) => y.count - x.count);
+
     return {
       id: o.id,
       name: o.name,
       dayShift: o.shift !== "NIGHT",
       assigned: assignedMap.get(o.id) ?? 0,
       dailyLimit: o.dailyLimit,
+      target: targetSet.size,
+      todayProcessed: proc.size,
+      todayTalkedClients: talk.size,
+      breakdown,
       ...a,
     };
   });

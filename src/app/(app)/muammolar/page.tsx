@@ -19,6 +19,7 @@ import { CountStrip, type CountItem } from "@/components/count-strip";
 import { TICKET_STATUS, TICKET_TYPE, TICKET_PRIORITY } from "@/lib/constants";
 import { formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 import { slaThreshold } from "@/lib/sla";
+import { assignedStaffScope } from "@/lib/visibility";
 
 type SearchParams = Promise<{
   status?: string;
@@ -41,7 +42,11 @@ export default async function TicketsPage({
   const session = await requireSession();
   const canAssign = session.role === "ADMIN" || session.role === "MANAGER";
 
-  const where: Prisma.TicketWhereInput = {};
+  // TP xodim (OPERATOR) faqat o'ziga maxsus xodim qilib biriktirilgan
+  // muammolarni ko'radi; ADMIN/MANAGER esa barchasini (va biriktiradi).
+  const scope = assignedStaffScope(session.role, session.userId, "assignedStaffId");
+
+  const where: Prisma.TicketWhereInput = { ...scope };
   if (status) where.status = status;
   if (type) where.type = type;
   if (priority) where.priority = priority;
@@ -91,10 +96,11 @@ export default async function TicketsPage({
       orderBy: { name: "asc" },
     }),
     // Umumiy ko'rinish uchun — filtrga bog'liq bo'lmagan holat sanog'i
-    db.ticket.groupBy({ by: ["status"], _count: true }),
+    // (xodim qamrovida — faqat o'ziga biriktirilganlar bo'yicha)
+    db.ticket.groupBy({ by: ["status"], where: scope, _count: true }),
     // 3 kundan oshgan hal bo'lmagan muammolar (SLA buzilishi)
     db.ticket.count({
-      where: { status: { not: "RESOLVED" }, createdAt: { lt: slaThreshold() } },
+      where: { ...scope, status: { not: "RESOLVED" }, createdAt: { lt: slaThreshold() } },
     }),
   ]);
 
@@ -127,7 +133,7 @@ export default async function TicketsPage({
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
+        <div className={`space-y-6 ${canAssign ? "lg:col-span-2" : "lg:col-span-3"}`}>
           <Card className="p-4">
             <form className="flex flex-wrap items-end gap-3" method="get">
               <div className="w-40">
@@ -261,16 +267,19 @@ export default async function TicketsPage({
           </div>
         </div>
 
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Yangi muammo</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <TicketForm clients={clients} />
-            </CardContent>
-          </Card>
-        </div>
+        {/* Yangi muammo yaratish — faqat boshliq/admin (xodimga admin biriktiradi) */}
+        {canAssign && (
+          <div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Yangi muammo</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TicketForm clients={clients} />
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

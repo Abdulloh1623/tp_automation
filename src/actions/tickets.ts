@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { guardRole } from "@/lib/auth";
 import { canMutateClient } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
+import { createNotification } from "@/lib/notifications";
 import { TICKET_STATUS } from "@/lib/constants";
 import {
   ticketTypeEnum,
@@ -172,8 +173,17 @@ export async function assignTicketStaff(
     const ticket = await db.ticket.update({
       where: { id: ticketId },
       data: { assignedStaffId: staffId, assigneeType: "XODIM", status: progressIfOpen(current.status) },
+      select: { clientId: true, title: true, client: { select: { restaurantName: true } } },
     });
     await logAudit(`Muammo mas'uli: ${u.name} (xodim)`, { entity: "Ticket", entityId: ticketId });
+    // Biriktirilgan xodimga ilova-ichi bildirishnoma (o'ziga biriktirsa — yubormaydi)
+    if (staffId !== g.session.userId) {
+      await createNotification({
+        title: "Sizga yangi muammo biriktirildi",
+        body: `${ticket.client.restaurantName} — ${ticket.title}`,
+        userIds: [staffId],
+      });
+    }
     revalidateTicket(ticket.clientId);
     return { ok: true };
   } catch {

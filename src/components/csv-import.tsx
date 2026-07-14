@@ -104,7 +104,7 @@ export function CsvImport() {
           <CardTitle>1. CSV faylni yuklang yoki joylashtiring</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-6 py-8 text-center hover:border-blue-400 hover:bg-blue-50/40 dark:hover:bg-blue-950/40">
+          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-6 py-8 text-center hover:border-primary-400 hover:bg-primary-50/40 dark:hover:bg-primary-950/40">
             <Upload className="h-6 w-6 text-slate-400 dark:text-slate-500" />
             <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
               CSV faylni tanlang
@@ -332,7 +332,7 @@ export function CsvImport() {
                     <CheckCircle2 className="h-4 w-4" />
                     {report.created} ta qo'shildi
                   </div>
-                  <div className="text-sm text-blue-700 dark:text-blue-300">
+                  <div className="text-sm text-primary-700 dark:text-primary-300">
                     {report.updated} ta yangilandi
                   </div>
                   <div className="text-sm text-slate-500 dark:text-slate-400">

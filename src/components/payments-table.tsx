@@ -25,7 +25,7 @@ export type PaymentRow = {
 const STATE_TONE: Record<PaymentState, string> = {
   OVERDUE: "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300",
   DUE_TODAY: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
-  DUE_SOON: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
+  DUE_SOON: "bg-primary-50 text-primary-700 dark:bg-primary-950/40 dark:text-primary-300",
   OK: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
   NONE: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
 };
@@ -97,7 +97,7 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Restoran, ism yoki telefon bo'yicha qidiring..."
             autoFocus
-            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-blue-900/40"
+            className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-primary-900/40"
           />
           {query && (
             <button
@@ -150,11 +150,11 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
               className={
                 "rounded-full px-3 py-1 text-xs font-medium transition-colors " +
                 (active
-                  ? "bg-blue-600 text-white"
+                  ? "bg-primary-600 text-white"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700")
               }
             >
-              {ch.label} <span className={active ? "text-blue-100" : "text-slate-400"}>{n}</span>
+              {ch.label} <span className={active ? "text-primary-100" : "text-slate-400"}>{n}</span>
             </button>
           );
         })}
@@ -213,7 +213,7 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
                 <td className="px-4 py-3 text-right">
                   <Link
                     href={`/mijozlar/${r.id}`}
-                    className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700"
+                    className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700"
                   >
                     To'lov
                     <ArrowRight className="h-3.5 w-3.5" />

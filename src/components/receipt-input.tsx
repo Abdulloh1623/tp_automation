@@ -94,7 +94,7 @@ export function ReceiptInput({
           tabIndex={0}
           onPaste={onPaste}
           onClick={() => inputRef.current?.click()}
-          className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400 hover:border-blue-400 focus:border-blue-500 focus:outline-none"
+          className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400 hover:border-primary-400 focus:border-primary-500 focus:outline-none"
         >
           <ImageIcon className="h-6 w-6 text-slate-400 dark:text-slate-500" />
           <span>Chek rasmini yuklang yoki bu yerga paste qiling (Ctrl+V)</span>

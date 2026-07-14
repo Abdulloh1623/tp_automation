@@ -51,7 +51,7 @@ const ICONS = {
 export type StatIconName = keyof typeof ICONS;
 
 const TONE = {
-  blue: "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400",
+  blue: "bg-primary-50 text-primary-600 dark:bg-primary-950/40 dark:text-primary-400",
   indigo: "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400",
   red: "bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400",
   emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400",
@@ -113,7 +113,7 @@ export function DashboardStatCard({
               <Icon className="h-5 w-5" />
             </div>
           </div>
-          <div className="mt-3 flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400">
+          <div className="mt-3 flex items-center gap-1 text-xs font-medium text-primary-600 dark:text-primary-400">
             Batafsil
             <ChevronRight className="h-3.5 w-3.5" />
           </div>
@@ -197,7 +197,7 @@ export function DashboardStatCard({
                 <Link
                   href={detail.footerHref}
                   onClick={() => setOpen(false)}
-                  className="flex items-center justify-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                  className="flex items-center justify-center gap-1 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
                 >
                   {detail.footerText ?? "Hammasini ko'rish"} →
                 </Link>

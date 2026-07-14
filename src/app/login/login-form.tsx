@@ -78,7 +78,7 @@ export function LoginForm() {
                 setUsername(d.username);
                 setPassword(DEMO_PASS);
               }}
-              className="rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-2 py-1.5 text-left text-xs transition-colors hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+              className="rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-2 py-1.5 text-left text-xs transition-colors hover:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-950/40"
             >
               <div className="font-medium text-slate-800 dark:text-slate-100">{d.role}</div>
               <div className="text-slate-500 dark:text-slate-400">{d.username} / {DEMO_PASS}</div>

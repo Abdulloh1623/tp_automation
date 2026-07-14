@@ -115,8 +115,8 @@ export function ClientsTable({
     <div className="space-y-3">
       {/* Ommaviy biriktirish paneli */}
       {canManage && selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 px-4 py-3">
-          <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-primary-200 dark:border-primary-900 bg-primary-50 dark:bg-primary-950/40 px-4 py-3">
+          <span className="text-sm font-medium text-primary-800 dark:text-primary-300">
             {selected.size} ta tanlandi (ushbu sahifada)
           </span>
           <div className="flex items-center gap-2">
@@ -184,7 +184,7 @@ export function ClientsTable({
                 key={c.id}
                 className={
                   "border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800 " +
-                  (selected.has(c.id) ? "bg-blue-50/40 dark:bg-blue-950/40" : "")
+                  (selected.has(c.id) ? "bg-primary-50/40 dark:bg-primary-950/40" : "")
                 }
               >
                 {canManage && (
@@ -209,7 +209,7 @@ export function ClientsTable({
                   <span className="inline-flex items-center gap-1">
                     <a
                       href={`tel:${normalizePhone(c.phone)}`}
-                      className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+                      className="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400 hover:underline"
                     >
                       <Phone className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
                       {formatPhone(c.phone)}
@@ -246,7 +246,7 @@ export function ClientsTable({
             key={c.id}
             className={
               "rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 " +
-              (selected.has(c.id) ? "ring-2 ring-blue-300" : "")
+              (selected.has(c.id) ? "ring-2 ring-primary-300" : "")
             }
           >
             <div className="flex items-start gap-3">
@@ -272,7 +272,7 @@ export function ClientsTable({
                   <span className="inline-flex items-center gap-1">
                     <a
                       href={`tel:${normalizePhone(c.phone)}`}
-                      className="inline-flex items-center gap-1 font-medium text-blue-600 dark:text-blue-400"
+                      className="inline-flex items-center gap-1 font-medium text-primary-600 dark:text-primary-400"
                     >
                       <Phone className="h-4 w-4" /> {formatPhone(c.phone)}
                     </a>

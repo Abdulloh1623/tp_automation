@@ -256,7 +256,7 @@ export default async function ClientDetailPage({
                 label="Asosiy telefon"
                 value={
                   <span className="inline-flex items-center gap-1">
-                    <a href={`tel:${normalizePhone(client.phone)}`} className="text-blue-600 dark:text-blue-400">
+                    <a href={`tel:${normalizePhone(client.phone)}`} className="text-primary-600 dark:text-primary-400">
                       {formatPhone(client.phone)}
                     </a>
                     <PhoneCopyButton phone={client.phone} />
@@ -270,7 +270,7 @@ export default async function ClientDetailPage({
                   label={p.label}
                   value={
                     <span className="inline-flex items-center gap-1">
-                      <a href={`tel:${normalizePhone(p.number)}`} className="text-blue-600 dark:text-blue-400">
+                      <a href={`tel:${normalizePhone(p.number)}`} className="text-primary-600 dark:text-primary-400">
                         {formatPhone(p.number)}
                       </a>
                       <PhoneCopyButton phone={p.number} />

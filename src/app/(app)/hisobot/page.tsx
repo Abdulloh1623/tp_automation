@@ -46,7 +46,7 @@ function Kpi({
   tone: "blue" | "emerald" | "red" | "violet" | "slate" | "amber";
 }) {
   const toneMap = {
-    blue: "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400",
+    blue: "bg-primary-50 text-primary-600 dark:bg-primary-950/40 dark:text-primary-400",
     emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400",
     red: "bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400",
     violet: "bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400",

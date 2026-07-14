@@ -262,7 +262,7 @@ export function TvBoard({
               {/* Hafta / Oy limit progress */}
               <div className="mt-5 grid max-w-xl gap-3 sm:grid-cols-2">
                 <Meter label="Bu hafta" value={leader.weekTalked} limit={LEAD_LIMITS.weekly} color="bg-emerald-400" />
-                <Meter label="Bu oy" value={leader.monthTalked} limit={LEAD_LIMITS.monthly} color="bg-blue-400" />
+                <Meter label="Bu oy" value={leader.monthTalked} limit={LEAD_LIMITS.monthly} color="bg-primary-400" />
               </div>
             </div>
             <div className="text-right">
@@ -329,7 +329,7 @@ export function TvBoard({
               </div>
               <div className="mt-4 space-y-2.5">
                 <Meter label="Bu hafta" value={o.weekTalked} limit={LEAD_LIMITS.weekly} color="bg-emerald-400" />
-                <Meter label="Bu oy" value={o.monthTalked} limit={LEAD_LIMITS.monthly} color="bg-blue-400" />
+                <Meter label="Bu oy" value={o.monthTalked} limit={LEAD_LIMITS.monthly} color="bg-primary-400" />
               </div>
               <DetailPopover o={o} />
             </div>
@@ -390,8 +390,8 @@ function TeamStat({
   limit: number;
   tone: "amber" | "emerald" | "blue";
 }) {
-  const color = { amber: "text-amber-300", emerald: "text-emerald-300", blue: "text-blue-300" }[tone];
-  const bar = { amber: "bg-amber-400", emerald: "bg-emerald-400", blue: "bg-blue-400" }[tone];
+  const color = { amber: "text-amber-300", emerald: "text-emerald-300", blue: "text-primary-300" }[tone];
+  const bar = { amber: "bg-amber-400", emerald: "bg-emerald-400", blue: "bg-primary-400" }[tone];
   const pct = limit > 0 ? Math.min(100, Math.round((value / limit) * 100)) : 0;
   return (
     <div className="rounded-2xl bg-white/5 p-5 text-center">

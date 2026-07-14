@@ -77,7 +77,7 @@ export function ConfirmDialog() {
               "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
               danger
                 ? "bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400"
-                : "bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400",
+                : "bg-primary-100 text-primary-600 dark:bg-primary-950 dark:text-primary-400",
             )}
           >
             <AlertTriangle className="h-5 w-5" />

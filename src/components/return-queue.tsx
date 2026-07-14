@@ -93,7 +93,7 @@ export function ReturnQueue({
               className={
                 "rounded-full px-3 py-1 text-xs font-medium transition-colors " +
                 (status === ch.key
-                  ? "bg-blue-600 text-white"
+                  ? "bg-primary-600 text-white"
                   : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700")
               }
             >
@@ -154,7 +154,7 @@ function Row({
           <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-slate-500 dark:text-slate-400">
             <span>{r.fullName}</span>
             <span className="inline-flex items-center gap-1">
-              <a href={`tel:${normalizePhone(r.phone)}`} className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400">
+              <a href={`tel:${normalizePhone(r.phone)}`} className="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400">
                 <Phone className="h-3 w-3" /> {formatPhone(r.phone)}
               </a>
               <PhoneCopyButton phone={r.phone} />
@@ -171,7 +171,7 @@ function Row({
                 <span className="inline-flex items-center gap-1">
                   <a
                     href={`tel:${normalizePhone(r.ustaPhone)}`}
-                    className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400"
+                    className="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400"
                   >
                     <Phone className="h-3 w-3" /> {formatPhone(r.ustaPhone)}
                   </a>

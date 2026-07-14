@@ -240,7 +240,7 @@ export function InventoryManager({
                       <td className="px-4 py-2.5">
                         <div className="flex items-center justify-end gap-1">
                           <Button variant="ghost" size="sm"
-                            className="h-7 px-2 text-xs text-blue-600 dark:text-blue-400"
+                            className="h-7 px-2 text-xs text-primary-600 dark:text-primary-400"
                             disabled={pending}
                             onClick={() => openEdit(t)}>
                             <Pencil className="h-3.5 w-3.5" /> Tahrirlash
@@ -332,7 +332,7 @@ export function InventoryManager({
             </div>
 
             <button type="button" onClick={addTrRow}
-              className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+              className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
               <Plus className="h-4 w-4" /> Texnika qo'shish
             </button>
 
@@ -345,7 +345,7 @@ export function InventoryManager({
                     className={
                       "flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition " +
                       (trMode === mode
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300"
+                        ? "border-primary-500 bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300"
                         : "border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800")
                     }>
                     <FileText className="h-4 w-4" /> {HANDOUT_MODE[mode]}

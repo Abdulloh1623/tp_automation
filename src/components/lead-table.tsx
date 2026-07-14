@@ -82,9 +82,9 @@ const OUTCOME_CELL: Record<string, string> = {
   PHONE_OFF: "text-red-700 dark:text-red-300",
   BUSY: "text-amber-700 dark:text-amber-300",
   CALL_LATER: "text-amber-700 dark:text-amber-300",
-  WILL_PAY: "text-blue-700 dark:text-blue-300",
-  WILL_PAY_TOMORROW: "text-blue-700 dark:text-blue-300",
-  PAYMENT_REMINDED: "text-blue-700 dark:text-blue-300",
+  WILL_PAY: "text-primary-700 dark:text-primary-300",
+  WILL_PAY_TOMORROW: "text-primary-700 dark:text-primary-300",
+  PAYMENT_REMINDED: "text-primary-700 dark:text-primary-300",
   FORWARDED: "text-slate-600 dark:text-slate-300",
   HAS_ISSUE: "text-amber-700 dark:text-amber-300",
   NO_PROBLEM: "text-emerald-700 dark:text-emerald-300",
@@ -322,7 +322,7 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
             onClick={() => setMode("joriy")}
             className={
               "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium " +
-              (mode === "joriy" ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300" : "text-slate-600 dark:text-slate-300")
+              (mode === "joriy" ? "bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300" : "text-slate-600 dark:text-slate-300")
             }
           >
             <LayoutList className="h-4 w-4" /> Joriy
@@ -331,7 +331,7 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
             onClick={() => setMode("tarix")}
             className={
               "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium " +
-              (mode === "tarix" ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300" : "text-slate-600 dark:text-slate-300")
+              (mode === "tarix" ? "bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300" : "text-slate-600 dark:text-slate-300")
             }
           >
             <History className="h-4 w-4" /> Tarix
@@ -527,10 +527,10 @@ function JoriyTable({
             <th className="px-3 py-2.5 font-medium">Bo'lim</th>
             <th className="px-3 py-2.5 font-medium">Oxirgi aloqa</th>
             <th className="px-3 py-2.5 font-medium">To'lov</th>
-            <th className="bg-blue-50/60 dark:bg-blue-950/40 px-3 py-2.5 font-medium text-blue-700 dark:text-blue-300">
+            <th className="bg-primary-50/60 dark:bg-primary-950/40 px-3 py-2.5 font-medium text-primary-700 dark:text-primary-300">
               Bugun
             </th>
-            <th className="bg-blue-50/60 dark:bg-blue-950/40 px-3 py-2.5 font-medium text-blue-700 dark:text-blue-300">
+            <th className="bg-primary-50/60 dark:bg-primary-950/40 px-3 py-2.5 font-medium text-primary-700 dark:text-primary-300">
               Izoh
             </th>
             <th className="px-3 py-2.5 text-center font-medium">Amallar</th>
@@ -559,7 +559,7 @@ function JoriyTable({
                     title="Mijoz ma'lumotlarini ko'rish"
                     onClick={() => onInfo(r)}
                     className={
-                      "text-left font-medium text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline underline-offset-2 " +
+                      "text-left font-medium text-slate-900 dark:text-slate-100 hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 " +
                       (infoLoadingId === r.id ? "opacity-50" : "")
                     }
                   >
@@ -583,7 +583,7 @@ function JoriyTable({
                 <span className="inline-flex items-center gap-1">
                   <a
                     href={`tel:${normalizePhone(r.phone)}`}
-                    className="text-blue-600 dark:text-blue-400"
+                    className="text-primary-600 dark:text-primary-400"
                   >
                     {formatPhone(r.phone)}
                   </a>
@@ -632,10 +632,10 @@ function JoriyTable({
                   </span>
                 )}
               </td>
-              <td className="bg-blue-50/40 dark:bg-blue-950/40 px-2 py-2">
+              <td className="bg-primary-50/40 dark:bg-primary-950/40 px-2 py-2">
                 <OutcomeSelect row={r} />
               </td>
-              <td className="bg-blue-50/40 dark:bg-blue-950/40 px-2 py-2">
+              <td className="bg-primary-50/40 dark:bg-primary-950/40 px-2 py-2">
                 <Input
                   defaultValue={r.todayNote ?? ""}
                   onBlur={(e) => onNoteSave(r, e.target.value)}
@@ -701,7 +701,7 @@ function JoriyTable({
                   type="button"
                   onClick={() => onInfo(r)}
                   className={
-                    "text-left font-medium text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline underline-offset-2 " +
+                    "text-left font-medium text-slate-900 dark:text-slate-100 hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 " +
                     (infoLoadingId === r.id ? "opacity-50" : "")
                   }
                 >
@@ -726,7 +726,7 @@ function JoriyTable({
             <span className="inline-flex items-center gap-1">
               <a
                 href={`tel:${normalizePhone(r.phone)}`}
-                className="inline-flex items-center gap-1 font-medium text-blue-600 dark:text-blue-400"
+                className="inline-flex items-center gap-1 font-medium text-primary-600 dark:text-primary-400"
               >
                 <Phone className="h-4 w-4" /> {formatPhone(r.phone)}
               </a>
@@ -837,7 +837,7 @@ function TarixTable({
                 {dayLabel(d)}
               </th>
             ))}
-            <th className="sticky right-0 z-10 min-w-[150px] border-b border-l border-slate-200 dark:border-slate-800 bg-blue-50 dark:bg-blue-950/40 px-2 py-2.5 text-left text-xs font-medium text-blue-700 dark:text-blue-300">
+            <th className="sticky right-0 z-10 min-w-[150px] border-b border-l border-slate-200 dark:border-slate-800 bg-primary-50 dark:bg-primary-950/40 px-2 py-2.5 text-left text-xs font-medium text-primary-700 dark:text-primary-300">
               Bugun
             </th>
           </tr>
@@ -856,7 +856,7 @@ function TarixTable({
                       type="button"
                       title="Mijoz ma'lumotlarini ko'rish"
                       onClick={() => onInfo(r)}
-                      className="text-left font-medium text-slate-900 dark:text-slate-100 hover:text-blue-600 dark:hover:text-blue-400 hover:underline underline-offset-2"
+                      className="text-left font-medium text-slate-900 dark:text-slate-100 hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2"
                     >
                       {leadName(r)}
                     </button>
@@ -890,7 +890,7 @@ function TarixTable({
                     </td>
                   );
                 })}
-                <td className="sticky right-0 z-10 border-b border-l border-slate-100 dark:border-slate-800 bg-blue-50/40 dark:bg-blue-950/40 px-2 py-2">
+                <td className="sticky right-0 z-10 border-b border-l border-slate-100 dark:border-slate-800 bg-primary-50/40 dark:bg-primary-950/40 px-2 py-2">
                   <OutcomeSelect row={r} />
                 </td>
               </tr>
@@ -999,7 +999,7 @@ function ClientInfoView({ info }: { info: ClientInfoData }) {
               <span className="inline-flex items-center gap-1">
                 <a
                   href={`tel:${normalizePhone(info.phone)}`}
-                  className="text-blue-600 dark:text-blue-400"
+                  className="text-primary-600 dark:text-primary-400"
                 >
                   {formatPhone(info.phone)}
                 </a>
@@ -1015,7 +1015,7 @@ function ClientInfoView({ info }: { info: ClientInfoData }) {
                 <span className="inline-flex items-center gap-1">
                   <a
                     href={`tel:${normalizePhone(p.number)}`}
-                    className="text-blue-600 dark:text-blue-400"
+                    className="text-primary-600 dark:text-primary-400"
                   >
                     {formatPhone(p.number)}
                   </a>
@@ -1080,7 +1080,7 @@ function ClientInfoView({ info }: { info: ClientInfoData }) {
       <div className="mt-3">
         <a
           href={`/mijozlar/${info.id}`}
-          className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700"
+          className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700"
         >
           To'liq profil <ArrowUpRight className="h-3.5 w-3.5" />
         </a>

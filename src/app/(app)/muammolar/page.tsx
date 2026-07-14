@@ -197,7 +197,7 @@ export default async function TicketsPage({
                     <div className="font-medium text-slate-900 dark:text-slate-100">{t.title}</div>
                     <Link
                       href={`/mijozlar/${t.client.id}`}
-                      className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700"
+                      className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700"
                     >
                       {t.client.restaurantName}
                     </Link>
@@ -220,7 +220,7 @@ export default async function TicketsPage({
                     ·
                     <a
                       href={`tel:${normalizePhone(t.client.phone)}`}
-                      className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400"
+                      className="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400"
                     >
                       <Phone className="h-3 w-3" />
                       {formatPhone(t.client.phone)}

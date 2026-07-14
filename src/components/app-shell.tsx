@@ -87,7 +87,7 @@ export function AppShell({
       <aside className="hidden h-full w-60 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 md:flex">
         <div className="flex items-center justify-between gap-2 px-5 py-5">
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 text-white">
               <Building2 className="h-5 w-5" />
             </div>
             <div>
@@ -110,9 +110,9 @@ export function AppShell({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
                   active
-                    ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                    ? "bg-primary-50 text-primary-700 dark:bg-primary-950 dark:text-primary-300"
                     : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
                 )}
               >
@@ -154,7 +154,7 @@ export function AppShell({
         {/* Mobile top bar */}
         <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900 md:hidden">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white">
               <Building2 className="h-4 w-4" />
             </div>
             <span className="text-sm font-semibold dark:text-slate-100">POS CRM</span>
@@ -185,9 +185,9 @@ export function AppShell({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "relative flex shrink-0 min-w-[60px] flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                  "relative flex shrink-0 min-w-[60px] flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
                   active
-                    ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                    ? "bg-primary-50 text-primary-700 dark:bg-primary-950 dark:text-primary-300"
                     : "text-slate-600 dark:text-slate-300",
                 )}
               >

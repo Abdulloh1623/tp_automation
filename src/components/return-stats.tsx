@@ -22,7 +22,7 @@ export function ReturnStats({ stats }: { stats: ReturnStatsData }) {
       label: "Jarayonda (ustada)",
       value: stats.inProgress,
       icon: Wrench,
-      tone: "text-blue-600 dark:text-blue-400",
+      tone: "text-primary-600 dark:text-primary-400",
     },
     {
       label: "Yakunlangan (jami)",

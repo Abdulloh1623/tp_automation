@@ -83,7 +83,7 @@ export function RefusedList({
                       <span className="inline-flex items-center gap-1">
                         <a
                           href={`tel:${normalizePhone(c.phone)}`}
-                          className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400"
+                          className="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400"
                         >
                           <Phone className="h-3 w-3" />
                           {formatPhone(c.phone)}

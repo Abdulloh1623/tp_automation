@@ -8,11 +8,10 @@ import { guardRole } from "@/lib/auth";
 import { canMutateClient } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { computeNextPaymentDate } from "@/lib/billing";
-import { escalationStagePatch } from "@/lib/escalation";
+import { escalationStagePatch, shouldEscalate } from "@/lib/escalation";
 
 const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
 import {
-  ESCALATION_THRESHOLD,
   LEAD_OUTCOME,
   LEAD_STAGE,
   MISSED_OUTCOMES,
@@ -127,7 +126,7 @@ export async function recordLeadOutcome(
   const missedCount = isMissed ? client.missedCallCount + 1 : 0;
 
   // 3 tadan oshsa — avtomatik ustaga (FORWARDED) yo'naltiriladi
-  const escalate = isMissed && missedCount > ESCALATION_THRESHOLD;
+  const escalate = isMissed && shouldEscalate(missedCount);
   const targetStage = escalate
     ? "FORWARDED"
     : OUTCOME_TO_STAGE[outcome as LeadOutcome];
@@ -370,7 +369,7 @@ export async function saveLeadCell(
     else break;
   }
 
-  const escalate = consecutiveMissed > ESCALATION_THRESHOLD;
+  const escalate = shouldEscalate(consecutiveMissed);
   const pendingStage = escalate
     ? "ESCALATED"
     : OUTCOME_TO_STAGE[outcome as LeadOutcome];

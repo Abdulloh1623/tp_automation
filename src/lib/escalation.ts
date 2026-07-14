@@ -1,8 +1,19 @@
 // Eskalatsiya bosqichi yordamchilari — `escalatedAt` (3-kunlik SLA soati) va
 // mas'ul (`escalationStaffId`) maydonlarini bosqich o'zgarganda to'g'ri boshqaradi.
 
+import { ESCALATION_THRESHOLD } from "./constants";
+
 /** SLA soatiga kiradigan eskalatsiya bosqichlari (navbat + ustada). */
 export const ESCALATION_STAGES = ["ESCALATED", "FORWARDED"] as const;
+
+/**
+ * Ketma-ket ko'tarilmagan (kun bo'yicha sanalgan) qo'ng'iroqlar soniga qarab
+ * mijoz avtomatik eskalatsiyaga o'tishi kerakmi. Chegara `>=` — ya'ni aynan
+ * `ESCALATION_THRESHOLD`-ketma-ket ko'tarilmaganda ishga tushadi.
+ */
+export function shouldEscalate(consecutiveMissed: number): boolean {
+  return consecutiveMissed >= ESCALATION_THRESHOLD;
+}
 
 export function isEscalationStage(stage: string | null | undefined): boolean {
   return !!stage && (ESCALATION_STAGES as readonly string[]).includes(stage);

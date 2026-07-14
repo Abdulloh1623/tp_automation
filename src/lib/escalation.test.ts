@@ -1,5 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { isEscalationStage, escalationStagePatch } from "./escalation";
+import {
+  isEscalationStage,
+  escalationStagePatch,
+  shouldEscalate,
+} from "./escalation";
+import { ESCALATION_THRESHOLD } from "./constants";
+
+describe("shouldEscalate", () => {
+  it("chegaradan kam ketma-ket ko'tarilmasa — eskalatsiya YO'Q", () => {
+    expect(shouldEscalate(0)).toBe(false);
+    expect(shouldEscalate(ESCALATION_THRESHOLD - 1)).toBe(false);
+  });
+  it("aynan chegarada — eskalatsiya BOR (>= mantiq)", () => {
+    expect(shouldEscalate(ESCALATION_THRESHOLD)).toBe(true);
+  });
+  it("chegaradan ko'p bo'lsa — eskalatsiya BOR", () => {
+    expect(shouldEscalate(ESCALATION_THRESHOLD + 1)).toBe(true);
+  });
+});
 
 describe("isEscalationStage", () => {
   it("ESCALATED va FORWARDED — ha", () => {

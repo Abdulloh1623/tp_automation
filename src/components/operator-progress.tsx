@@ -50,7 +50,7 @@ export function OperatorProgress({ initial }: { initial: OperatorDailyStats }) {
 
   const target = data.target > 0 ? data.target : 0;
   const pct = target > 0 ? Math.min(100, Math.round((data.attempted / target) * 100)) : 0;
-  const barColor = pct >= 100 ? "bg-emerald-500" : pct >= 50 ? "bg-blue-500" : "bg-amber-500";
+  const barColor = pct >= 100 ? "bg-emerald-500" : pct >= 50 ? "bg-primary-500" : "bg-amber-500";
 
   return (
     <Card className="p-5" aria-live="polite">
@@ -129,7 +129,7 @@ export function OperatorProgress({ initial }: { initial: OperatorDailyStats }) {
 }
 
 const toneMap: Record<string, string> = {
-  blue: "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400",
+  blue: "bg-primary-50 text-primary-600 dark:bg-primary-950/40 dark:text-primary-400",
   emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400",
   slate: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
 };

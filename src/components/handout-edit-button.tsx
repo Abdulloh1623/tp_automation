@@ -110,7 +110,7 @@ export function HandoutEditButton({
         <button
           type="button"
           onClick={openEdit}
-          className="inline-flex items-center gap-1 rounded-lg border border-blue-300 dark:border-blue-800 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+          className="inline-flex items-center gap-1 rounded-lg border border-primary-300 dark:border-primary-800 px-2 py-0.5 text-xs font-medium text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-950/40"
         >
           <Pencil className="h-3.5 w-3.5" /> Tahrirlash
         </button>
@@ -166,7 +166,7 @@ export function HandoutEditButton({
                       className={
                         "rounded-lg border px-2 py-1.5 text-xs font-medium " +
                         (mode === mm
-                          ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300"
+                          ? "border-primary-500 bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300"
                           : "border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800")
                       }>
                       {HANDOUT_MODE[mm]}
@@ -201,13 +201,13 @@ export function HandoutEditButton({
               {!confirm ? (
                 <button type="button" disabled={pending || qtyInvalid || noteMissing || !usta || !eq}
                   onClick={() => setConfirm(true)}
-                  className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+                  className="inline-flex items-center gap-1 rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
                   <Check className="h-4 w-4" /> Saqlash
                 </button>
               ) : (
                 <button type="button" disabled={pending || qtyInvalid || noteMissing || !usta || !eq}
                   onClick={save}
-                  className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+                  className="inline-flex items-center gap-1 rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
                   <Check className="h-4 w-4" /> Ha, saqlash
                 </button>
               )}

@@ -59,7 +59,7 @@ function AssignRow({
         </span>
         {assigned.phone && (
           <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300">
-            <a href={`tel:${normalizePhone(assigned.phone)}`} className="text-blue-600 dark:text-blue-400">
+            <a href={`tel:${normalizePhone(assigned.phone)}`} className="text-primary-600 dark:text-primary-400">
               {formatPhone(assigned.phone)}
             </a>
             <PhoneCopyButton phone={assigned.phone} />

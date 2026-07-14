@@ -456,7 +456,7 @@ export default async function DashboardPage() {
                     <span>{c.fullName}</span>
                     {c.region && <span>· {c.region}</span>}
                     <span className="inline-flex items-center gap-1">
-                      <a href={`tel:${normalizePhone(c.phone)}`} className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                      <a href={`tel:${normalizePhone(c.phone)}`} className="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400">
                         <Phone className="h-3 w-3" />
                         {formatPhone(c.phone)}
                       </a>
@@ -480,7 +480,7 @@ export default async function DashboardPage() {
                     <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{formatMoney(c.monthlyAmount, c.currency)}</div>
                     <div className="text-xs text-slate-400 dark:text-slate-500">{formatDate(c.nextPaymentDate)}</div>
                   </div>
-                  <Link href={`/mijozlar/${c.id}`} className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                  <Link href={`/mijozlar/${c.id}`} className="inline-flex items-center gap-1 rounded-lg bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700">
                     Ochish
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
@@ -489,7 +489,7 @@ export default async function DashboardPage() {
             );
           })}
           {workList.length > WORK_CAP && (
-            <Link href="/mijozlar" className="block pt-1 text-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+            <Link href="/mijozlar" className="block pt-1 text-center text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
               Barcha mijozlar →
             </Link>
           )}

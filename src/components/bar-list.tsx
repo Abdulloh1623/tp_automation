@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 type Color = "blue" | "emerald" | "amber" | "violet" | "red";
 
 const colorMap: Record<Color, string> = {
-  blue: "bg-blue-500",
+  blue: "bg-primary-500",
   emerald: "bg-emerald-500",
   amber: "bg-amber-500",
   violet: "bg-violet-500",

@@ -31,8 +31,8 @@ export function PaymentReceiptModal({
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<File | null>(null);
   const [amount, setAmount] = useState(String(target.monthlyAmount));
-  const [currency, setCurrency] = useState(target.currency);
-  const [months, setMonths] = useState("1");
+  const [currency, setCurrency] = useState("UZS");
+  const [days, setDays] = useState("30");
   const [method, setMethod] = useState("CARD");
 
   function submit() {
@@ -44,7 +44,7 @@ export function PaymentReceiptModal({
     const fd = new FormData();
     fd.set("amount", amount);
     fd.set("currency", currency);
-    fd.set("months", months);
+    fd.set("days", days);
     fd.set("method", method);
     fd.set("receipt", receipt);
     start(async () => {
@@ -89,8 +89,8 @@ export function PaymentReceiptModal({
               </Select>
             </div>
             <div>
-              <Label>Necha oyga</Label>
-              <Input type="number" min={1} max={24} value={months} onChange={(e) => setMonths(e.target.value)} />
+              <Label>Necha kunga</Label>
+              <Input type="number" min={1} max={366} value={days} onChange={(e) => setDays(e.target.value)} />
             </div>
             <div>
               <Label>To'lov usuli</Label>

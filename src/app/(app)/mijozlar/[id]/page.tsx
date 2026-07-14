@@ -488,7 +488,6 @@ export default async function ClientDetailPage({
                 <PaymentForm
                   clientId={client.id}
                   defaultAmount={effectiveMonthly}
-                  defaultCurrency={client.currency}
                 />
               </div>
             </CardContent>

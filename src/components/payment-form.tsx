@@ -12,14 +12,19 @@ import { Button } from "@/components/ui/button";
 import { ReceiptInput } from "@/components/receipt-input";
 import { CURRENCY, PAYMENT_METHOD } from "@/lib/constants";
 
+// Bugungi sanani <input type="date"> uchun yyyy-MM-dd ko'rinishida (lokal vaqt).
+function todayIso(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 export function PaymentForm({
   clientId,
   defaultAmount,
-  defaultCurrency,
 }: {
   clientId: string;
   defaultAmount: number;
-  defaultCurrency: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -28,9 +33,9 @@ export function PaymentForm({
   const [receipt, setReceipt] = useState<File | null>(null);
 
   const [amount, setAmount] = useState(String(defaultAmount));
-  const [currency, setCurrency] = useState(defaultCurrency);
-  const [months, setMonths] = useState("1");
-  const [paidAt, setPaidAt] = useState("");
+  const [currency, setCurrency] = useState("UZS");
+  const [days, setDays] = useState("30");
+  const [paidAt, setPaidAt] = useState(todayIso());
   const [method, setMethod] = useState("CARD");
 
   function submit() {
@@ -42,7 +47,7 @@ export function PaymentForm({
     const fd = new FormData();
     fd.set("amount", amount);
     fd.set("currency", currency);
-    fd.set("months", months);
+    fd.set("days", days);
     if (paidAt) fd.set("paidAt", paidAt);
     fd.set("method", method);
     fd.set("receipt", receipt);
@@ -93,8 +98,8 @@ export function PaymentForm({
           </Select>
         </div>
         <div>
-          <Label>Necha oyga</Label>
-          <Input type="number" min={1} max={24} value={months} onChange={(e) => setMonths(e.target.value)} />
+          <Label>Necha kunga</Label>
+          <Input type="number" min={1} max={366} value={days} onChange={(e) => setDays(e.target.value)} />
         </div>
         <div>
           <Label>To'lov sanasi</Label>

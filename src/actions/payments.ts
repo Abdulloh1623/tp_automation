@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { addMonths } from "date-fns";
+import { addDays } from "date-fns";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { guardRole } from "@/lib/auth";
@@ -24,9 +24,10 @@ function s(v: FormDataEntryValue | null): string | undefined {
 
 const paymentSchema = z.object({
   amount: z.coerce.number().positive("Summani kiriting"),
-  currency: currencyEnum.default("USD"),
+  currency: currencyEnum.default("UZS"),
   paidAt: z.string().optional(),
-  months: z.coerce.number().int().min(1).max(24).default(1),
+  // To'lov muddati kunlarda (default 30 kun) — keyingi to'lov sanasi shunga qarab
+  days: z.coerce.number().int().min(1).max(366).default(30),
   method: paymentMethodEnum.default("CARD"),
   receiptNote: noteString.optional(),
 });
@@ -58,7 +59,7 @@ function paymentCaption(
   p: {
     amount: number;
     currency: string;
-    months: number;
+    days: number;
     method: string;
     paidAt: Date;
     nextPaymentDate: Date;
@@ -74,7 +75,7 @@ function paymentCaption(
     ...client.phones.map((ph) => `   ${escapeHtml(ph.label)}: ${escapeHtml(ph.number)}`),
     client.region ? `📍 ${escapeHtml(client.region)}` : null,
     client.contractNumber ? `📄 Shartnoma: ${escapeHtml(client.contractNumber)}` : null,
-    `💵 To'lov: <b>${formatMoney(p.amount, p.currency)}</b>${p.months > 1 ? ` (${p.months} oy)` : ""}`,
+    `💵 To'lov: <b>${formatMoney(p.amount, p.currency)}</b>${p.days !== 30 ? ` (${p.days} kun)` : ""}`,
     `💳 Usul: ${PAYMENT_METHOD[p.method as PaymentMethod] ?? p.method}`,
     `📅 Sana: ${formatDate(p.paidAt)}`,
     `🔜 Keyingi to'lov: ${formatDate(p.nextPaymentDate)}`,
@@ -92,7 +93,7 @@ async function processPayment(
   fields: {
     amount: number;
     currency: string;
-    months: number;
+    days: number;
     method: string;
     paidAt?: string;
     receiptNote?: string;
@@ -105,12 +106,12 @@ async function processPayment(
   });
   if (!client) return { ok: false, error: "Mijoz topilmadi" };
 
-  const { amount, currency, months } = fields;
+  const { amount, currency, days } = fields;
   const paidAt = fields.paidAt ? new Date(fields.paidAt) : new Date();
   const now = new Date();
   const base =
     client.nextPaymentDate && client.nextPaymentDate > now ? client.nextPaymentDate : now;
-  const nextPaymentDate = addMonths(base, months);
+  const nextPaymentDate = addDays(base, days);
 
   const payment = await db.payment.create({
     data: {
@@ -151,7 +152,7 @@ async function processPayment(
   const caption = paymentCaption(client, {
     amount,
     currency,
-    months,
+    days,
     method: fields.method,
     paidAt,
     nextPaymentDate,
@@ -180,9 +181,9 @@ export async function recordPayment(
 
   const parsed = paymentSchema.safeParse({
     amount: s(formData.get("amount")),
-    currency: s(formData.get("currency")) ?? "USD",
+    currency: s(formData.get("currency")) ?? "UZS",
     paidAt: s(formData.get("paidAt")),
-    months: s(formData.get("months")) ?? 1,
+    days: s(formData.get("days")) ?? 30,
     method: s(formData.get("method")) ?? "CARD",
     receiptNote: s(formData.get("receiptNote")),
   });
@@ -210,9 +211,9 @@ export async function recordLeadPayment(
 
   const parsed = paymentSchema.safeParse({
     amount: s(formData.get("amount")),
-    currency: s(formData.get("currency")) ?? "USD",
+    currency: s(formData.get("currency")) ?? "UZS",
     paidAt: s(formData.get("paidAt")),
-    months: s(formData.get("months")) ?? 1,
+    days: s(formData.get("days")) ?? 30,
     method: s(formData.get("method")) ?? "CARD",
     receiptNote: s(formData.get("receiptNote")),
   });

@@ -11,13 +11,30 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-tp}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD .env da belgilanishi shart}
       POSTGRES_DB: ${POSTGRES_DB:-tp_automation}
+    # 768M byudjetiga moslangan — kam ulanish sloti + mo''tadil shared_buffers
+    # postgres'ni xotira limitida ushlab, OOM/restart (ulanish uzilishi) oldini oladi.
+    command:
+      - postgres
+      - -c
+      - max_connections=50
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - effective_cache_size=384MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=48MB
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tp} -d ${POSTGRES_DB:-tp_automation}"]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 10
+      # Restart/start paytida to'liq ko'tarilguncha "unhealthy" belgilanmasin —
+      # autoheal'ni behuda qayta-restart tsiklidan saqlaydi.
+      start_period: 40s
     # Xotira chegarasi (cheklov, rezervatsiya emas) — t3.small (2GB) da OOM'ni oldini oladi.
     deploy:
       resources:

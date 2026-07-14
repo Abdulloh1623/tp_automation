@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Toaster } from "@/components/toaster";
-import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ConfirmDialog, confirmDialog } from "@/components/confirm-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 import { userRoleLabel } from "@/lib/constants";
@@ -74,6 +74,13 @@ export function AppShell({
   const badgeFor = (href: string) =>
     href === "/bildirishnomalar" && unreadCount > 0 ? unreadCount : 0;
 
+  // Tasodifiy bosishning oldini olish — chiqishdan oldin tasdiq so'raladi.
+  async function handleLogout() {
+    if (await confirmDialog({ title: "Tizimdan chiqasizmi?", confirmLabel: "Chiqish", variant: "primary" })) {
+      await logout();
+    }
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar — viewportga qulflangan (skroll qilinmaydi) */}
@@ -103,7 +110,7 @@ export function AppShell({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
                   active
                     ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
                     : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
@@ -131,15 +138,14 @@ export function AppShell({
               {userRoleLabel(user.role)}
             </div>
           </Link>
-          <form action={logout}>
-            <button
-              type="submit"
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-slate-300 dark:hover:bg-red-950 dark:hover:text-red-400"
-            >
-              <LogOut className="h-4 w-4" />
-              Chiqish
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:text-slate-300 dark:hover:bg-red-950 dark:hover:text-red-400"
+          >
+            <LogOut className="h-4 w-4" />
+            Chiqish
+          </button>
         </div>
       </aside>
 
@@ -155,11 +161,14 @@ export function AppShell({
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />
-            <form action={logout}>
-              <button type="submit" className="text-slate-500 dark:text-slate-400">
-                <LogOut className="h-5 w-5" />
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={handleLogout}
+              aria-label="Chiqish"
+              className="rounded-lg p-1 text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:text-slate-400"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
           </div>
         </header>
 
@@ -176,7 +185,7 @@ export function AppShell({
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "relative flex shrink-0 min-w-[60px] flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-xs font-medium",
+                  "relative flex shrink-0 min-w-[60px] flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
                   active
                     ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
                     : "text-slate-600 dark:text-slate-300",

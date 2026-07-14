@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Phone } from "lucide-react";
+import { Phone, Wrench } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
@@ -16,6 +16,7 @@ import { TicketIntegratorControl } from "@/components/ticket-integrator-control"
 import { TicketForm } from "@/components/ticket-form";
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { CountStrip, type CountItem } from "@/components/count-strip";
+import { EmptyState } from "@/components/empty-state";
 import { TICKET_STATUS, TICKET_TYPE, TICKET_PRIORITY } from "@/lib/constants";
 import { formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 import { slaThreshold } from "@/lib/sla";
@@ -183,9 +184,11 @@ export default async function TicketsPage({
 
           <div className="space-y-3">
             {tickets.length === 0 && (
-              <Card className="p-10 text-center text-sm text-slate-400 dark:text-slate-500">
-                Muammo topilmadi
-              </Card>
+              <EmptyState
+                icon={Wrench}
+                title="Muammo topilmadi"
+                hint={canAssign ? "Hozircha ochiq muammo yo'q." : "Sizga biriktirilgan muammo yo'q."}
+              />
             )}
             {tickets.map((t) => (
               <Card key={t.id} className="p-4">

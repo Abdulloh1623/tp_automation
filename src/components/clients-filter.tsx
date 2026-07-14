@@ -52,10 +52,11 @@ export function ClientsFilter({
     <Card className="p-4">
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-[200px] flex-1">
-          <label className="mb-1.5 block text-xs font-medium text-slate-500">Qidiruv</label>
+          <label htmlFor="client-search" className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">Qidiruv</label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
+              id="client-search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="FIO, restoran, telefon, shartnoma..."
@@ -64,7 +65,7 @@ export function ClientsFilter({
           </div>
         </div>
         <div className="w-44">
-          <label className="mb-1.5 block text-xs font-medium text-slate-500">Viloyat</label>
+          <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">Viloyat</label>
           <Select
             defaultValue={params.get("region") ?? ""}
             onChange={(e) => setParam("region", e.target.value)}
@@ -76,7 +77,7 @@ export function ClientsFilter({
           </Select>
         </div>
         <div className="w-40">
-          <label className="mb-1.5 block text-xs font-medium text-slate-500">Holat</label>
+          <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">Holat</label>
           <Select
             defaultValue={params.get("status") ?? ""}
             onChange={(e) => setParam("status", e.target.value)}
@@ -89,7 +90,7 @@ export function ClientsFilter({
         </div>
         {operators.length > 0 && (
           <div className="w-48">
-            <label className="mb-1.5 block text-xs font-medium text-slate-500">Operator</label>
+            <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">Operator</label>
             <Select
               defaultValue={params.get("assigned") ?? ""}
               onChange={(e) => setParam("assigned", e.target.value)}
@@ -103,7 +104,7 @@ export function ClientsFilter({
           </div>
         )}
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-slate-500">Biznex</label>
+          <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">Biznex</label>
           <button
             type="button"
             aria-pressed={notFoundOnly}

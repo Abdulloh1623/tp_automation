@@ -1,6 +1,7 @@
 // Server xatolarini Telegram'ga yuborib, prod'da "ko'rinmas" xatolarning oldini oladi.
 // onRequestError (instrumentation), worker (cron) va boshqa joylardan chaqiriladi.
 import { botToken, sendMessage, escapeHtml, backupChannelId, channelId } from "./telegram";
+import { isTransientDbError } from "./db-errors";
 
 export type ErrorContext = {
   source?: string; // "server" | "worker" | "client" ...
@@ -80,6 +81,9 @@ function signatureOf(error: unknown, ctx: ErrorContext): string {
 export async function reportError(error: unknown, ctx: ErrorContext = {}): Promise<void> {
   const e = error instanceof Error ? error : new Error(String(error));
   console.error(`[error-report] ${ctx.source ?? ""} ${ctx.path ?? ""}:`, e);
+  // O'tkinchi DB-ulanish uzilishi (deploy/restart) — bug emas, kanalga
+  // yuborilmaydi (konsol izi yetarli). withDbRetry baribir qayta uriladi.
+  if (isTransientDbError(error)) return;
   try {
     // Dev/test xatolari kanalga ketmasin — Telegram faqat prod uchun
     if (process.env.NODE_ENV !== "production") return;

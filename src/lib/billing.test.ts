@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeNextPaymentDate } from "./billing";
+import { computeNextPaymentDate, nextPaymentAfterDelete } from "./billing";
 
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -31,5 +31,19 @@ describe("computeNextPaymentDate", () => {
     // 31-kun, from = 1-fevral 2026 (28 kun) → 28-fevral
     const feb = new Date(2026, 1, 1);
     expect(ymd(computeNextPaymentDate(new Date(2026, 0, 31), feb))).toBe("2026-02-28");
+  });
+});
+
+describe("nextPaymentAfterDelete", () => {
+  const anchor = new Date(2026, 3, 14); // shartnoma 14-aprel
+  const from = new Date(2026, 6, 4); // 2026-07-04
+
+  it("qolgan to'lov bo'lsa — uning eng oxirgi periodEnd'ini qaytaradi", () => {
+    const latest = new Date(2026, 8, 20); // 2026-09-20
+    expect(nextPaymentAfterDelete(latest, anchor, from)).toBe(latest);
+  });
+
+  it("to'lov qolmasa — shartnoma sanasidan hisoblanadi", () => {
+    expect(ymd(nextPaymentAfterDelete(null, anchor, from))).toBe("2026-07-14");
   });
 });

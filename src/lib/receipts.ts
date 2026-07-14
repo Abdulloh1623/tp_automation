@@ -40,6 +40,19 @@ export async function saveReceipt(
   return { ok: true, relPath: `receipts/${fileName}` };
 }
 
+/** Saqlangan chek faylini o'chiradi (best-effort — hech qachon throw qilmaydi). */
+export async function deleteReceipt(relPath: string | null | undefined): Promise<void> {
+  if (!relPath) return;
+  // Path traversal himoyasi: faqat receipts/ ichidagi nom (readReceipt bilan bir xil)
+  const safe = relPath.replace(/^receipts\//, "").replace(/[/\\]/g, "");
+  if (!safe) return;
+  try {
+    await fs.unlink(path.join(RECEIPTS_DIR, safe));
+  } catch {
+    // Fayl yo'q yoki o'chirilgan — e'tiborsiz
+  }
+}
+
 /** Saqlangan chekni o'qiydi (himoyalangan route uchun). */
 export async function readReceipt(
   relPath: string,

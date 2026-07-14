@@ -10,10 +10,14 @@ import {
 import { type StaffOption } from "@/components/assign-escalation-staff";
 import { CountStrip, type CountItem } from "@/components/count-strip";
 import { slaThreshold } from "@/lib/sla";
+import { assignedStaffScope } from "@/lib/visibility";
 
 export default async function EscalationPage() {
   const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR"]);
   const isManager = ["ADMIN", "MANAGER"].includes(session.role);
+  // TP xodim (OPERATOR) faqat o'ziga maxsus xodim qilib biriktirilgan
+  // eskalatsiyalarni ko'radi; ADMIN/MANAGER esa barchasini (va biriktiradi).
+  const scope = assignedStaffScope(session.role, session.userId, "escalationStaffId");
   const overdueBefore = slaThreshold();
   // Eskalatsiya SLA soati — escalatedAt (bo'lmasa updatedAt) shu vaqtdan oldingi bo'lsa buzilgan
   const isOverdue = (escalatedAt: Date | null, updatedAt: Date) =>
@@ -23,7 +27,7 @@ export default async function EscalationPage() {
 
   const [clients, forwardedRaw, ustalarFull, xodimlarFull] = await Promise.all([
     db.client.findMany({
-      where: { stage: "ESCALATED" },
+      where: { stage: "ESCALATED", ...scope },
       orderBy: { updatedAt: "desc" },
       include: {
         assignedTo: { select: { name: true } },
@@ -36,7 +40,7 @@ export default async function EscalationPage() {
       },
     }),
     db.client.findMany({
-      where: { stage: "FORWARDED" },
+      where: { stage: "FORWARDED", ...scope },
       orderBy: { updatedAt: "desc" },
       include: { assignedUsta: { select: { name: true, phone: true } }, ...staffInclude },
     }),
@@ -116,7 +120,7 @@ export default async function EscalationPage() {
         <p className="text-sm text-slate-500 dark:text-slate-400">
           {isManager
             ? `${clients.length} ta lid ustaga biriktirishni kutmoqda — keyingi kuzatuvni TP xodimlari olib boradi`
-            : `Ustadagi ishlarni kuzating: usta bilan bog'laning va holatni yangilang. Biriktirish kutilmoqda: ${clients.length}`}
+            : `Sizga biriktirilgan eskalatsiyalar — usta va mijoz bilan bog'lanib yakuniga yetkazing (navbatda: ${clients.length})`}
         </p>
         <div className="mt-3">
           <CountStrip items={summary} />

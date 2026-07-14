@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
+import { createNotification } from "@/lib/notifications";
 import { USTA_STATUS, ustaStatusLabel } from "@/lib/constants";
 import { escalationStagePatch } from "@/lib/escalation";
 
@@ -144,10 +145,12 @@ export async function assignEscalationStaff(
     }
   }
 
+  let client;
   try {
-    await db.client.update({
+    client = await db.client.update({
       where: { id: clientId },
       data: { escalationStaffId: staffId },
+      select: { restaurantName: true },
     });
   } catch {
     return { ok: false, error: "Mijoz topilmadi" };
@@ -157,6 +160,14 @@ export async function assignEscalationStaff(
     entity: "Client",
     entityId: clientId,
   });
+  // Biriktirilgan xodimga ilova-ichi bildirishnoma (o'ziga biriktirsa — yubormaydi)
+  if (staffId && staffId !== session.userId) {
+    await createNotification({
+      title: "Sizga yangi eskalatsiya biriktirildi",
+      body: client.restaurantName,
+      userIds: [staffId],
+    });
+  }
   revalidatePath("/eskalatsiya");
   revalidatePath(`/mijozlar/${clientId}`);
   return { ok: true };

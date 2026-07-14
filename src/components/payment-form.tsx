@@ -120,8 +120,8 @@ export function PaymentForm({
         <Label>Chek (rasm) *</Label>
         <ReceiptInput onChange={setReceipt} />
       </div>
-      <Button size="sm" disabled={pending} onClick={submit}>
-        <CheckCircle2 className="h-4 w-4" />
+      <Button size="sm" loading={pending} onClick={submit}>
+        {!pending && <CheckCircle2 className="h-4 w-4" />}
         {pending ? "Saqlanmoqda..." : "To'lovni qabul qilish"}
       </Button>
     </div>

@@ -110,7 +110,7 @@ export function PaymentReceiptModal({
         </div>
 
         <div className="mt-4 flex gap-2">
-          <Button onClick={submit} disabled={pending}>
+          <Button onClick={submit} loading={pending}>
             {pending ? "Yuborilmoqda..." : "Tasdiqlash va yuborish"}
           </Button>
           <Button variant="ghost" onClick={onClose}>Bekor</Button>

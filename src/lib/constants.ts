@@ -203,7 +203,9 @@ export const TALKED_RESULTS: string[] = [
   "TALKED", // qo'lda qo'ng'iroq jurnalidagi "Gaplashildi"
 ];
 
-// Shu sondan ko'p ketma-ket ko'tarilmasa, avtomatik ustaga (FORWARDED) yo'naltiriladi
+// Shu SONDA (yoki ko'proq) ketma-ket ko'tarilmasa, avtomatik eskalatsiya navbatiga
+// (ESCALATED) o'tadi. Chegara `>=` bilan tekshiriladi — ya'ni aynan 3-ketma-ket
+// ko'tarilmaganда ishlaydi (kun bo'yicha sanaladi, bir kunда nechta urinish bo'lsa ham 1).
 export const ESCALATION_THRESHOLD = 3;
 
 // Operatorning gaplashgan lidlar bo'yicha limiti (6 ish kuni: kunlik 50 → hafta 300, oy ≈1300)

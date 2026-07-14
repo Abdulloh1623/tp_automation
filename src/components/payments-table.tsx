@@ -160,8 +160,8 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
         })}
       </div>
 
-      {/* Jadval */}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+      {/* Jadval — faqat desktop (mobilda kartalar) */}
+      <div className="hidden overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -223,6 +223,66 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobil kartalar — jadval o'rniga kichik ekranда */}
+      <div className="space-y-3 md:hidden">
+        {filtered.length === 0 && (
+          <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center text-sm text-slate-400 dark:text-slate-500">
+            Mijoz topilmadi
+          </div>
+        )}
+        {filtered.map((r) => (
+          <div
+            key={r.id}
+            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="font-medium text-slate-900 dark:text-slate-100">{r.restaurantName}</div>
+                <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-500 dark:text-slate-400">
+                  <span>{r.fullName}</span>
+                  {r.phone && (
+                    <span className="inline-flex items-center gap-1 tabular-nums">
+                      {formatPhone(r.phone)}
+                      <PhoneCopyButton phone={r.phone} />
+                    </span>
+                  )}
+                </div>
+              </div>
+              <span className={"shrink-0 rounded-full px-2 py-0.5 text-xs font-medium " + STATE_TONE[r.state]}>
+                {r.stateLabel}
+              </span>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+              <div>
+                <span className="text-slate-400 dark:text-slate-500">Keyingi to'lov: </span>
+                <span className="text-slate-700 dark:text-slate-200">{r.nextPaymentFmt}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 dark:text-slate-500">Qoldi: </span>
+                <span className={r.overdue ? "text-red-600 dark:text-red-400" : "text-slate-700 dark:text-slate-200"}>
+                  {r.qoldi}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 dark:text-slate-500">Oylik: </span>
+                <span className="font-medium text-slate-700 dark:text-slate-200">{r.monthlyFmt}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 dark:text-slate-500">Operator: </span>
+                <span className="text-slate-700 dark:text-slate-200">{r.operatorName}</span>
+              </div>
+            </div>
+            <Link
+              href={`/mijozlar/${r.id}`}
+              className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700"
+            >
+              To&apos;lov
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        ))}
       </div>
     </div>
   );

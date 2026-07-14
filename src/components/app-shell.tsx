@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -38,26 +39,62 @@ type NavItem = {
   icon: typeof LayoutDashboard;
   roles: Role[];
 };
+type NavSection = { title?: string; items: NavItem[] };
 
-const NAV: NavItem[] = [
-  { href: "/", label: "Boshqaruv paneli", icon: LayoutDashboard, roles: ["ADMIN"] },
-  { href: "/lidlar", label: "Kunlik ish", icon: PhoneCall, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
-  { href: "/ombor", label: "Ombor", icon: Warehouse, roles: ["ADMIN", "MANAGER"] },
-  { href: "/ustalar", label: "Ustalar", icon: HardHat, roles: ["ADMIN", "MANAGER"] },
-  { href: "/mijozlar", label: "Mijozlar", icon: Users, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
-  { href: "/toldirilmagan", label: "To'ldirilmagan", icon: UserX, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
-  { href: "/tolovlar", label: "To'lovlar", icon: CreditCard, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
-  { href: "/muammolar", label: "Muammolar", icon: Wrench, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
-  { href: "/eskalatsiya", label: "Eskalatsiya", icon: AlertTriangle, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
-  { href: "/qaytarish", label: "Qaytarish", icon: PackageCheck, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
-  { href: "/otkaz", label: "Otkaz", icon: Ban, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
-  { href: "/analitika", label: "Jonli analitika", icon: Activity, roles: ["ADMIN", "MANAGER"] },
-  { href: "/hisobot", label: "Hisobot", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
-  { href: "/foydalanuvchilar", label: "Foydalanuvchilar", icon: UserCog, roles: ["ADMIN"] },
-  { href: "/audit", label: "Audit", icon: ScrollText, roles: ["ADMIN"] },
-  { href: "/import", label: "Import", icon: Upload, roles: ["ADMIN"] },
-  { href: "/bildirishnomalar", label: "Bildirishnomalar", icon: Bell, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
-  { href: "/profil", label: "Profil", icon: CircleUser, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
+// Bo'limlarga guruhlangan navigatsiya — sidebar'ni skanlashni osonlashtiradi.
+// Bo'limdagi barcha element rolga to'g'ri kelmasa, sarlavha ham ko'rsatilmaydi.
+const NAV_SECTIONS: NavSection[] = [
+  {
+    items: [
+      { href: "/", label: "Boshqaruv paneli", icon: LayoutDashboard, roles: ["ADMIN"] },
+      { href: "/lidlar", label: "Kunlik ish", icon: PhoneCall, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
+    ],
+  },
+  {
+    title: "Mijozlar",
+    items: [
+      { href: "/mijozlar", label: "Mijozlar", icon: Users, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
+      { href: "/toldirilmagan", label: "To'ldirilmagan", icon: UserX, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
+      { href: "/tolovlar", label: "To'lovlar", icon: CreditCard, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
+    ],
+  },
+  {
+    title: "Xizmat",
+    items: [
+      { href: "/muammolar", label: "Muammolar", icon: Wrench, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
+      { href: "/eskalatsiya", label: "Eskalatsiya", icon: AlertTriangle, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
+      { href: "/qaytarish", label: "Qaytarish", icon: PackageCheck, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
+      { href: "/otkaz", label: "Otkaz", icon: Ban, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
+    ],
+  },
+  {
+    title: "Ombor",
+    items: [
+      { href: "/ombor", label: "Ombor", icon: Warehouse, roles: ["ADMIN", "MANAGER"] },
+      { href: "/ustalar", label: "Ustalar", icon: HardHat, roles: ["ADMIN", "MANAGER"] },
+    ],
+  },
+  {
+    title: "Tahlil",
+    items: [
+      { href: "/analitika", label: "Jonli analitika", icon: Activity, roles: ["ADMIN", "MANAGER"] },
+      { href: "/hisobot", label: "Hisobot", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
+    ],
+  },
+  {
+    title: "Boshqaruv",
+    items: [
+      { href: "/foydalanuvchilar", label: "Foydalanuvchilar", icon: UserCog, roles: ["ADMIN"] },
+      { href: "/audit", label: "Audit", icon: ScrollText, roles: ["ADMIN"] },
+      { href: "/import", label: "Import", icon: Upload, roles: ["ADMIN"] },
+    ],
+  },
+  {
+    items: [
+      { href: "/bildirishnomalar", label: "Bildirishnomalar", icon: Bell, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
+      { href: "/profil", label: "Profil", icon: CircleUser, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
+    ],
+  },
 ];
 
 export function AppShell({
@@ -70,7 +107,17 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const nav = NAV.filter((i) => i.roles.includes(user.role as Role));
+  // Rolga ko'ra filtrlangan bo'limlar (bo'sh bo'lim — sarlavhasiz — tushiriladi)
+  const sections = NAV_SECTIONS.map((s) => ({
+    ...s,
+    items: s.items.filter((i) => i.roles.includes(user.role as Role)),
+  })).filter((s) => s.items.length > 0);
+  const flatNav = sections.flatMap((s) => s.items);
+  // Mobil navdagi faol elementni ko'rinishга surish (uzun gorizontal strip)
+  const activeMobileRef = useRef<HTMLAnchorElement>(null);
+  useEffect(() => {
+    activeMobileRef.current?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [pathname]);
   const badgeFor = (href: string) =>
     href === "/bildirishnomalar" && unreadCount > 0 ? unreadCount : 0;
 
@@ -98,34 +145,43 @@ export function AppShell({
           <ThemeToggle />
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
-          {nav.map((item) => {
-            const active =
-              item.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(item.href);
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
-                  active
-                    ? "bg-primary-50 text-primary-700 dark:bg-primary-950 dark:text-primary-300"
-                    : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                <span className="flex-1">{item.label}</span>
-                {badgeFor(item.href) > 0 && (
-                  <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-semibold leading-none text-white">
-                    {badgeFor(item.href)}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-2">
+          {sections.map((section, si) => (
+            <div key={section.title ?? `s${si}`} className="space-y-1">
+              {section.title && (
+                <div className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  {section.title}
+                </div>
+              )}
+              {section.items.map((item) => {
+                const active =
+                  item.href === "/"
+                    ? pathname === "/"
+                    : pathname.startsWith(item.href);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
+                      active
+                        ? "bg-primary-50 text-primary-700 dark:bg-primary-950 dark:text-primary-300"
+                        : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span className="flex-1">{item.label}</span>
+                    {badgeFor(item.href) > 0 && (
+                      <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-semibold leading-none text-white">
+                        {badgeFor(item.href)}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         <div className="border-t border-slate-200 p-3 dark:border-slate-800">
@@ -174,7 +230,7 @@ export function AppShell({
 
         {/* Mobile nav — gorizontal skroll (rollar ko'p element ko'rsatadi) */}
         <nav className="flex gap-1 overflow-x-auto border-b border-slate-200 bg-white px-2 py-2 dark:border-slate-800 dark:bg-slate-900 md:hidden">
-          {nav.map((item) => {
+          {flatNav.map((item) => {
             const active =
               item.href === "/"
                 ? pathname === "/"
@@ -184,6 +240,7 @@ export function AppShell({
               <Link
                 key={item.href}
                 href={item.href}
+                ref={active ? activeMobileRef : undefined}
                 className={cn(
                   "relative flex shrink-0 min-w-[60px] flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
                   active

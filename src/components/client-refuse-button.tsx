@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 /**
  * Mijoz kartochkasidagi "Otkaz" tugmasi — mijozni xizmatdan voz kechgan deb
- * belgilaydi (ixtiyoriy sabab bilan). ISTAGAN xodim bosishi mumkin (server
+ * belgilaydi. Sabab (izoh) MAJBURIY. ISTAGAN xodim bosishi mumkin (server
  * action egalik tekshiruvidan istisno). Allaqachon otkazda bo'lsa ko'rinmaydi.
  */
 export function ClientRefuseButton({
@@ -29,6 +29,10 @@ export function ClientRefuseButton({
 
   function submit() {
     setError(null);
+    if (!reason.trim()) {
+      setError("Otkaz uchun izoh (sabab) majburiy");
+      return;
+    }
     start(async () => {
       const res = await refuseClient(clientId, reason);
       if (res.ok) {
@@ -87,7 +91,7 @@ export function ClientRefuseButton({
             )}
 
             <div>
-              <Label>Sabab (ixtiyoriy)</Label>
+              <Label>Sabab (majburiy)</Label>
               <Textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -97,7 +101,12 @@ export function ClientRefuseButton({
             </div>
 
             <div className="mt-4 flex gap-2">
-              <Button variant="danger" size="sm" onClick={submit} disabled={pending}>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={submit}
+                disabled={pending || !reason.trim()}
+              >
                 <Ban className="h-4 w-4" />
                 {pending ? "Saqlanmoqda..." : "Otkaz qilish"}
               </Button>

@@ -100,7 +100,7 @@ export async function recordLeadOutcome(
   if (!g.ok) return { error: g.error };
   const session = g.session;
   if (!(await canMutateClient(session, clientId))) {
-    return { error: "Bu mijoz sizga biriktirilmagan" };
+    return { error: "Mijoz topilmadi" };
   }
 
   const parsed = outcomeSchema.safeParse({
@@ -113,6 +113,11 @@ export async function recordLeadOutcome(
 
   // outcome validligi sxemada (refine isLeadOutcome) kafolatlangan
   const { outcome } = parsed.data;
+
+  // Otkaz (bekor qilish) — izoh MAJBURIY (sabab tarixda qolishi shart).
+  if (outcome === "REFUSED" && !parsed.data.note) {
+    return { error: "Otkaz uchun izoh (sabab) majburiy" };
+  }
 
   const client = await db.client.findUnique({ where: { id: clientId } });
   if (!client) return { error: "Lid topilmadi" };
@@ -260,6 +265,10 @@ export async function moveLeadStage(
   const g = await guardRole(STAFF);
   if (!g.ok) return;
   if (!isLeadStage(stage)) return;
+  // Otkazga (REFUSED) qo'lda ko'chirish bu yerdan taqiqlangan — otkaz uchun izoh
+  // majburiy, shuning uchun u faqat izohli yo'llardan (refuseClient / lid natijasi)
+  // o'tishi kerak.
+  if (stage === "REFUSED") return;
   if (!(await canMutateClient(g.session, clientId))) return;
   try {
     const current = await db.client.findUnique({
@@ -306,8 +315,12 @@ export async function saveLeadCell(
   if (!g.ok) return { error: g.error };
   const session = g.session;
   if (!isLeadOutcome(outcome)) return { error: "Noto'g'ri natija" };
+  // Otkaz (bekor qilish) — izoh MAJBURIY (sabab tarixda qolishi shart).
+  if (outcome === "REFUSED" && !(note ?? "").trim()) {
+    return { error: "Otkaz uchun izoh (sabab) majburiy" };
+  }
   if (!(await canMutateClient(session, clientId))) {
-    return { error: "Bu mijoz sizga biriktirilmagan" };
+    return { error: "Mijoz topilmadi" };
   }
 
   const now = new Date();
@@ -403,7 +416,7 @@ export async function setSpecialNote(
   if (!g.ok) return { ok: false, error: g.error };
   const session = g.session;
   if (!(await canMutateClient(session, clientId))) {
-    return { ok: false, error: "Bu mijoz sizga biriktirilmagan" };
+    return { ok: false, error: "Mijoz topilmadi" };
   }
   const trimmed = (note ?? "").trim();
   const empty = trimmed === "";
@@ -502,7 +515,7 @@ export async function getClientInfo(clientId: string): Promise<ClientInfoState> 
   const g = await guardRole(STAFF);
   if (!g.ok) return { ok: false, error: g.error };
   if (!(await canMutateClient(g.session, clientId))) {
-    return { ok: false, error: "Bu mijoz sizga biriktirilmagan" };
+    return { ok: false, error: "Mijoz topilmadi" };
   }
 
   const c = await db.client.findUnique({

@@ -33,7 +33,7 @@ export async function addCallLog(
   if (!g.ok) return { error: g.error };
   const session = g.session;
   if (!(await canMutateClient(session, clientId))) {
-    return { error: "Bu mijoz sizga biriktirilmagan" };
+    return { error: "Mijoz topilmadi" };
   }
 
   const parsed = callLogSchema.safeParse({

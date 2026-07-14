@@ -60,7 +60,7 @@ export async function createTicket(
   });
   if (!client) return { error: "Mijoz topilmadi" };
   if (!(await canMutateClient(session, client.id))) {
-    return { error: "Bu mijoz sizga biriktirilmagan" };
+    return { error: "Mijoz topilmadi" };
   }
 
   await db.ticket.create({

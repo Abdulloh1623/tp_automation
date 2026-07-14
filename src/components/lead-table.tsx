@@ -13,6 +13,7 @@ import {
   CalendarCheck,
   Check,
   Download,
+  Ban,
 } from "lucide-react";
 import {
   saveLeadCell,
@@ -43,6 +44,7 @@ import { formatMoney, formatDate, formatPhone, normalizePhone } from "@/lib/util
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { buildCsv, downloadCsv } from "@/lib/csv-export";
 import { confirmDialog } from "@/components/confirm-dialog";
+import { toast } from "@/components/toaster";
 import { EmptyState } from "@/components/empty-state";
 
 export type LeadHistory = {
@@ -115,6 +117,9 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
   const [modal, setModal] = useState<Modal>(null);
   const [specialText, setSpecialText] = useState("");
   const [payTarget, setPayTarget] = useState<PayTarget | null>(null);
+  // Otkaz (REFUSED) tanlanganda izohni majburiy so'rovchi modal
+  const [refuseTarget, setRefuseTarget] = useState<LeadRow | null>(null);
+  const [refuseReason, setRefuseReason] = useState("");
   const [infoLoadingId, setInfoLoadingId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [finishing, setFinishing] = useState(false);
@@ -173,8 +178,22 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
           todayNote: note,
         });
         flashSaved(row.id);
+      } else {
+        toast(res.error, "error");
       }
     });
+  }
+
+  // Otkaz modalidan tasdiqlash — izoh (sabab) majburiy.
+  function confirmRefuse() {
+    if (!refuseTarget) return;
+    const reason = refuseReason.trim();
+    if (!reason) return;
+    const row = refuseTarget;
+    patchRow(row.id, { todayNote: reason });
+    save(row, "REFUSED", reason);
+    setRefuseTarget(null);
+    setRefuseReason("");
   }
 
   async function onEscalate(row: LeadRow) {
@@ -268,6 +287,12 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
         monthlyAmount: row.monthlyAmount,
         currency: row.currency,
       });
+      return;
+    }
+    if (value === "REFUSED") {
+      // "Otkaz" — izoh (sabab) majburiy, avval modal ochamiz
+      setRefuseReason(row.todayNote ?? "");
+      setRefuseTarget(row);
       return;
     }
     save(row, value || null, row.todayNote);
@@ -422,6 +447,44 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
             setPayTarget(null);
           }}
         />
+      )}
+
+      {refuseTarget && (
+        <ModalOverlay onClose={() => setRefuseTarget(null)}>
+          <div>
+            <h3 className="mb-2 flex items-center gap-2 text-base font-semibold text-rose-700 dark:text-rose-300">
+              <Ban className="h-4 w-4" /> Otkaz — {refuseTarget.restaurantName}
+            </h3>
+            <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
+              Mijoz xizmatdan voz kechgan deb belgilanadi. Sabab (izoh) majburiy.
+            </p>
+            <Textarea
+              value={refuseReason}
+              onChange={(e) => setRefuseReason(e.target.value)}
+              placeholder="masalan: narx qimmat, boshqa tizimga o'tdi…"
+              className="min-h-[90px]"
+              autoFocus
+            />
+            <div className="mt-3 flex gap-2">
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={confirmRefuse}
+                disabled={pending || !refuseReason.trim()}
+              >
+                <Ban className="h-4 w-4" /> Otkaz qilish
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setRefuseTarget(null)}
+                disabled={pending}
+              >
+                Bekor
+              </Button>
+            </div>
+          </div>
+        </ModalOverlay>
       )}
     </div>
   );

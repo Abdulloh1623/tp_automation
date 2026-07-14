@@ -4,9 +4,10 @@ import type { SessionPayload } from "./session";
 
 /**
  * Foydalanuvchi shu mijozni O'ZGARTIRA oladimi?
- * - ADMIN/MANAGER: har qanday mavjud mijoz.
- * - OPERATOR: faqat o'ziga biriktirilgan mijoz.
- * - boshqa (INSTALLER): yo'q.
+ * - ADMIN/MANAGER/OPERATOR (STAFF): har qanday mavjud mijoz. Egalik (biriktiruv)
+ *   cheklovi ATAYIN yo'q — operator istalgan mijozni tahrirlashi/to'lovini
+ *   kiritishi mumkin. Buning evaziga har bir amal AuditLog'ga yoziladi.
+ * - INSTALLER (va boshqa): yo'q.
  * Mijoz mavjud bo'lmasa ham false.
  */
 export async function canMutateClient(
@@ -14,18 +15,15 @@ export async function canMutateClient(
   clientId: string,
 ): Promise<boolean> {
   if (!clientId) return false;
-  if (session.role === "ADMIN" || session.role === "MANAGER") {
-    const c = await db.client.findUnique({ where: { id: clientId }, select: { id: true } });
-    return !!c;
+  if (
+    session.role !== "ADMIN" &&
+    session.role !== "MANAGER" &&
+    session.role !== "OPERATOR"
+  ) {
+    return false;
   }
-  if (session.role === "OPERATOR") {
-    const c = await db.client.findFirst({
-      where: { id: clientId, assignedToId: session.userId },
-      select: { id: true },
-    });
-    return !!c;
-  }
-  return false;
+  const c = await db.client.findUnique({ where: { id: clientId }, select: { id: true } });
+  return !!c;
 }
 
 const ASSIGNABLE_ROLES = ["OPERATOR", "ADMIN", "MANAGER"];

@@ -37,6 +37,7 @@ import {
 import { CallLogForm } from "@/components/call-log-form";
 import { ClientRefuseButton } from "@/components/client-refuse-button";
 import { PaymentForm } from "@/components/payment-form";
+import { PaymentHistoryActions } from "@/components/payment-history-actions";
 import { TicketForm } from "@/components/ticket-form";
 import { TicketStatusControl } from "@/components/ticket-status-control";
 import { paymentMethodLabel } from "@/lib/constants";
@@ -115,6 +116,7 @@ export default async function ClientDetailPage({
 }) {
   const { id } = await params;
   const session = await requireSession();
+  const isAdmin = session.role === "ADMIN";
 
   const client = await db.client.findUnique({
     where: { id },
@@ -540,6 +542,17 @@ export default async function ClientDetailPage({
                           )}
                         </div>
                       </div>
+                      <PaymentHistoryActions
+                        canManage={isAdmin}
+                        payment={{
+                          id: p.id,
+                          amount: p.amount,
+                          currency: p.currency,
+                          method: p.method,
+                          paidAt: p.paidAt.toISOString(),
+                          receiptNote: p.receiptNote,
+                        }}
+                      />
                     </div>
                   ))}
                 </div>

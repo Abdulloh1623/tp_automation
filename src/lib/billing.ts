@@ -41,6 +41,19 @@ export function computeNextPaymentDate(anchor: Date, from: Date = new Date()): D
   return candidate;
 }
 
+/**
+ * To'lov o'chirilgach mijozning keyingi to'lov sanasini qayta hisoblaydi.
+ * Qolgan to'lovlarning eng oxirgi `periodEnd`i (kelgan bo'lsa) — joriy qamrov;
+ * to'lov qolmasa — shartnoma sanasidan (`anchor`) oylik hisoblanadi.
+ */
+export function nextPaymentAfterDelete(
+  latestPeriodEnd: Date | null | undefined,
+  anchor: Date,
+  from: Date = new Date(),
+): Date {
+  return latestPeriodEnd ?? computeNextPaymentDate(anchor, from);
+}
+
 // ---------------------------------------------------------------------------
 // Biznex API integratsiyasi — mijozning obuna holatini (aktiv / muddat) olish.
 //

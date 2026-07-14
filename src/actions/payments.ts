@@ -7,7 +7,8 @@ import { db } from "@/lib/db";
 import { guardRole } from "@/lib/auth";
 import { canMutateClient } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
-import { saveReceipt } from "@/lib/receipts";
+import { saveReceipt, deleteReceipt } from "@/lib/receipts";
+import { nextPaymentAfterDelete } from "@/lib/billing";
 import { sendPaymentToChannel, escapeHtml } from "@/lib/telegram";
 import { formatMoney, formatDate } from "@/lib/utils";
 import { PAYMENT_METHOD, type PaymentMethod } from "@/lib/constants";
@@ -249,5 +250,106 @@ export async function recordLeadPayment(
     },
   });
   revalidatePath("/lidlar");
+  return { ok: true };
+}
+
+// --- ADMIN: to'lov tarixini tuzatish (edit/delete) ---
+
+// Tahrirlashда faqat tavsifiy maydonlar — muddat/period va nextPaymentDate tegilmaydi
+const paymentEditSchema = z.object({
+  amount: z.coerce.number().positive("Summani kiriting"),
+  currency: currencyEnum.default("UZS"),
+  paidAt: z.string().optional(),
+  method: paymentMethodEnum.default("CARD"),
+  receiptNote: noteString.optional(),
+});
+
+/** ADMIN: to'lovning tavsifiy maydonlarini tahrirlaydi (billing'ga tegmaydi). */
+export async function updatePayment(
+  paymentId: string,
+  formData: FormData,
+): Promise<PaymentFormState> {
+  const g = await guardRole(["ADMIN"]);
+  if (!g.ok) return { error: g.error };
+
+  const parsed = paymentEditSchema.safeParse({
+    amount: s(formData.get("amount")),
+    currency: s(formData.get("currency")) ?? "UZS",
+    paidAt: s(formData.get("paidAt")),
+    method: s(formData.get("method")) ?? "CARD",
+    receiptNote: s(formData.get("receiptNote")),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Maʼlumotlar noto'g'ri" };
+  }
+
+  const existing = await db.payment.findUnique({
+    where: { id: paymentId },
+    select: { clientId: true, client: { select: { restaurantName: true } } },
+  });
+  if (!existing) return { error: "To'lov topilmadi" };
+
+  await db.payment.update({
+    where: { id: paymentId },
+    data: {
+      amount: parsed.data.amount,
+      currency: parsed.data.currency,
+      paidAt: parsed.data.paidAt ? new Date(parsed.data.paidAt) : undefined,
+      method: parsed.data.method,
+      receiptNote: parsed.data.receiptNote ?? null,
+    },
+  });
+
+  await logAudit("To'lov tahrirlandi", {
+    entity: "Client",
+    entityId: existing.clientId,
+    detail: `${existing.client.restaurantName}: ${formatMoney(parsed.data.amount, parsed.data.currency)}`,
+  });
+  revalidatePath(`/mijozlar/${existing.clientId}`);
+  revalidatePath("/tolovlar");
+  return { ok: true };
+}
+
+/** ADMIN: to'lovni o'chiradi + chek fayli; keyingi to'lov sanasi qayta hisoblanadi. */
+export async function deletePayment(paymentId: string): Promise<PaymentFormState> {
+  const g = await guardRole(["ADMIN"]);
+  if (!g.ok) return { error: g.error };
+
+  const existing = await db.payment.findUnique({
+    where: { id: paymentId },
+    select: {
+      clientId: true,
+      receiptPath: true,
+      amount: true,
+      currency: true,
+      client: { select: { restaurantName: true, contractDate: true, createdAt: true } },
+    },
+  });
+  if (!existing) return { error: "To'lov topilmadi" };
+
+  await db.payment.delete({ where: { id: paymentId } });
+
+  // Keyingi to'lov sanasini qayta hisoblash — qolgan eng oxirgi periodEnd bo'yicha
+  const latest = await db.payment.findFirst({
+    where: { clientId: existing.clientId },
+    orderBy: { periodEnd: "desc" },
+    select: { periodEnd: true },
+  });
+  const anchor = existing.client.contractDate ?? existing.client.createdAt;
+  const nextPaymentDate = nextPaymentAfterDelete(latest?.periodEnd ?? null, anchor);
+  await db.client.update({
+    where: { id: existing.clientId },
+    data: { nextPaymentDate },
+  });
+
+  await deleteReceipt(existing.receiptPath);
+
+  await logAudit("To'lov o'chirildi", {
+    entity: "Client",
+    entityId: existing.clientId,
+    detail: `${existing.client.restaurantName}: ${formatMoney(existing.amount, existing.currency)}`,
+  });
+  revalidatePath(`/mijozlar/${existing.clientId}`);
+  revalidatePath("/tolovlar");
   return { ok: true };
 }

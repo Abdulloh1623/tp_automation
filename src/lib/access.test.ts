@@ -50,17 +50,16 @@ describe("canMutateClient — egalik / IDOR himoyasi", () => {
     expect(await canMutateClient(sess("MANAGER"), "c1")).toBe(false);
   });
 
-  it("OPERATOR: faqat o'ziga biriktirilgan (assignedToId filtri bilan so'raydi)", async () => {
-    clientFindFirst.mockResolvedValue({ id: "c1" });
+  it("OPERATOR: istalgan mavjud mijozni o'zgartira oladi (egalik filtri YO'Q)", async () => {
+    clientFindUnique.mockResolvedValue({ id: "c1" });
     expect(await canMutateClient(sess("OPERATOR", "op9"), "c1")).toBe(true);
-    expect(clientFindFirst).toHaveBeenCalledWith({
-      where: { id: "c1", assignedToId: "op9" },
-      select: { id: true },
-    });
+    // Endi biriktiruv (assignedToId) bo'yicha filtrlanmaydi — faqat id bo'yicha
+    expect(clientFindUnique).toHaveBeenCalledWith({ where: { id: "c1" }, select: { id: true } });
+    expect(clientFindFirst).not.toHaveBeenCalled();
   });
 
-  it("OPERATOR: birovning mijozini o'zgartira olmaydi → false", async () => {
-    clientFindFirst.mockResolvedValue(null); // assignedToId mos kelmadi
+  it("OPERATOR: mijoz mavjud emas → false", async () => {
+    clientFindUnique.mockResolvedValue(null);
     expect(await canMutateClient(sess("OPERATOR", "op9"), "c1")).toBe(false);
   });
 });

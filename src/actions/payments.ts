@@ -175,7 +175,7 @@ export async function recordPayment(
   const g = await guardRole(STAFF);
   if (!g.ok) return { error: g.error };
   if (!(await canMutateClient(g.session, clientId))) {
-    return { error: "Bu mijoz sizga biriktirilmagan" };
+    return { error: "Mijoz topilmadi" };
   }
 
   const parsed = paymentSchema.safeParse({
@@ -205,7 +205,7 @@ export async function recordLeadPayment(
   const g = await guardRole(STAFF);
   if (!g.ok) return { error: g.error };
   if (!(await canMutateClient(g.session, clientId))) {
-    return { error: "Bu mijoz sizga biriktirilmagan" };
+    return { error: "Mijoz topilmadi" };
   }
 
   const parsed = paymentSchema.safeParse({

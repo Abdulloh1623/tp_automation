@@ -299,6 +299,10 @@ export async function refuseClient(
   const g = await guardRole(STAFF);
   if (!g.ok) return { ok: false, error: g.error };
 
+  // Otkaz — izoh (sabab) MAJBURIY: nima uchun voz kechgani tarixda qolishi shart.
+  const note = (reason ?? "").trim().slice(0, 2000);
+  if (!note) return { ok: false, error: "Otkaz uchun izoh (sabab) majburiy" };
+
   const client = await db.client.findUnique({
     where: { id: clientId },
     select: { id: true, restaurantName: true, stage: true },
@@ -307,8 +311,6 @@ export async function refuseClient(
   if (client.stage === "REFUSED") {
     return { ok: false, error: "Mijoz allaqachon otkazda" };
   }
-
-  const note = (reason ?? "").trim().slice(0, 2000) || null;
 
   // Otkaz + nofaol qilamiz va kunlik ish holatini butunlay tozalaymiz, shunda
   // mijoz na taxtada, na overdue qarzdorlar oqimida qayta paydo bo'lmaydi.

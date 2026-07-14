@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/auth";
 import { getOperatorActivity } from "@/lib/analytics";
+import { withDbRetry } from "@/lib/db-retry";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export async function GET() {
     return new Response("Forbidden", { status: 403 });
   }
 
-  const data = await getOperatorActivity();
+  const data = await withDbRetry(() => getOperatorActivity());
   return Response.json(data, {
     headers: { "Cache-Control": "no-store, max-age=0" },
   });

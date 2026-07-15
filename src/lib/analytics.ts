@@ -4,6 +4,7 @@ import {
   ACTIVE_STAGES,
   CLIENT_STATUS,
   LEAD_STAGE,
+  NO_CONTACT_STAGES,
   TALKED_RESULTS,
   callResultLabel,
   clientStatusLabel,
@@ -133,7 +134,7 @@ export async function getAnalytics(shift?: Shift): Promise<Analytics> {
       db.client.findMany({
         where: {
           assignedToId: { not: null },
-          stage: { not: "REFUSED" },
+          stage: { notIn: [...NO_CONTACT_STAGES] },
           status: { not: "INACTIVE" },
           OR: [
             {

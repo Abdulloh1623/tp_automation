@@ -12,6 +12,7 @@ import { escalationStagePatch, shouldEscalate } from "@/lib/escalation";
 
 const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
 import {
+  FOLLOW_UP_DAYS,
   LEAD_OUTCOME,
   LEAD_STAGE,
   MISSED_OUTCOMES,
@@ -212,6 +213,9 @@ export async function finishDay(
         break;
       case "LATER":
         nextContactDate = addDays(today, 2); // keyinroq
+        break;
+      case "FOLLOW_UP":
+        nextContactDate = addDays(today, FOLLOW_UP_DAYS); // "muammo yo'q" — 4 kundan so'ng
         break;
       case "AWAITING_PAYMENT":
         nextContactDate =

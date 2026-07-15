@@ -6,7 +6,7 @@ import { startOfDay, endOfDay } from "date-fns";
 import { db } from "@/lib/db";
 import { sendMessage, sendToChannel, escapeHtml } from "@/lib/telegram";
 import { formatMoney, formatPhone } from "@/lib/utils";
-import { ACTIVE_STAGES, LEAD_LIMITS, leadOutcomeLabel } from "@/lib/constants";
+import { ACTIVE_STAGES, LEAD_LIMITS, NO_CONTACT_STAGES, leadOutcomeLabel } from "@/lib/constants";
 
 type Money = { USD: number; UZS: number };
 function money2(m: Money): string {
@@ -51,6 +51,8 @@ export async function buildOperatorReminder(
       where: {
         assignedToId: operatorId,
         status: "ACTIVE",
+        // Otkaz/o'chirilganlar qarzdor bo'lsa ham eslatmaga chiqmaydi
+        stage: { notIn: NO_CONTACT_STAGES as unknown as string[] },
         nextPaymentDate: { lt: todayStart },
       },
       orderBy: { nextPaymentDate: "asc" },
@@ -126,7 +128,11 @@ export async function buildManagerSummary(): Promise<string> {
     await Promise.all([
       db.client.count({ where: { stage: "ESCALATED" } }),
       db.client.findMany({
-        where: { status: "ACTIVE", nextPaymentDate: { lt: todayStart } },
+        where: {
+          status: "ACTIVE",
+          stage: { notIn: NO_CONTACT_STAGES as unknown as string[] },
+          nextPaymentDate: { lt: todayStart },
+        },
         select: { monthlyAmount: true, currency: true },
       }),
       db.client.count({ where: { assignedToId: null } }),

@@ -1,6 +1,7 @@
 // 3-kunlik SLA — muammo/eskalatsiya belgilangan muddatda hal bo'lmasa
 // ogohlantiriladi. `runSlaCheck` worker cron'ida (scripts/bot.ts) kuniga
 // chaqiriladi: buzilganlarni topib, ilova bildirishnomasi + Telegram yuboradi.
+import { startOfDay } from "date-fns";
 import { db } from "./db";
 import { escapeHtml, sendMessage } from "./telegram";
 import { createNotification } from "./notifications";
@@ -34,8 +35,9 @@ async function pushTelegram(chatIds: Set<string>, title: string, body: string) {
 /**
  * 3 kundan oshgan hal bo'lmagan muammo va eskalatsiyalarni topib, mas'ul +
  * boshliqlarga ilova bildirishnomasi va Telegram ogohlantirishi yuboradi.
- * Takror spam bo'lmasligi uchun `slaNotifiedAt` belgilanadi — bir element
- * har SLA_DAYS kunda ko'pi bilan bir marta ogohlantiriladi.
+ * Muammo/eskalatsiya HAL BO'LMAGUNCHA har KUNI qayta ogohlantiriladi
+ * (cron kuniga bir marta — 10:00 ishlaydi). Bir kunда ikki marta ishlasa ham
+ * `slaNotifiedAt` shu kunni belgilaydi — takror yubormaydi.
  */
 export async function runSlaCheck(
   now: Date = new Date(),
@@ -50,8 +52,10 @@ export async function runSlaCheck(
   const managerIds = managers.map((m) => m.id);
   const managerTg = managers.map((m) => m.telegramId).filter((x): x is string => !!x);
 
-  // Yaqinda (oxirgi SLA_DAYS kun ichida) ogohlantirilganini o'tkazib yuboramiz
-  const notifiedRecently = (at: Date | null) => at != null && at >= threshold;
+  // Bugun allaqachon ogohlantirilganini o'tkazib yuboramiz — hal bo'lmaguncha
+  // har kuni bir marta qayta yuboriladi (bir kunда faqat bir marta).
+  const dayStart = startOfDay(now);
+  const notifiedToday = (at: Date | null) => at != null && at >= dayStart;
 
   // --- Muammolar (Ticket) ---
   const tickets = await db.ticket.findMany({
@@ -67,7 +71,7 @@ export async function runSlaCheck(
   });
   let ticketCount = 0;
   for (const t of tickets) {
-    if (notifiedRecently(t.slaNotifiedAt)) continue;
+    if (notifiedToday(t.slaNotifiedAt)) continue;
     const days = daysSince(t.createdAt, now);
     const title = "Muammo 3 kundan beri hal bo'lmadi";
     const body = `"${t.title}" — ${t.client.restaurantName} (${days} kun). Iltimos yakuniga yetkazing.`;
@@ -105,7 +109,7 @@ export async function runSlaCheck(
   });
   let escCount = 0;
   for (const c of escClients) {
-    if (notifiedRecently(c.slaNotifiedAt)) continue;
+    if (notifiedToday(c.slaNotifiedAt)) continue;
     const days = daysSince(c.escalatedAt ?? c.updatedAt, now);
     const title = "Eskalatsiya 3 kundan beri yakunlanmadi";
     const body = `${c.restaurantName} (${days} kun). Usta/mijoz bilan bog'lanib yakuniga yetkazing.`;

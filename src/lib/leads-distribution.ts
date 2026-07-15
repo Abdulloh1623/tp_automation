@@ -2,7 +2,7 @@
 import { endOfDay, startOfDay } from "date-fns";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
-import { ACTIVE_STAGES, LEAD_LIMITS } from "@/lib/constants";
+import { ACTIVE_STAGES, LEAD_LIMITS, NO_CONTACT_STAGES } from "@/lib/constants";
 import { splitRoundRobin } from "@/lib/distribute-util";
 
 export type DistributeResult = { assigned: number; operators: number; error?: string };
@@ -28,8 +28,12 @@ export async function distributeLeadsCore(): Promise<DistributeResult> {
           stage: { in: ACTIVE_STAGES as unknown as string[] },
           OR: [{ nextContactDate: { lte: endOfDay(now) } }, { nextContactDate: null }],
         },
-        // Qarzdorlar — bosqichidan qat'i nazar (otkaz bo'lsa ham qarz undiriladi)
-        { nextPaymentDate: { lt: startOfDay(now) } },
+        // Qarzdorlar — bosqichidan qat'i nazar, LEKIN otkaz/o'chirilganlar EMAS
+        // (ular bilan qayta aloqaga chiqilmaydi — qarzi bo'lsa ham).
+        {
+          nextPaymentDate: { lt: startOfDay(now) },
+          stage: { notIn: NO_CONTACT_STAGES as unknown as string[] },
+        },
       ],
     },
     select: { id: true, nextPaymentDate: true },

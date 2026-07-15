@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { sendMessage, escapeHtml } from "@/lib/telegram";
+import { userRoleLabel } from "@/lib/constants";
 
 export type NotifyState = { ok: boolean; error?: string; sent?: number };
 
@@ -86,6 +87,67 @@ export async function sendNotification(input: {
   return { ok: true, sent: recipients.length };
 }
 
+/**
+ * Xodim/menejer tizimda muammo yuzaga kelsa ADMIN(lar)ga xabar yuboradi.
+ * Bildirishnoma sifatida saqlanadi (audience "ADMIN", muhim) — admin uni feed'ida
+ * yuboruvchi ismi bilan ko'radi, o'qilmagan belgisi (bell) chiqadi. Telegram'i
+ * bor adminlarga darhol xabar ketadi (best-effort).
+ */
+export async function reportToAdmin(input: {
+  title: string;
+  body: string;
+}): Promise<NotifyState> {
+  const session = await requireSession();
+  if (session.role !== "OPERATOR" && session.role !== "MANAGER") {
+    return { ok: false, error: "Ruxsat yo'q" };
+  }
+
+  const title = (input.title ?? "").trim();
+  const body = (input.body ?? "").trim();
+  if (!title) return { ok: false, error: "Mavzu kiriting" };
+  if (!body) return { ok: false, error: "Muammo tafsilotini yozing" };
+  if (title.length > 200) return { ok: false, error: "Mavzu juda uzun" };
+  if (body.length > 4000) return { ok: false, error: "Matn juda uzun" };
+
+  const admins = await db.user.findMany({
+    where: { role: "ADMIN", isActive: true },
+    select: { id: true, telegramId: true },
+  });
+  if (admins.length === 0) {
+    return { ok: false, error: "Faol admin topilmadi" };
+  }
+
+  const notification = await db.notification.create({
+    data: {
+      title,
+      body,
+      priority: "IMPORTANT",
+      audience: "ADMIN",
+      createdById: session.userId,
+      recipients: { create: admins.map((a) => ({ userId: a.id })) },
+    },
+  });
+
+  // Telegram'i ulangan adminlarga darhol yuboriladi (best-effort).
+  const text =
+    `🆘 <b>Muammo xabari</b>\n` +
+    `${escapeHtml(session.name)} (${escapeHtml(userRoleLabel(session.role))}):\n\n` +
+    `<b>${escapeHtml(title)}</b>\n${escapeHtml(body)}`;
+  await Promise.all(
+    admins
+      .filter((a) => a.telegramId)
+      .map((a) => sendMessage(a.telegramId as string, text).catch(() => null)),
+  );
+
+  await logAudit("Adminga muammo xabari yuborildi", {
+    entity: "Notification",
+    entityId: notification.id,
+    detail: `${title} — ${session.name}`,
+  });
+  revalidatePath("/bildirishnomalar");
+  return { ok: true, sent: admins.length };
+}
+
 /** Joriy foydalanuvchi bitta bildirishnomani o'qilgan deb belgilaydi. */
 export async function markNotificationRead(notificationId: string): Promise<NotifyState> {
   const session = await requireSession();
@@ -108,10 +170,20 @@ export async function markAllNotificationsRead(): Promise<NotifyState> {
   return { ok: true };
 }
 
-/** Admin bildirishnomani o'chiradi (barcha qabul qiluvchilardan ham). */
+/**
+ * Bildirishnomani o'chiradi (barcha qabul qiluvchilardan ham). ADMIN istalganini,
+ * xodim/menejer esa faqat o'zi yuborgan (adminga muammo) xabarini o'chira oladi.
+ */
 export async function deleteNotification(id: string): Promise<NotifyState> {
-  const admin = await requireAdmin();
-  if (!admin.ok) return admin;
+  const session = await requireSession();
+  const n = await db.notification.findUnique({
+    where: { id },
+    select: { createdById: true },
+  });
+  if (!n) return { ok: false, error: "Topilmadi" };
+  if (session.role !== "ADMIN" && n.createdById !== session.userId) {
+    return { ok: false, error: "Ruxsat yo'q" };
+  }
   await db.notification.delete({ where: { id } });
   await logAudit("Bildirishnoma o'chirildi", { entity: "Notification", entityId: id });
   revalidatePath("/bildirishnomalar");

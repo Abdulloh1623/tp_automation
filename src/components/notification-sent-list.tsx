@@ -20,7 +20,13 @@ export type SentItem = {
   read: number;
 };
 
-export function NotificationSentList({ items }: { items: SentItem[] }) {
+export function NotificationSentList({
+  items,
+  title = "Yuborilgan bildirishnomalar",
+}: {
+  items: SentItem[];
+  title?: string;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
 
@@ -47,7 +53,7 @@ export function NotificationSentList({ items }: { items: SentItem[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Yuborilgan bildirishnomalar</CardTitle>
+        <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         {items.map((n) => (

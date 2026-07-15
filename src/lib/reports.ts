@@ -3,7 +3,7 @@
 
 import { db } from "./db";
 import { formatMoney } from "./utils";
-import { callResultLabel, clientStatusLabel } from "./constants";
+import { callResultLabel, clientStatusLabel, TALKED_RESULTS } from "./constants";
 import { paymentState } from "./payment-status";
 import { svgToPng } from "./render-image";
 import {
@@ -11,6 +11,8 @@ import {
   barChartSvg,
   donutChartSvg,
   lineChartSvg,
+  STATUS,
+  type Delta,
   type KpiTile,
   type NamedValue,
 } from "./charts/svg";
@@ -257,6 +259,16 @@ function moneyCompact(usd: number, uzs: number): string {
   return parts.length ? parts.join(" + ") : "0";
 }
 
+/** Joriy va oldingi davr sonlarini solishtirib delta chip qaytaradi (avvalgi 0 → yo'q). */
+function pctDelta(cur: number, prev: number, higherIsGood = true): Delta | undefined {
+  if (prev <= 0) return undefined;
+  const change = Math.round(((cur - prev) / prev) * 100);
+  if (change === 0) return { dir: "flat", text: "0%", good: true };
+  const dir: Delta["dir"] = change > 0 ? "up" : "down";
+  const good = higherIsGood ? change > 0 : change < 0;
+  return { dir, text: `${Math.abs(change)}%`, good };
+}
+
 type ChartBundle = {
   title: string;
   dateLabel: string;
@@ -276,7 +288,13 @@ async function gatherChartData(kind: ReportKind): Promise<ChartBundle> {
     kind === "daily" ? startOfTzDay(0) : kind === "weekly" ? startOfTzDay(6) : startOfTzMonth();
   const trendStart = buckets[0].start < periodStart ? buckets[0].start : periodStart;
 
-  const [calls, payments, clients, operators, ustaDone] = await Promise.all([
+  // Oldingi (teng uzunlikdagi) davr — delta solishtiruvi uchun
+  const periodMs = Date.now() - periodStart.getTime();
+  const prevStart = new Date(periodStart.getTime() - periodMs);
+  const prevEnd = periodStart;
+
+  const [calls, payments, clients, operators, ustaDone, prevCalls, openTickets] =
+    await Promise.all([
     db.callLog.findMany({
       where: { calledAt: { gte: trendStart } },
       select: { calledAt: true, result: true, operatorId: true },
@@ -300,6 +318,8 @@ async function gatherChartData(kind: ReportKind): Promise<ChartBundle> {
       select: { id: true, name: true },
     }),
     db.client.count({ where: { ustaStatus: "DONE", updatedAt: { gte: periodStart } } }),
+    db.callLog.count({ where: { calledAt: { gte: prevStart, lt: prevEnd } } }),
+    db.ticket.count({ where: { status: { not: "RESOLVED" } } }),
   ]);
 
   const trendPoints: NamedValue[] = buckets.map((b) => ({
@@ -350,16 +370,33 @@ async function gatherChartData(kind: ReportKind): Promise<ChartBundle> {
   let ovU = 0, ovZ = 0;
   for (const c of overdue) c.currency === "UZS" ? (ovZ += c.monthlyAmount) : (ovU += c.monthlyAmount);
   const newClients = clients.filter((c) => c.createdAt >= periodStart).length;
+  const prevNew = clients.filter((c) => c.createdAt >= prevStart && c.createdAt < prevEnd).length;
+
+  // Gaplashildi (real aloqa) foizi
+  const talked = pcalls.filter((c) => TALKED_RESULTS.includes(c.result)).length;
+  const talkRate = pcalls.length ? Math.round((talked / pcalls.length) * 100) : 0;
 
   const pl = kind === "daily" ? "Bugun" : kind === "weekly" ? "Hafta" : "Oy";
 
   const kpis: KpiTile[] = [
-    { label: `Yig'im (${pl.toLowerCase()})`, value: moneyCompact(colU, colZ), accent: "#10b981" },
-    { label: "Qo'ng'iroqlar", value: String(pcalls.length), sub: pl },
-    { label: "Yangi mijoz", value: String(newClients) },
-    { label: "Usta bajardi", value: String(ustaDone) },
+    { label: `Yig'im (${pl.toLowerCase()})`, value: moneyCompact(colU, colZ), accent: STATUS.good },
+    {
+      label: "Qo'ng'iroqlar",
+      value: String(pcalls.length),
+      sub: pl,
+      delta: pctDelta(pcalls.length, prevCalls),
+    },
+    { label: "Gaplashildi", value: `${talkRate}%`, sub: `${talked} / ${pcalls.length}` },
+    { label: "Yangi mijoz", value: String(newClients), delta: pctDelta(newClients, prevNew) },
     { label: "Faol mijozlar", value: String(active.length), sub: `MRR ${moneyCompact(mrrU, mrrZ)}` },
-    { label: "Qarzdorlar", value: String(overdue.length), sub: moneyCompact(ovU, ovZ), accent: "#f43f5e" },
+    {
+      label: "Qarzdorlar",
+      value: String(overdue.length),
+      sub: moneyCompact(ovU, ovZ),
+      accent: STATUS.bad,
+    },
+    { label: "Usta bajardi", value: String(ustaDone) },
+    { label: "Ochiq muammolar", value: String(openTickets), accent: STATUS.warn },
   ];
 
   const title =

@@ -2,6 +2,7 @@ import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { NotificationsFeed, type FeedItem } from "@/components/notifications-feed";
 import { NotificationComposer } from "@/components/notification-composer";
+import { ProblemReportComposer } from "@/components/problem-report-composer";
 import { NotificationSentList, type SentItem } from "@/components/notification-sent-list";
 import { formatDateTime } from "@/lib/utils";
 
@@ -11,6 +12,7 @@ const AUDIENCE_LABEL: Record<string, string> = {
   ALL: "Barcha xodimlar",
   OPERATOR: "Operatorlar",
   MANAGER: "Menejerlar",
+  ADMIN: "Administrator",
 };
 
 export default async function NotificationsPage() {
@@ -50,9 +52,10 @@ export default async function NotificationsPage() {
     read: !!r.readAt,
   }));
 
-  // Admin uchun yuborilganlar + o'qilish statistikasi
+  // Foydalanuvchi yuborgan bildirishnomalar + o'qilish statistikasi
+  // (admin — xodimlarga e'lonlar; xodim/menejer — adminga muammo xabarlari)
   let sent: SentItem[] = [];
-  if (isAdmin) {
+  {
     const sentNotifs = await db.notification.findMany({
       where: { createdById: session.userId },
       orderBy: { createdAt: "desc" },
@@ -95,12 +98,15 @@ export default async function NotificationsPage() {
         <p className="text-sm text-slate-500 dark:text-slate-400">
           {isAdmin
             ? "Xodimlarga bildirishnoma yuboring"
-            : "Sizga yuborilgan bildirishnomalar"}
+            : "Sizga kelgan bildirishnomalar va adminga muammo xabari"}
         </p>
       </div>
 
-      {isAdmin && <NotificationComposer />}
-      {isAdmin && <NotificationSentList items={sent} />}
+      {isAdmin ? <NotificationComposer /> : <ProblemReportComposer />}
+      <NotificationSentList
+        items={sent}
+        title={isAdmin ? "Yuborilgan bildirishnomalar" : "Adminga yuborilgan xabarlar"}
+      />
 
       {(!isAdmin || items.length > 0) && (
         <div className="space-y-3">

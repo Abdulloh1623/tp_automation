@@ -169,6 +169,7 @@ model Client {
   payments       Payment[]
   callLogs       CallLog[]
   tickets        Ticket[]
+  suggestions    Suggestion[]
   equipmentItems ClientEquipment[]
   returnRequests EquipmentReturnRequest[]
   phones         ClientPhone[]
@@ -257,6 +258,25 @@ model Ticket {
   @@index([status])
   @@index([assignedUstaId])
   @@index([assignedStaffId])
+}
+
+// Mijoz taklifi — muammo emas, dastur/jarayon yuzasidan taklif. Operator lid
+// natijasida "Taklif" tanlaganda yaratiladi; admin/menejerdagi "Takliflar"
+// bo'limiga tushadi. 1 oy hal qilinmasa har kuni bildirishnoma (runSlaCheck).
+model Suggestion {
+  id           String    @id @default(cuid())
+  clientId     String
+  client       Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  body         String
+  status       String    @default("OPEN") // OPEN | RESOLVED
+  createdById  String? // qayd etgan operator (User.id — Notification kabi, relatsiyasiz)
+  resolvedById String? // hal qilgan admin/menejer (User.id)
+  resolvedAt   DateTime?
+  notifiedAt   DateTime? // oxirgi 1-oylik SLA bildirishnomasi yuborilgan vaqt
+  createdAt    DateTime  @default(now())
+
+  @@index([status, createdAt])
+  @@index([clientId])
 }
 
 // --- Ombor (inventar) ---

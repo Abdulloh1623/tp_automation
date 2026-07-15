@@ -87,6 +87,29 @@ async function autoCreateTicket(clientId: string, note: string | null) {
 }
 
 /**
+ * Lid natijasi "Taklif" (SUGGESTION) bo'lsa — admin/menejerdagi "Takliflar"
+ * bo'limiga yozuv qo'shadi (mijoz bergan taklif matni bilan). Mijozda muammo yo'q.
+ */
+async function autoCreateSuggestion(clientId: string, byUserId: string, body: string) {
+  const trimmed = body.trim();
+  // Bir katak kun davomida qayta saqlansa (izoh tahriri) dublikat yaratmaymiz —
+  // bugungi taklif yozuvini yangilaymiz. Boshqa kunlik yangi taklif — alohida yozuv.
+  const today = await db.suggestion.findFirst({
+    where: { clientId, createdAt: { gte: startOfDay(new Date()) } },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  if (today) {
+    await db.suggestion.update({ where: { id: today.id }, data: { body: trimmed } });
+  } else {
+    await db.suggestion.create({
+      data: { clientId, body: trimmed, createdById: byUserId },
+    });
+  }
+  revalidatePath("/takliflar");
+}
+
+/**
  * Xodim lid bilan gaplashgach natija + izoh yozadi.
  * CallLog (tarix) yaratiladi va lidning `pendingStage`i belgilanadi —
  * lid kun yakunida (`finishDay`) shu bo'limga ko'chadi.
@@ -117,6 +140,10 @@ export async function recordLeadOutcome(
   // Otkaz (bekor qilish) — izoh MAJBURIY (sabab tarixda qolishi shart).
   if (outcome === "REFUSED" && !parsed.data.note) {
     return { error: "Otkaz uchun izoh (sabab) majburiy" };
+  }
+  // Taklif — matni MAJBURIY (Takliflar bo'limiga tushadi).
+  if (outcome === "SUGGESTION" && !parsed.data.note) {
+    return { error: "Taklif matnini yozing" };
   }
 
   const client = await db.client.findUnique({ where: { id: clientId } });
@@ -167,6 +194,9 @@ export async function recordLeadOutcome(
   }
   if (outcome === "HAS_ISSUE") {
     await autoCreateTicket(clientId, parsed.data.note ?? null);
+  }
+  if (outcome === "SUGGESTION") {
+    await autoCreateSuggestion(clientId, session.userId, parsed.data.note ?? "");
   }
 
   await logAudit(`Lid natijasi: ${LEAD_OUTCOME[outcome as LeadOutcome] ?? outcome}`, {
@@ -322,6 +352,10 @@ export async function saveLeadCell(
   if (outcome === "REFUSED" && !(note ?? "").trim()) {
     return { error: "Otkaz uchun izoh (sabab) majburiy" };
   }
+  // Taklif — matni MAJBURIY (Takliflar bo'limiga tushadi).
+  if (outcome === "SUGGESTION" && !(note ?? "").trim()) {
+    return { error: "Taklif matnini yozing" };
+  }
   if (!(await canMutateClient(session, clientId))) {
     return { error: "Mijoz topilmadi" };
   }
@@ -417,6 +451,9 @@ export async function saveLeadCell(
   }
   if (outcome === "HAS_ISSUE") {
     await autoCreateTicket(clientId, note);
+  }
+  if (outcome === "SUGGESTION") {
+    await autoCreateSuggestion(clientId, session.userId, note ?? "");
   }
 
   await logAudit(`Lid katak: ${LEAD_OUTCOME[outcome as LeadOutcome] ?? outcome}`, {

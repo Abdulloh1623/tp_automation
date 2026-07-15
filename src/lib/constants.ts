@@ -103,6 +103,17 @@ export const TICKET_STATUS = {
 } as const;
 export type TicketStatus = keyof typeof TICKET_STATUS;
 
+// Mijoz taklifi holati
+export const SUGGESTION_STATUS = {
+  OPEN: "Ochiq",
+  RESOLVED: "Hal qilindi",
+} as const;
+export type SuggestionStatus = keyof typeof SUGGESTION_STATUS;
+
+export function suggestionStatusLabel(s: string): string {
+  return SUGGESTION_STATUS[s as SuggestionStatus] ?? s;
+}
+
 export const TICKET_TYPE = {
   TECHNICAL: "Texnik",
   FEATURE: "Funksiya so'rovi",
@@ -173,6 +184,7 @@ export const LEAD_OUTCOME = {
   FORWARDED: "Yo'naltirildi",
   HAS_ISSUE: "Muammo bor",
   NO_PROBLEM: "Muammo yo'q",
+  SUGGESTION: "Taklif bildirdi",
   PAID: "To'lov qildi",
   RESOLVED: "Muammo hal qilindi",
   RETURN_EQUIPMENT: "Uskuna qaytarish kerak",
@@ -193,6 +205,7 @@ export const OUTCOME_TO_STAGE: Record<LeadOutcome, LeadStage> = {
   FORWARDED: "ESCALATED", // boshliq navbatiga (avval boshliqqa)
   HAS_ISSUE: "ESCALATED",
   NO_PROBLEM: "FOLLOW_UP", // muammo yo'q — 4 kundan so'ng qayta aloqa (finishDay)
+  SUGGESTION: "FOLLOW_UP", // taklif — muammo yo'q, lid ham 4 kundan so'ng qayta aloqa
   PAID: "RESOLVED",
   RESOLVED: "RESOLVED",
   RETURN_EQUIPMENT: "RETURNING", // boshliqning qaytarish navbatiga

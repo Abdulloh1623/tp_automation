@@ -24,6 +24,7 @@ import {
   CircleUser,
   Bell,
   Ban,
+  Lightbulb,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Toaster } from "@/components/toaster";
@@ -65,6 +66,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/eskalatsiya", label: "Eskalatsiya", icon: AlertTriangle, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
       { href: "/qaytarish", label: "Qaytarish", icon: PackageCheck, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
       { href: "/otkaz", label: "Otkaz", icon: Ban, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
+      { href: "/takliflar", label: "Takliflar", icon: Lightbulb, roles: ["ADMIN", "MANAGER"] },
     ],
   },
   {

@@ -463,6 +463,96 @@ export async function saveLeadCell(
   return { pendingStage, missedCallCount: consecutiveMissed };
 }
 
+export type RevertCellState = { ok?: boolean; missedCallCount?: number; error?: string };
+
+/**
+ * Bugungi lid natijasini QAYTARISH (undo) — operator xato yoki sinov uchun natija
+ * tanlab qo'ygan bo'lsa. Bugungi CallLog o'chiriladi, ketma-ket ko'tarilmaganlar
+ * qayta hisoblanadi, pendingStage tozalanadi va oxirgi aloqa avvalgi (qolgan)
+ * yozuvga qaytadi. Bugun avtomatik yaratilgan (hali ishlov berilmagan) taklif/
+ * muammo/qaytarish yozuvi ham o'chiriladi — chunki tanlov xato edi.
+ */
+export async function revertLeadCell(clientId: string): Promise<RevertCellState> {
+  const g = await guardRole(STAFF);
+  if (!g.ok) return { error: g.error };
+  const session = g.session;
+  if (!(await canMutateClient(session, clientId))) return { error: "Mijoz topilmadi" };
+
+  const now = new Date();
+  const dayStart = startOfDay(now);
+  const dayEnd = endOfDay(now);
+  const todayRange = { gte: dayStart, lte: dayEnd };
+
+  const todayLog = await db.callLog.findFirst({
+    where: { clientId, calledAt: todayRange },
+    orderBy: { calledAt: "desc" },
+    select: { id: true, result: true },
+  });
+  if (!todayLog) return { error: "Bugun uchun qaytariladigan natija yo'q" };
+
+  const outcome = todayLog.result;
+  // Bugun avtomatik yaratilgan, hali ishlov berilmagan yon-yozuvlarni tozalash
+  if (outcome === "SUGGESTION") {
+    await db.suggestion.deleteMany({
+      where: { clientId, status: "OPEN", createdAt: todayRange },
+    });
+    revalidatePath("/takliflar");
+  } else if (outcome === "HAS_ISSUE") {
+    await db.ticket.deleteMany({
+      where: {
+        clientId,
+        status: "OPEN",
+        assignedStaffId: null,
+        assignedUstaId: null,
+        createdAt: todayRange,
+      },
+    });
+    revalidatePath("/muammolar");
+  } else if (outcome === "RETURN_EQUIPMENT") {
+    await db.equipmentReturnRequest.deleteMany({
+      where: { clientId, status: "PENDING", createdAt: todayRange },
+    });
+    revalidatePath("/qaytarish");
+  }
+
+  await db.callLog.delete({ where: { id: todayLog.id } });
+
+  // Ketma-ket ko'tarilmaganlarni qolgan tarixdan qayta hisoblaymiz
+  const logs = await db.callLog.findMany({
+    where: { clientId },
+    orderBy: { calledAt: "desc" },
+    take: 90,
+    select: { calledAt: true, result: true },
+  });
+  const seenDays = new Set<string>();
+  let consecutiveMissed = 0;
+  for (const l of logs) {
+    const key = l.calledAt.toISOString().slice(0, 10);
+    if (seenDays.has(key)) continue;
+    seenDays.add(key);
+    if (MISSED_OUTCOMES.includes(l.result as LeadOutcome)) consecutiveMissed += 1;
+    else break;
+  }
+  const prev = logs[0] ?? null; // eng so'nggi qolgan yozuv
+
+  await db.client.update({
+    where: { id: clientId },
+    data: {
+      pendingStage: null,
+      lastOutcome: prev?.result ?? null,
+      lastContactedAt: prev?.calledAt ?? null,
+      missedCallCount: consecutiveMissed,
+    },
+  });
+
+  await logAudit(`Lid natijasi qaytarildi: ${LEAD_OUTCOME[outcome as LeadOutcome] ?? outcome}`, {
+    entity: "Client",
+    entityId: clientId,
+  });
+  revalidatePath("/lidlar");
+  return { ok: true, missedCallCount: consecutiveMissed };
+}
+
 export type SpecialNoteState = {
   ok?: boolean;
   error?: string;

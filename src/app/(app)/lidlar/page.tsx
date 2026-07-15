@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { LeadTable, type LeadRow, type LeadHistory } from "@/components/lead-table";
 import { OperatorProgress } from "@/components/operator-progress";
 import { getOperatorDailyStats } from "@/lib/analytics";
-import { ACTIVE_STAGES } from "@/lib/constants";
+import { ACTIVE_STAGES, NO_CONTACT_STAGES } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
 
 type SearchParams = Promise<{ operator?: string }>;
@@ -30,9 +30,9 @@ export default async function LeadsPage({
     db.client.findMany({
       where: {
         assignedToId: viewerId,
-        // Otkaz qilingan / nofaol mijozlar kunlik taxtaga hech qachon chiqmaydi
-        // (otkaz on-demand ham, finishDay orqali ham shu yerda kesiladi).
-        stage: { not: "REFUSED" },
+        // Otkaz qilingan / o'chirilgan / nofaol mijozlar kunlik taxtaga hech qachon
+        // chiqmaydi — qarzdor bo'lsa ham (ular bilan qayta aloqaga chiqilmaydi).
+        stage: { notIn: [...NO_CONTACT_STAGES] },
         status: { not: "INACTIVE" },
         OR: [
           // Kunlik ish ro'yxati (faol bo'limlar, muddati kelgan)

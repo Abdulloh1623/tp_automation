@@ -133,6 +133,7 @@ export const LEAD_STAGE = {
   NO_ANSWER: "Ko'tarmadi",
   LATER: "Keyinroq",
   AWAITING_PAYMENT: "To'lov kutilmoqda",
+  FOLLOW_UP: "Kuzatuv (4 kun)", // "muammo yo'q" — 4 kundan so'ng qayta aloqa
   ESCALATED: "Eskalatsiya navbati", // boshliq ko'rigida, ustaga biriktirilmoqda
   FORWARDED: "Ustada (yo'naltirilgan)",
   RETURNING: "Uskuna qaytarilmoqda", // boshliqning qaytarish navbatida
@@ -149,7 +150,16 @@ export const ACTIVE_STAGES: LeadStage[] = [
   "NO_ANSWER",
   "LATER",
   "AWAITING_PAYMENT",
+  "FOLLOW_UP",
 ];
+
+// Aloqa qilinmaydigan (workflow'dan chiqqan) bosqichlar — otkaz qilgan yoki
+// o'chirilgan mijozlar. Qarzdor bo'lsa ham kunlik ishga/taqsimotga/eslatmaga
+// CHIQMAYDI (TP xodimlari ular bilan qayta gaplashmaydi).
+export const NO_CONTACT_STAGES: LeadStage[] = ["REFUSED", "DEACTIVATED"];
+
+// "Muammo yo'q" natijasidan keyin qayta aloqa oralig'i (kun).
+export const FOLLOW_UP_DAYS = 4;
 
 // Xodim tanlaydigan qo'ng'iroq natijasi
 export const LEAD_OUTCOME = {
@@ -182,7 +192,7 @@ export const OUTCOME_TO_STAGE: Record<LeadOutcome, LeadStage> = {
   PAYMENT_REMINDED: "AWAITING_PAYMENT",
   FORWARDED: "ESCALATED", // boshliq navbatiga (avval boshliqqa)
   HAS_ISSUE: "ESCALATED",
-  NO_PROBLEM: "RESOLVED",
+  NO_PROBLEM: "FOLLOW_UP", // muammo yo'q — 4 kundan so'ng qayta aloqa (finishDay)
   PAID: "RESOLVED",
   RESOLVED: "RESOLVED",
   RETURN_EQUIPMENT: "RETURNING", // boshliqning qaytarish navbatiga

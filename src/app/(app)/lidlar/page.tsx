@@ -120,13 +120,19 @@ export default async function LeadsPage({
     };
   });
 
+  // Kunlik lid va qarzdorni ajratib ko'rsatamiz — jami son (75-100) chalg'ituvchi
+  // edi (u kunlik lid + muddati o'tgan qarzdorlarni birga sanardi).
+  const overdueCount = leads.filter((l) => l.overdue).length;
+  const lidCount = leads.length - overdueCount;
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Kunlik ish</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            {formatDate(new Date())} · {leads.length} ta lid
+            {formatDate(new Date())} · {lidCount} ta lid
+            {overdueCount > 0 && ` · ${overdueCount} qarzdor`}
           </p>
         </div>
       </div>

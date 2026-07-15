@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/auth";
-import { db } from "@/lib/db";
 import { AppShell } from "@/components/app-shell";
+import { getNavBadges } from "@/lib/nav-badges";
 
 export default async function AppLayout({
   children,
@@ -8,14 +8,9 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const session = await requireSession();
-  const unreadCount = await db.notificationRecipient.count({
-    where: { userId: session.userId, readAt: null },
-  });
+  const badges = await getNavBadges(session.userId, session.role);
   return (
-    <AppShell
-      user={{ name: session.name, role: session.role }}
-      unreadCount={unreadCount}
-    >
+    <AppShell user={{ name: session.name, role: session.role }} badges={badges}>
       {children}
     </AppShell>
   );

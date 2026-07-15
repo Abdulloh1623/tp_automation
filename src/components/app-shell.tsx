@@ -101,11 +101,11 @@ const NAV_SECTIONS: NavSection[] = [
 
 export function AppShell({
   user,
-  unreadCount = 0,
+  badges = {},
   children,
 }: {
   user: { name: string; role: string };
-  unreadCount?: number;
+  badges?: Record<string, number>;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -120,8 +120,8 @@ export function AppShell({
   useEffect(() => {
     activeMobileRef.current?.scrollIntoView({ inline: "center", block: "nearest" });
   }, [pathname]);
-  const badgeFor = (href: string) =>
-    href === "/bildirishnomalar" && unreadCount > 0 ? unreadCount : 0;
+  const badgeFor = (href: string) => badges[href] ?? 0;
+  const badgeText = (n: number) => (n > 99 ? "99+" : String(n));
 
   // Tasodifiy bosishning oldini olish — chiqishdan oldin tasdiq so'raladi.
   async function handleLogout() {
@@ -175,8 +175,11 @@ export function AppShell({
                     <Icon className="h-4 w-4" />
                     <span className="flex-1">{item.label}</span>
                     {badgeFor(item.href) > 0 && (
-                      <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-semibold leading-none text-white">
-                        {badgeFor(item.href)}
+                      <span
+                        className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-semibold leading-none text-white"
+                        title={`${badgeFor(item.href)} ta hal qilinmagan`}
+                      >
+                        {badgeText(badgeFor(item.href))}
                       </span>
                     )}
                   </Link>
@@ -252,7 +255,7 @@ export function AppShell({
               >
                 {badgeFor(item.href) > 0 && (
                   <span className="absolute right-1 top-0.5 min-w-[16px] rounded-full bg-red-500 px-1 text-center text-[10px] font-semibold leading-4 text-white">
-                    {badgeFor(item.href)}
+                    {badgeText(badgeFor(item.href))}
                   </span>
                 )}
                 <Icon className="h-4 w-4" />

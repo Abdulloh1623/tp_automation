@@ -15,9 +15,11 @@ import {
   Download,
   Ban,
   Lightbulb,
+  RotateCcw,
 } from "lucide-react";
 import {
   saveLeadCell,
+  revertLeadCell,
   setSpecialNote,
   escalateLead,
   finishDay,
@@ -213,6 +215,35 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
     setSuggestText("");
   }
 
+  // Bugungi natijani qaytarish (undo) — xato yoki sinov uchun tanlangan bo'lsa.
+  async function revertCell(row: LeadRow) {
+    if (!row.todayOutcome) return;
+    const ok = await confirmDialog({
+      title: "Bugungi natijani qaytarish",
+      message: `"${row.restaurantName || "(nomsiz)"}" — bugungi "${leadOutcomeLabel(
+        row.todayOutcome,
+      )}" natijasi bekor qilinadi.`,
+      confirmLabel: "Qaytarish",
+      variant: "primary",
+    });
+    if (!ok) return;
+    startTransition(async () => {
+      const res = await revertLeadCell(row.id);
+      if (res.ok) {
+        patchRow(row.id, {
+          todayOutcome: null,
+          todayNote: null,
+          pendingStage: null,
+          missedCallCount: res.missedCallCount ?? 0,
+          history: row.history.filter((h) => h.date !== TODAY),
+        });
+        toast("Bugungi natija qaytarildi", "success");
+      } else {
+        toast(res.error ?? "Xatolik", "error");
+      }
+    });
+  }
+
   async function onEscalate(row: LeadRow) {
     const ok = await confirmDialog({
       title: "Boshliqqa yo'naltirilsinmi?",
@@ -402,6 +433,7 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
             patchRow(row.id, { todayNote: note });
             save(row, row.todayOutcome, note);
           }}
+          onRevert={revertCell}
           onBell={(lead) => setModal({ type: "specialView", lead })}
           onInfo={openClientInfo}
           onSpecial={openSpecialEdit}
@@ -413,6 +445,7 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
           rows={filtered}
           dayColumns={dayColumns}
           OutcomeSelect={OutcomeSelect}
+          onRevert={revertCell}
           onBell={(lead) => setModal({ type: "specialView", lead })}
           onInfo={openClientInfo}
           onCell={(lead, day) => setModal({ type: "history", lead, day })}
@@ -558,6 +591,7 @@ function JoriyTable({
   infoLoadingId,
   OutcomeSelect,
   onNoteSave,
+  onRevert,
   onBell,
   onInfo,
   onSpecial,
@@ -569,6 +603,7 @@ function JoriyTable({
   infoLoadingId: string | null;
   OutcomeSelect: (p: { row: LeadRow }) => React.ReactElement;
   onNoteSave: (row: LeadRow, note: string) => void;
+  onRevert: (lead: LeadRow) => void;
   onBell: (lead: LeadRow) => void;
   onInfo: (lead: LeadRow) => void;
   onSpecial: (lead: LeadRow) => void;
@@ -694,10 +729,26 @@ function JoriyTable({
                 )}
               </td>
               <td className="bg-primary-50/40 dark:bg-primary-950/40 px-2 py-2">
-                <OutcomeSelect row={r} />
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0 flex-1">
+                    <OutcomeSelect row={r} />
+                  </div>
+                  {r.todayOutcome && (
+                    <button
+                      type="button"
+                      onClick={() => onRevert(r)}
+                      title="Bugungi natijani qaytarish"
+                      aria-label="Bugungi natijani qaytarish"
+                      className="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               </td>
               <td className="bg-primary-50/40 dark:bg-primary-950/40 px-2 py-2">
                 <Input
+                  key={`note-${r.id}-${r.todayOutcome ?? "none"}`}
                   defaultValue={r.todayNote ?? ""}
                   onBlur={(e) => onNoteSave(r, e.target.value)}
                   onKeyDown={(e) => {
@@ -823,8 +874,24 @@ function JoriyTable({
           </div>
 
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <OutcomeSelect row={r} />
+            <div className="flex items-center gap-1">
+              <div className="min-w-0 flex-1">
+                <OutcomeSelect row={r} />
+              </div>
+              {r.todayOutcome && (
+                <button
+                  type="button"
+                  onClick={() => onRevert(r)}
+                  title="Bugungi natijani qaytarish"
+                  aria-label="Bugungi natijani qaytarish"
+                  className="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </button>
+              )}
+            </div>
             <Input
+              key={`mnote-${r.id}-${r.todayOutcome ?? "none"}`}
               defaultValue={r.todayNote ?? ""}
               onBlur={(e) => onNoteSave(r, e.target.value)}
               onKeyDown={(e) => {
@@ -870,6 +937,7 @@ function TarixTable({
   rows,
   dayColumns,
   OutcomeSelect,
+  onRevert,
   onBell,
   onInfo,
   onCell,
@@ -877,6 +945,7 @@ function TarixTable({
   rows: LeadRow[];
   dayColumns: string[];
   OutcomeSelect: (p: { row: LeadRow }) => React.ReactElement;
+  onRevert: (lead: LeadRow) => void;
   onBell: (lead: LeadRow) => void;
   onInfo: (lead: LeadRow) => void;
   onCell: (lead: LeadRow, day: LeadHistory) => void;
@@ -952,7 +1021,22 @@ function TarixTable({
                   );
                 })}
                 <td className="sticky right-0 z-10 border-b border-l border-slate-100 dark:border-slate-800 bg-primary-50/40 dark:bg-primary-950/40 px-2 py-2">
-                  <OutcomeSelect row={r} />
+                  <div className="flex items-center gap-1">
+                    <div className="min-w-0 flex-1">
+                      <OutcomeSelect row={r} />
+                    </div>
+                    {r.todayOutcome && (
+                      <button
+                        type="button"
+                        onClick={() => onRevert(r)}
+                        title="Bugungi natijani qaytarish"
+                        aria-label="Bugungi natijani qaytarish"
+                        className="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             );

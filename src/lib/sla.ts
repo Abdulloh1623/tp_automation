@@ -1,7 +1,7 @@
 // 3-kunlik SLA — muammo/eskalatsiya belgilangan muddatda hal bo'lmasa
 // ogohlantiriladi. `runSlaCheck` worker cron'ida (scripts/bot.ts) kuniga
 // chaqiriladi: buzilganlarni topib, ilova bildirishnomasi + Telegram yuboradi.
-import { startOfDay } from "date-fns";
+import { startOfDay, subMonths } from "date-fns";
 import { db } from "./db";
 import { escapeHtml, sendMessage } from "./telegram";
 import { createNotification } from "./notifications";
@@ -41,7 +41,7 @@ async function pushTelegram(chatIds: Set<string>, title: string, body: string) {
  */
 export async function runSlaCheck(
   now: Date = new Date(),
-): Promise<{ tickets: number; escalations: number }> {
+): Promise<{ tickets: number; escalations: number; suggestions: number }> {
   const threshold = slaThreshold(now);
 
   // Ogohlantiriladigan boshliqlar (admin + menejer) — bir marta olinadi
@@ -126,5 +126,33 @@ export async function runSlaCheck(
     escCount++;
   }
 
-  return { tickets: ticketCount, escalations: escCount };
+  // --- Takliflar (Suggestion) — 1 oydan oshib hal qilinmaganlar ---
+  const monthAgo = subMonths(now, 1);
+  const suggestions = await db.suggestion.findMany({
+    where: { status: "OPEN", createdAt: { lt: monthAgo } },
+    select: {
+      id: true,
+      body: true,
+      createdAt: true,
+      notifiedAt: true,
+      client: { select: { restaurantName: true } },
+    },
+  });
+  let suggestionCount = 0;
+  for (const s of suggestions) {
+    if (notifiedToday(s.notifiedAt)) continue;
+    const days = daysSince(s.createdAt, now);
+    const title = "Taklif 1 oydan beri hal qilinmadi";
+    const snippet = s.body.length > 120 ? `${s.body.slice(0, 120)}…` : s.body;
+    const body = `${s.client.restaurantName} (${days} kun): ${snippet}`;
+
+    // Faqat boshliqlarga (admin/menejer) — Takliflar bo'limi ularniki
+    await createNotification({ title, body, userIds: managerIds });
+    await pushTelegram(new Set(managerTg), title, body);
+
+    await db.suggestion.update({ where: { id: s.id }, data: { notifiedAt: now } });
+    suggestionCount++;
+  }
+
+  return { tickets: ticketCount, escalations: escCount, suggestions: suggestionCount };
 }

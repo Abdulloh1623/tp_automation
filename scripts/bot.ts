@@ -96,7 +96,7 @@ async function runReminders(operatorsOnly = false) {
 async function runSla() {
   try {
     const r = await runSlaCheck();
-    log(`SLA → muammo:${r.tickets} eskalatsiya:${r.escalations} ogohlantirildi`);
+    log(`SLA → muammo:${r.tickets} eskalatsiya:${r.escalations} taklif:${r.suggestions} ogohlantirildi`);
   } catch (e) {
     log("SLA XATO:", e instanceof Error ? e.message : e);
     await reportError(e, { source: "worker", path: "sla" });

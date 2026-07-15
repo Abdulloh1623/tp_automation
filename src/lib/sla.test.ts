@@ -7,6 +7,8 @@ const {
   ticketUpdate,
   clientFindMany,
   clientUpdate,
+  suggestionFindMany,
+  suggestionUpdate,
   sendMessage,
   createNotification,
 } = vi.hoisted(() => ({
@@ -15,6 +17,8 @@ const {
   ticketUpdate: vi.fn(),
   clientFindMany: vi.fn(),
   clientUpdate: vi.fn(),
+  suggestionFindMany: vi.fn(),
+  suggestionUpdate: vi.fn(),
   sendMessage: vi.fn(),
   createNotification: vi.fn(),
 }));
@@ -24,6 +28,7 @@ vi.mock("./db", () => ({
     user: { findMany: userFindMany },
     ticket: { findMany: ticketFindMany, update: ticketUpdate },
     client: { findMany: clientFindMany, update: clientUpdate },
+    suggestion: { findMany: suggestionFindMany, update: suggestionUpdate },
   },
 }));
 vi.mock("./telegram", () => ({
@@ -44,11 +49,25 @@ beforeEach(() => {
   userFindMany.mockResolvedValue([{ id: "mgr1", telegramId: "tg-mgr" }]);
   ticketFindMany.mockResolvedValue([]);
   clientFindMany.mockResolvedValue([]);
+  suggestionFindMany.mockResolvedValue([]);
   ticketUpdate.mockResolvedValue({});
   clientUpdate.mockResolvedValue({});
+  suggestionUpdate.mockResolvedValue({});
   sendMessage.mockResolvedValue({ ok: true });
   createNotification.mockResolvedValue(undefined);
 });
+
+const TWO_MONTHS_AGO = new Date("2026-05-15T09:00:00.000Z"); // 1 oydan oshgan
+
+function suggestion(notifiedAt: Date | null) {
+  return {
+    id: "s1",
+    body: "Hisobot bo'limiga eksport tugmasi qo'shilsa",
+    createdAt: TWO_MONTHS_AGO,
+    notifiedAt,
+    client: { restaurantName: "Osh Markazi" },
+  };
+}
 
 function ticket(slaNotifiedAt: Date | null) {
   return {
@@ -114,5 +133,29 @@ describe("runSlaCheck — kunlik qayta ogohlantirish", () => {
     const r = await runSlaCheck(NOW);
     expect(r.escalations).toBe(0);
     expect(createNotification).not.toHaveBeenCalled();
+  });
+
+  it("taklif 1 oydan oshgan, hali ogohlantirilmagan — boshliqlarga yuboradi", async () => {
+    suggestionFindMany.mockResolvedValue([suggestion(null)]);
+    const r = await runSlaCheck(NOW);
+    expect(r.suggestions).toBe(1);
+    expect(createNotification).toHaveBeenCalledTimes(1);
+    expect(suggestionUpdate).toHaveBeenCalledWith({
+      where: { id: "s1" },
+      data: { notifiedAt: NOW },
+    });
+  });
+
+  it("taklif kecha ogohlantirilgan — bugun qayta yuboriladi (kunlik takror)", async () => {
+    suggestionFindMany.mockResolvedValue([suggestion(YESTERDAY)]);
+    const r = await runSlaCheck(NOW);
+    expect(r.suggestions).toBe(1);
+  });
+
+  it("taklif bugun ogohlantirilgan — o'tkazib yuboriladi", async () => {
+    suggestionFindMany.mockResolvedValue([suggestion(EARLIER_TODAY)]);
+    const r = await runSlaCheck(NOW);
+    expect(r.suggestions).toBe(0);
+    expect(suggestionUpdate).not.toHaveBeenCalled();
   });
 });

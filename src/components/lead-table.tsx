@@ -14,6 +14,7 @@ import {
   Check,
   Download,
   Ban,
+  Lightbulb,
 } from "lucide-react";
 import {
   saveLeadCell,
@@ -88,6 +89,7 @@ const OUTCOME_CELL: Record<string, string> = {
   FORWARDED: "text-slate-600 dark:text-slate-300",
   HAS_ISSUE: "text-amber-700 dark:text-amber-300",
   NO_PROBLEM: "text-emerald-700 dark:text-emerald-300",
+  SUGGESTION: "text-primary-700 dark:text-primary-300",
   PAID: "text-emerald-700 dark:text-emerald-300",
   RESOLVED: "text-emerald-700 dark:text-emerald-300",
   REFUSED: "text-rose-600 dark:text-rose-400",
@@ -120,6 +122,9 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
   // Otkaz (REFUSED) tanlanganda izohni majburiy so'rovchi modal
   const [refuseTarget, setRefuseTarget] = useState<LeadRow | null>(null);
   const [refuseReason, setRefuseReason] = useState("");
+  // Taklif (SUGGESTION) tanlanganda taklif matnini so'rovchi modal
+  const [suggestTarget, setSuggestTarget] = useState<LeadRow | null>(null);
+  const [suggestText, setSuggestText] = useState("");
   const [infoLoadingId, setInfoLoadingId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [finishing, setFinishing] = useState(false);
@@ -194,6 +199,18 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
     save(row, "REFUSED", reason);
     setRefuseTarget(null);
     setRefuseReason("");
+  }
+
+  // Taklif modalidan tasdiqlash — taklif matni majburiy.
+  function confirmSuggestion() {
+    if (!suggestTarget) return;
+    const text = suggestText.trim();
+    if (!text) return;
+    const row = suggestTarget;
+    patchRow(row.id, { todayNote: text });
+    save(row, "SUGGESTION", text);
+    setSuggestTarget(null);
+    setSuggestText("");
   }
 
   async function onEscalate(row: LeadRow) {
@@ -293,6 +310,12 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
       // "Otkaz" — izoh (sabab) majburiy, avval modal ochamiz
       setRefuseReason(row.todayNote ?? "");
       setRefuseTarget(row);
+      return;
+    }
+    if (value === "SUGGESTION") {
+      // "Taklif" — matn majburiy (Takliflar bo'limiga tushadi), modal ochamiz
+      setSuggestText(row.todayNote ?? "");
+      setSuggestTarget(row);
       return;
     }
     save(row, value || null, row.todayNote);
@@ -478,6 +501,44 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
                 variant="ghost"
                 size="sm"
                 onClick={() => setRefuseTarget(null)}
+                disabled={pending}
+              >
+                Bekor
+              </Button>
+            </div>
+          </div>
+        </ModalOverlay>
+      )}
+
+      {suggestTarget && (
+        <ModalOverlay onClose={() => setSuggestTarget(null)}>
+          <div>
+            <h3 className="mb-2 flex items-center gap-2 text-base font-semibold text-primary-700 dark:text-primary-300">
+              <Lightbulb className="h-4 w-4" /> Taklif — {suggestTarget.restaurantName}
+            </h3>
+            <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
+              Mijozda muammo yo'q — dastur yoki jarayon yuzasidan taklif. Admin/menejer
+              &ldquo;Takliflar&rdquo; bo'limiga tushadi.
+            </p>
+            <Textarea
+              value={suggestText}
+              onChange={(e) => setSuggestText(e.target.value)}
+              placeholder="masalan: hisobot bo'limiga eksport tugmasi qo'shilsa…"
+              className="min-h-[90px]"
+              autoFocus
+            />
+            <div className="mt-3 flex gap-2">
+              <Button
+                size="sm"
+                onClick={confirmSuggestion}
+                disabled={pending || !suggestText.trim()}
+              >
+                <Lightbulb className="h-4 w-4" /> Taklifni saqlash
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSuggestTarget(null)}
                 disabled={pending}
               >
                 Bekor

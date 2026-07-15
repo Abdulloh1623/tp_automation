@@ -8,7 +8,7 @@ import { guardRole } from "@/lib/auth";
 import { canMutateClient } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { computeNextPaymentDate } from "@/lib/billing";
-import { escalationStagePatch, shouldEscalate } from "@/lib/escalation";
+import { autoEscalationTarget, escalationStagePatch, shouldEscalate } from "@/lib/escalation";
 
 const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
 import {
@@ -126,16 +126,16 @@ export async function recordLeadOutcome(
   const isMissed = MISSED_OUTCOMES.includes(outcome as LeadOutcome);
   const missedCount = isMissed ? client.missedCallCount + 1 : 0;
 
-  // 3 tadan oshsa — avtomatik ustaga (FORWARDED) yo'naltiriladi
+  // 3 marta ketma-ket ko'tarilmasa — avtomatik eskalatsiyaga (29$ bo'lsa otkazga)
   const escalate = isMissed && shouldEscalate(missedCount);
-  const targetStage = escalate
-    ? "FORWARDED"
-    : OUTCOME_TO_STAGE[outcome as LeadOutcome];
+  const auto = escalate
+    ? autoEscalationTarget(missedCount, client.monthlyAmount, client.currency)
+    : null;
+  const targetStage = auto ? auto.stage : OUTCOME_TO_STAGE[outcome as LeadOutcome];
 
   let note = parsed.data.note ?? null;
-  if (escalate) {
-    const auto = `${missedCount} marta ketma-ket ko'tarilmadi — avtomatik ustaga yo'naltirildi`;
-    note = note ? `${note} · ${auto}` : auto;
+  if (auto) {
+    note = note ? `${note} · ${auto.note}` : auto.note;
   }
 
   // Tarix uchun CallLog (mavjud model qayta ishlatiladi). Keyingi sana
@@ -150,15 +150,15 @@ export async function recordLeadOutcome(
     },
   });
 
-  // Kun-yakuni maqsad bo'limni belgilab qo'yamiz (hozir ko'chmaydi).
-  // Yo'naltirilgandan keyin hisoblagich nollanadi.
+  // Kun-yakuni maqsad bo'limni belgilab qo'yamiz (hozir ko'chmaydi). Ketma-ket
+  // ko'tarilmaganlar soni saqlanadi — eskalatsiya ro'yxatida ko'rinadi (revertLead nollaydi).
   await db.client.update({
     where: { id: clientId },
     data: {
       pendingStage: targetStage,
       lastOutcome: outcome,
       lastContactedAt: new Date(),
-      missedCallCount: escalate ? 0 : missedCount,
+      missedCallCount: missedCount,
     },
   });
 
@@ -334,6 +334,7 @@ export async function saveLeadCell(
     where: { clientId, calledAt: { gte: dayStart, lte: dayEnd } },
     orderBy: { calledAt: "desc" },
   });
+  let logId: string;
   if (todayLog) {
     await db.callLog.update({
       where: { id: todayLog.id },
@@ -344,8 +345,9 @@ export async function saveLeadCell(
         calledAt: now,
       },
     });
+    logId = todayLog.id;
   } else {
-    await db.callLog.create({
+    const created = await db.callLog.create({
       data: {
         clientId,
         result: outcome,
@@ -353,7 +355,9 @@ export async function saveLeadCell(
         operatorId: session.userId,
         calledAt: now,
       },
+      select: { id: true },
     });
+    logId = created.id;
   }
 
   // Ketma-ket ko'tarilmaganlarni kun bo'yicha tarixdan qayta hisoblaymiz
@@ -373,10 +377,30 @@ export async function saveLeadCell(
     else break;
   }
 
+  // 3 marta ketma-ket ko'tarilmasa — avtomatik eskalatsiyaga (yoki 29$ bo'lsa otkazga).
   const escalate = shouldEscalate(consecutiveMissed);
-  const pendingStage = escalate
-    ? "ESCALATED"
-    : OUTCOME_TO_STAGE[outcome as LeadOutcome];
+  let pendingStage: string;
+  if (escalate) {
+    const client = await db.client.findUnique({
+      where: { id: clientId },
+      select: { monthlyAmount: true, currency: true },
+    });
+    const target = autoEscalationTarget(
+      consecutiveMissed,
+      client?.monthlyAmount ?? 0,
+      client?.currency ?? "USD",
+    );
+    pendingStage = target.stage;
+    // Tizim izohini bugungi yozuvga qo'shamiz — tarix va eskalatsiya/otkaz
+    // ro'yxatlarida "oxirgi izoh" sifatida ko'rinadi.
+    const base = (note ?? "").trim();
+    await db.callLog.update({
+      where: { id: logId },
+      data: { note: base ? `${base} · ${target.note}` : target.note },
+    });
+  } else {
+    pendingStage = OUTCOME_TO_STAGE[outcome as LeadOutcome];
+  }
 
   await db.client.update({
     where: { id: clientId },

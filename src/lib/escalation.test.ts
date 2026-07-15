@@ -3,6 +3,7 @@ import {
   isEscalationStage,
   escalationStagePatch,
   shouldEscalate,
+  autoEscalationTarget,
 } from "./escalation";
 import { ESCALATION_THRESHOLD } from "./constants";
 
@@ -28,6 +29,28 @@ describe("isEscalationStage", () => {
     expect(isEscalationStage("NEW")).toBe(false);
     expect(isEscalationStage("RESOLVED")).toBe(false);
     expect(isEscalationStage(null)).toBe(false);
+  });
+});
+
+describe("autoEscalationTarget", () => {
+  it("oddiy mijoz — eskalatsiyaga, izohda '3 marta ketma-ket' va 'tizim'", () => {
+    const r = autoEscalationTarget(3, 50, "USD");
+    expect(r.stage).toBe("ESCALATED");
+    expect(r.note).toContain("3 marta ketma-ket");
+    expect(r.note).toContain("Tizim tomonidan");
+  });
+  it("oylik 29$ (USD) — otkazga o'tadi, izoh bilan", () => {
+    const r = autoEscalationTarget(3, 29, "USD");
+    expect(r.stage).toBe("REFUSED");
+    expect(r.note).toContain("otkaz");
+    expect(r.note).toContain("29$");
+  });
+  it("29 lekin UZS — otkaz EMAS (faqat 29$ USD)", () => {
+    expect(autoEscalationTarget(3, 29, "UZS").stage).toBe("ESCALATED");
+  });
+  it("29$ atrofidagi qiymat (masalan 28.99/29.01) — 29 emas, eskalatsiya", () => {
+    expect(autoEscalationTarget(3, 30, "USD").stage).toBe("ESCALATED");
+    expect(autoEscalationTarget(3, 29.5, "USD").stage).toBe("ESCALATED");
   });
 });
 

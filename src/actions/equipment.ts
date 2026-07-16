@@ -45,19 +45,6 @@ async function adjustStock(
   }
 }
 
-async function warehouseQty(equipmentTypeId: string): Promise<number> {
-  const s = await db.inventoryStock.findUnique({
-    where: {
-      locationType_locationId_equipmentTypeId: {
-        locationType: WAREHOUSE,
-        locationId: WAREHOUSE,
-        equipmentTypeId,
-      },
-    },
-  });
-  return s?.quantity ?? 0;
-}
-
 /** Mijozda qolgan uskunalarga qarab equipmentMode'ni qayta hisoblaydi. */
 async function recomputeMode(clientId: string) {
   const items = await db.clientEquipment.findMany({
@@ -72,12 +59,24 @@ async function recomputeMode(clientId: string) {
   await db.client.update({ where: { id: clientId }, data: { equipmentMode: mode } });
 }
 
-/** Manager: mijozga ombordan uskuna biriktiradi (ijara yoki sotuv). */
+/** Uskuna qayerdan olinadi — ombor (Toshkent) yoki ustaning zaxirasi. */
+export type EquipmentSource =
+  | { type: "WAREHOUSE" }
+  | { type: "USTA"; ustaId: string };
+
+/**
+ * Manager: mijozga uskuna biriktiradi (ijara yoki sotuv). Uskuna MANBAdan
+ * (ombor yoki usta zaxirasi) ayiriladi — usta o'zi olib borgan uskunani
+ * o'rnatsa usta zaxirasidan, Toshkentda ombordan olib ketilsa ombordan.
+ * Barcha yozuvlar bitta tranzaksiyada (qoldiq yetmasa — hech nima yozilmaydi).
+ * Sotuvda salePrice bo'yicha bir martalik to'lov (Payment) yoziladi.
+ */
 export async function assignEquipmentToClient(
   clientId: string,
   equipmentTypeId: string,
   ownership: string,
   quantity: number,
+  source: EquipmentSource = { type: "WAREHOUSE" },
 ): Promise<EqState> {
   const m = await requireManager();
   if (!m.ok) return m;
@@ -86,6 +85,10 @@ export async function assignEquipmentToClient(
     return { ok: false, error: "Egalik turi noto'g'ri" };
   }
 
+  const srcType = source.type === "USTA" ? "USTA" : WAREHOUSE;
+  const srcId = source.type === "USTA" ? source.ustaId : WAREHOUSE;
+  if (srcType === "USTA" && !srcId) return { ok: false, error: "Usta tanlanmagan" };
+
   const [type, client] = await Promise.all([
     db.equipmentType.findUnique({ where: { id: equipmentTypeId } }),
     db.client.findUnique({ where: { id: clientId } }),
@@ -93,53 +96,88 @@ export async function assignEquipmentToClient(
   if (!type) return { ok: false, error: "Texnika turi topilmadi" };
   if (!client) return { ok: false, error: "Mijoz topilmadi" };
 
-  const available = await warehouseQty(equipmentTypeId);
-  if (available < quantity) {
-    return { ok: false, error: `Omborda yetarli emas (mavjud: ${available})` };
+  // Manba usta bo'lsa — haqiqiy usta ekanini tekshiramiz (nomi izohga yoziladi).
+  let ustaName: string | null = null;
+  if (srcType === "USTA") {
+    const u = await db.user.findUnique({
+      where: { id: srcId },
+      select: { name: true, role: true },
+    });
+    if (!u || u.role !== "INSTALLER") return { ok: false, error: "Usta topilmadi" };
+    ustaName = u.name;
   }
 
-  await adjustStock(WAREHOUSE, WAREHOUSE, equipmentTypeId, -quantity);
+  try {
+    await db.$transaction(async (tx) => {
+      // Manba qoldig'ini tranzaksiya ichida o'qib, yetarliligini tekshiramiz.
+      const src = await tx.inventoryStock.findUnique({
+        where: {
+          locationType_locationId_equipmentTypeId: {
+            locationType: srcType,
+            locationId: srcId,
+            equipmentTypeId,
+          },
+        },
+      });
+      const available = src?.quantity ?? 0;
+      if (available < quantity) {
+        throw new Error(
+          srcType === "USTA"
+            ? `Ustada yetarli emas (mavjud: ${available})`
+            : `Omborda yetarli emas (mavjud: ${available})`,
+        );
+      }
+      await tx.inventoryStock.update({
+        where: { id: src!.id },
+        data: { quantity: available - quantity },
+      });
 
-  const existing = await db.clientEquipment.findUnique({
-    where: {
-      clientId_equipmentTypeId_ownership: { clientId, equipmentTypeId, ownership },
-    },
-  });
-  if (existing) {
-    await db.clientEquipment.update({
-      where: { id: existing.id },
-      data: { quantity: existing.quantity + quantity },
-    });
-  } else {
-    await db.clientEquipment.create({
-      data: { clientId, equipmentTypeId, ownership, quantity },
-    });
-  }
+      // Mijoz uskunasini upsert (bir xil egalik turida jamlab boramiz).
+      const existing = await tx.clientEquipment.findUnique({
+        where: {
+          clientId_equipmentTypeId_ownership: { clientId, equipmentTypeId, ownership },
+        },
+      });
+      if (existing) {
+        await tx.clientEquipment.update({
+          where: { id: existing.id },
+          data: { quantity: existing.quantity + quantity },
+        });
+      } else {
+        await tx.clientEquipment.create({
+          data: { clientId, equipmentTypeId, ownership, quantity },
+        });
+      }
 
-  await db.equipmentMovement.create({
-    data: {
-      equipmentTypeId,
-      quantity,
-      fromType: WAREHOUSE,
-      fromId: WAREHOUSE,
-      toType: "CLIENT",
-      toId: clientId,
-      reason: ownership === "RENTAL" ? "Mijozga ijara" : "Mijozga sotuv",
-      byUserId: m.userId,
-    },
-  });
+      await tx.equipmentMovement.create({
+        data: {
+          equipmentTypeId,
+          quantity,
+          fromType: srcType,
+          fromId: srcId,
+          toType: "CLIENT",
+          toId: clientId,
+          reason: ownership === "RENTAL" ? "Mijozga ijara" : "Mijozga sotuv",
+          note: ustaName ? `Usta: ${ustaName}` : null,
+          byUserId: m.userId,
+        },
+      });
 
-  // Sotuv — bir martalik to'lov yoziladi
-  if (ownership === "SOLD") {
-    await db.payment.create({
-      data: {
-        clientId,
-        amount: type.salePrice * quantity,
-        currency: client.currency,
-        receiptNote: `Uskuna sotuvi: ${type.name} ×${quantity}`,
-        recordedById: m.userId,
-      },
+      // Sotuv — bir martalik to'lov yoziladi (uskuna butunlay chiqib ketadi).
+      if (ownership === "SOLD") {
+        await tx.payment.create({
+          data: {
+            clientId,
+            amount: type.salePrice * quantity,
+            currency: client.currency,
+            receiptNote: `Uskuna sotuvi: ${type.name} ×${quantity}`,
+            recordedById: m.userId,
+          },
+        });
+      }
     });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Xatolik" };
   }
 
   await recomputeMode(clientId);
@@ -147,7 +185,9 @@ export async function assignEquipmentToClient(
   await logAudit("Mijozga uskuna biriktirildi", {
     entity: "Client",
     entityId: clientId,
-    detail: `${type.name} ×${quantity} (${ownership === "RENTAL" ? "ijara" : "sotuv"})`,
+    detail:
+      `${type.name} ×${quantity} (${ownership === "RENTAL" ? "ijara" : "sotuv"})` +
+      (ustaName ? ` · ${ustaName} zaxirasidan` : " · ombordan"),
   });
   revalidatePath(`/mijozlar/${clientId}`);
   revalidatePath("/ombor");

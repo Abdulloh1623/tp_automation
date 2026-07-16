@@ -25,6 +25,7 @@ import {
   ClientEquipmentPanel,
   type EqItem,
   type EqTypeOpt,
+  type UstaSource,
 } from "@/components/client-equipment-panel";
 import {
   ClientStatusBadge,
@@ -164,6 +165,33 @@ export default async function ClientDetailPage({
     rentalPrice: t.rentalPrice,
     salePrice: t.salePrice,
     warehouse: whMap.get(t.id) ?? 0,
+  }));
+
+  // Ustalar zaxirasi (o'zi olib borgan uskunalar) — o'rnatishda manba tanlash uchun.
+  const [ustaUsers, ustaStockRows] = await Promise.all([
+    db.user.findMany({
+      where: { role: "INSTALLER", isActive: true },
+      select: { id: true, name: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    db.inventoryStock.findMany({
+      where: { locationType: "USTA", quantity: { gt: 0 } },
+      select: { locationId: true, equipmentTypeId: true, quantity: true },
+    }),
+  ]);
+  const ustaNameById = new Map(ustaUsers.map((u) => [u.id, u.name]));
+  const ustaSrcMap = new Map<string, { equipmentTypeId: string; quantity: number }[]>();
+  for (const r of ustaStockRows) {
+    const name = ustaNameById.get(r.locationId);
+    if (!name) continue; // faqat faol ustalar
+    const arr = ustaSrcMap.get(r.locationId) ?? [];
+    arr.push({ equipmentTypeId: r.equipmentTypeId, quantity: r.quantity });
+    ustaSrcMap.set(r.locationId, arr);
+  }
+  const ustaSources: UstaSource[] = [...ustaSrcMap.entries()].map(([ustaId, items]) => ({
+    ustaId,
+    ustaName: ustaNameById.get(ustaId)!,
+    items,
   }));
 
   const eqItems: EqItem[] = client.equipmentItems.map((e) => ({
@@ -506,6 +534,7 @@ export default async function ClientDetailPage({
                 currency={client.currency}
                 items={eqItems}
                 types={eqTypes}
+                ustaSources={ustaSources}
                 pendingReturn={openReturn}
               />
             </CardContent>

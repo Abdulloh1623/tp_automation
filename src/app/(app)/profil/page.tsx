@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { startOfDay, startOfWeek, startOfMonth } from "date-fns";
 import {
@@ -9,13 +10,19 @@ import {
   MessageCircle,
   Banknote,
   CheckCircle2,
+  Wrench,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProfilePasswordForm } from "@/components/profile-password-form";
+import {
+  TicketStatusBadge,
+  TicketPriorityBadge,
+  TicketTypeBadge,
+} from "@/components/status-badge";
 import { TALKED_RESULTS } from "@/lib/constants";
-import { formatDateTime, formatMoney } from "@/lib/utils";
+import { formatDate, formatDateTime, formatMoney } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +64,7 @@ export default async function ProfilePage() {
   // hafta boshi oy boshidan oldin bo'lishi mumkin — eng ertasidan o'qiymiz
   const since = weekStart < monthStart ? weekStart : monthStart;
 
-  const [myCalls, myPayments] = await Promise.all([
+  const [myCalls, myPayments, myTickets] = await Promise.all([
     db.callLog.findMany({
       where: { operatorId: user.id, calledAt: { gte: since } },
       select: { calledAt: true, result: true },
@@ -65,6 +72,21 @@ export default async function ProfilePage() {
     db.payment.findMany({
       where: { recordedById: user.id, createdAt: { gte: since } },
       select: { createdAt: true, amount: true, currency: true },
+    }),
+    // Menga (mas'ul xodim) biriktirilgan hal bo'lmagan muammolar.
+    db.ticket.findMany({
+      where: { assignedStaffId: user.id, status: { not: "RESOLVED" } },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      select: {
+        id: true,
+        title: true,
+        type: true,
+        status: true,
+        priority: true,
+        createdAt: true,
+        client: { select: { id: true, restaurantName: true } },
+      },
     }),
   ]);
 
@@ -167,6 +189,62 @@ export default async function ProfilePage() {
               </tbody>
             </table>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Menga biriktirilgan muammolar — admin/menejer biriktirgach shu yerda ko'rinadi */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle>
+              <span className="inline-flex items-center gap-2">
+                <Wrench className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                Menga biriktirilgan muammolar
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  {myTickets.length}
+                </span>
+              </span>
+            </CardTitle>
+            {myTickets.length > 0 && (
+              <Link
+                href="/muammolar"
+                className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700"
+              >
+                Barchasi →
+              </Link>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {myTickets.length === 0 ? (
+            <p className="text-sm text-slate-400 dark:text-slate-500">
+              Sizga biriktirilgan hal qilinmagan muammo yo'q.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {myTickets.map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/mijozlar/${t.client.id}`}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 hover:border-primary-300 dark:border-slate-800 dark:hover:border-primary-700"
+                >
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
+                      {t.title}
+                    </div>
+                    <div className="text-xs text-slate-400 dark:text-slate-500">
+                      {t.client.restaurantName} · {formatDate(t.createdAt)}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <TicketTypeBadge type={t.type} />
+                    <TicketPriorityBadge priority={t.priority} />
+                    <TicketStatusBadge status={t.status} />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -9,7 +9,6 @@ import {
   Wrench,
   FileDown,
   Package,
-  Coins,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
@@ -160,16 +159,13 @@ export default async function ReportsPage() {
   const collected: Money = { USD: 0, UZS: 0 };
   for (const p of monthPayments) bucket(collected, p.currency, p.amount);
 
-  // Uskuna ijara daromadi (oylik) — mijoz valyutasi bo'yicha alohida.
+  // Uskuna ijara daromadi (oylik) — mijoz valyutasi bo'yicha. Bu MRR ichidagi
+  // ULUSH (monthlyAmount = jami), shuning uchun ALOHIDA qo'shilmaydi — faqat
+  // "shundan qanchasi uskuna ijarasi" ma'lumoti sifatida ko'rsatiladi.
   const rentalRevenue: Money = { USD: 0, UZS: 0 };
   for (const e of rentalEquipment) {
     bucket(rentalRevenue, e.client.currency, e.quantity * e.equipmentType.rentalPrice);
   }
-  // Umumiy oylik daromad = obuna (MRR) + uskuna ijarasi.
-  const totalMonthly: Money = {
-    USD: mrr.USD + rentalRevenue.USD,
-    UZS: mrr.UZS + rentalRevenue.UZS,
-  };
 
   const overdueClients = activeClients.filter(
     (c) => paymentState(c.nextPaymentDate) === "OVERDUE",
@@ -269,25 +265,18 @@ export default async function ReportsPage() {
           tone="emerald"
         />
         <Kpi
-          label="Obuna (MRR)"
+          label="MRR (oylik daromad)"
           value={money2(mrr)}
-          sub="faol mijozlar bo'yicha"
+          sub="jami — faol mijozlar"
           icon={TrendingUp}
           tone="violet"
         />
         <Kpi
-          label="Uskuna ijarasi (oylik)"
+          label="Shundan uskuna ijarasi"
           value={money2(rentalRevenue)}
-          sub="ijaradagi uskunalar"
+          sub="MRR ichida · ma'lumot uchun"
           icon={Package}
           tone="blue"
-        />
-        <Kpi
-          label="Umumiy oylik daromad"
-          value={money2(totalMonthly)}
-          sub="MRR + uskuna ijarasi"
-          icon={Coins}
-          tone="violet"
         />
         <Kpi
           label="Bu oy yig'ilgan"

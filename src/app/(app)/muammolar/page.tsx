@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { Phone, Wrench, Inbox, UserCheck, CheckCircle2 } from "lucide-react";
+import {
+  Phone,
+  Wrench,
+  Inbox,
+  UserCheck,
+  CheckCircle2,
+  AlertTriangle,
+} from "lucide-react";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
@@ -14,8 +21,8 @@ import {
 import { TicketStatusControl } from "@/components/ticket-status-control";
 import { TicketIntegratorControl } from "@/components/ticket-integrator-control";
 import { TicketForm } from "@/components/ticket-form";
+import { TicketTabs, type TicketTab } from "@/components/ticket-tabs";
 import { PhoneCopyButton } from "@/components/phone-copy";
-import { CountStrip, type CountItem } from "@/components/count-strip";
 import { EmptyState } from "@/components/empty-state";
 import { TICKET_TYPE, TICKET_PRIORITY } from "@/lib/constants";
 import { formatDate, formatPhone, normalizePhone } from "@/lib/utils";
@@ -30,6 +37,13 @@ type SearchParams = Promise<{
 
 // Hal qilingan bo'limida ko'rsatiladigan maksimal karta (tarix o'smasin).
 const RESOLVED_RENDER_CAP = 30;
+
+// Ustuvorlik bo'yicha kartaning chap-chekka rangi.
+const PRIORITY_ACCENT: Record<string, string> = {
+  HIGH: "border-l-red-400 dark:border-l-red-500",
+  MEDIUM: "border-l-amber-300 dark:border-l-amber-500",
+  LOW: "border-l-slate-200 dark:border-l-slate-700",
+};
 
 export default async function TicketsPage({
   searchParams,
@@ -53,7 +67,7 @@ export default async function TicketsPage({
   }
 
   // Bo'lim (Yangi/Biriktirilgan/Hal) sanog'i — QAMROV bo'yicha (filtrdan mustaqil),
-  // umumiy manzara doim barqaror ko'rinsin.
+  // tab'lardagi sonlar doim barqaror ko'rinsin.
   const unassignedScope: Prisma.TicketWhereInput = {
     ...scope,
     status: { not: "RESOLVED" },
@@ -133,17 +147,15 @@ export default async function TicketsPage({
   const hal = ticketsRaw.filter((t) => t.status === "RESOLVED");
 
   const openCount = yangiTotal + biriktirilganTotal;
-  const summary: CountItem[] = [
-    { label: "Yangi", value: yangiTotal, tone: "amber" },
-    { label: "Biriktirilgan", value: biriktirilganTotal, tone: "sky" },
-    { label: "Hal qilingan", value: halTotal, tone: "emerald" },
-    { label: "3 kundan oshgan", value: slaBreached, tone: "red" },
-  ];
+  const hasFilter = !!(type || priority || assignee);
 
-  // Bitta ticket kartasi — uch bo'limda ham bir xil ko'rinadi.
+  // Bitta ticket kartasi — barcha tab'larda bir xil.
   function ticketCard(t: (typeof ticketsRaw)[number]) {
     return (
-      <Card key={t.id} className="p-4">
+      <Card
+        key={t.id}
+        className={`border-l-4 p-4 ${PRIORITY_ACCENT[t.priority] ?? PRIORITY_ACCENT.LOW}`}
+      >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="font-medium text-slate-900 dark:text-slate-100">{t.title}</div>
@@ -213,63 +225,78 @@ export default async function TicketsPage({
     );
   }
 
-  function Section({
-    title,
-    icon: Icon,
-    tone,
-    shown,
-    total,
-    items,
-    emptyHint,
-  }: {
-    title: string;
-    icon: React.ComponentType<{ className?: string }>;
-    tone: "amber" | "sky" | "emerald";
-    shown: number;
-    total: number;
-    items: React.ReactNode;
-    emptyHint: string;
-  }) {
-    const toneMap = {
-      amber: "text-amber-600 dark:text-amber-400",
-      sky: "text-sky-600 dark:text-sky-400",
-      emerald: "text-emerald-600 dark:text-emerald-400",
-    };
+  // Bo'lim ichi: bo'sh bo'lsa nozik ko'rsatkich, aks holda kartalar ro'yxati.
+  function panel(items: (typeof ticketsRaw), emptyHint: string, resolved = false) {
+    if (items.length === 0) {
+      return (
+        <p className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-400 dark:border-slate-800 dark:text-slate-500">
+          {emptyHint}
+        </p>
+      );
+    }
+    const shown = resolved ? items.slice(0, RESOLVED_RENDER_CAP) : items;
     return (
-      <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Icon className={`h-5 w-5 ${toneMap[tone]}`} />
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{title}</h2>
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-            {shown}
-            {total > shown ? ` / ${total}` : ""}
-          </span>
-        </div>
-        {shown === 0 ? (
-          <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-sm text-slate-400 dark:border-slate-800 dark:text-slate-500">
-            {emptyHint}
+      <div className="space-y-3">
+        {shown.map(ticketCard)}
+        {resolved && items.length > RESOLVED_RENDER_CAP && (
+          <p className="text-center text-xs text-slate-400 dark:text-slate-500">
+            Yana {items.length - RESOLVED_RENDER_CAP} ta hal qilingan muammo (filtr bilan toraytiring)
           </p>
-        ) : (
-          items
         )}
-      </section>
+      </div>
     );
   }
 
+  const tabs: TicketTab[] = [];
+  if (canAssign) {
+    tabs.push({
+      key: "yangi",
+      label: "Yangi",
+      icon: <Inbox className="h-4 w-4" />,
+      tone: "amber",
+      count: yangiTotal,
+      content: panel(yangi, "Biriktirilmagan yangi muammo yo'q."),
+    });
+  }
+  tabs.push({
+    key: "biriktirilgan",
+    label: "Biriktirilgan",
+    icon: <UserCheck className="h-4 w-4" />,
+    tone: "sky",
+    count: biriktirilganTotal,
+    content: panel(
+      biriktirilgan,
+      canAssign ? "Biriktirilgan (jarayondagi) muammo yo'q." : "Sizga biriktirilgan ochiq muammo yo'q.",
+    ),
+  });
+  tabs.push({
+    key: "hal",
+    label: "Hal qilingan",
+    icon: <CheckCircle2 className="h-4 w-4" />,
+    tone: "emerald",
+    count: halTotal,
+    content: panel(hal, "Hal qilingan muammo yo'q.", true),
+  });
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Muammolar</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          {openCount} ta ochiq · {halTotal} ta hal qilingan
-        </p>
-        <div className="mt-3">
-          <CountStrip items={summary} />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Muammolar</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {openCount} ta ochiq · {halTotal} ta hal qilingan
+          </p>
         </div>
+        {slaBreached > 0 && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300">
+            <AlertTriangle className="h-4 w-4" />
+            {slaBreached} ta 3 kundan oshgan
+          </span>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className={`space-y-6 ${canAssign ? "lg:col-span-2" : "lg:col-span-3"}`}>
+        <div className={`space-y-5 ${canAssign ? "lg:col-span-2" : "lg:col-span-3"}`}>
           <Card className="p-4">
             <form className="flex flex-wrap items-end gap-3" method="get">
               <div className="w-40">
@@ -328,55 +355,11 @@ export default async function TicketsPage({
             </form>
           </Card>
 
-          {ticketsRaw.length === 0 && (
-            <EmptyState
-              icon={Wrench}
-              title="Muammo topilmadi"
-              hint={canAssign ? "Filtrga mos muammo yo'q." : "Sizga biriktirilgan muammo yo'q."}
-            />
+          {ticketsRaw.length === 0 && hasFilter ? (
+            <EmptyState icon={Wrench} title="Muammo topilmadi" hint="Filtrga mos muammo yo'q." />
+          ) : (
+            <TicketTabs tabs={tabs} initialKey={canAssign ? "yangi" : "biriktirilgan"} />
           )}
-
-          {/* Yangi (biriktirilmagan) — operatorga ko'rinmaydi (u faqat o'ziga biriktirilganini ko'radi) */}
-          {canAssign && (
-            <Section
-              title="Yangi muammolar"
-              icon={Inbox}
-              tone="amber"
-              shown={yangi.length}
-              total={yangiTotal}
-              emptyHint="Biriktirilmagan yangi muammo yo'q."
-              items={<div className="space-y-3">{yangi.map(ticketCard)}</div>}
-            />
-          )}
-
-          <Section
-            title="Biriktirilgan muammolar"
-            icon={UserCheck}
-            tone="sky"
-            shown={biriktirilgan.length}
-            total={biriktirilganTotal}
-            emptyHint={canAssign ? "Biriktirilgan (jarayondagi) muammo yo'q." : "Sizga biriktirilgan ochiq muammo yo'q."}
-            items={<div className="space-y-3">{biriktirilgan.map(ticketCard)}</div>}
-          />
-
-          <Section
-            title="Hal qilingan muammolar"
-            icon={CheckCircle2}
-            tone="emerald"
-            shown={Math.min(hal.length, RESOLVED_RENDER_CAP)}
-            total={hal.length}
-            emptyHint="Hal qilingan muammo yo'q."
-            items={
-              <div className="space-y-3">
-                {hal.slice(0, RESOLVED_RENDER_CAP).map(ticketCard)}
-                {hal.length > RESOLVED_RENDER_CAP && (
-                  <p className="text-center text-xs text-slate-400 dark:text-slate-500">
-                    Yana {hal.length - RESOLVED_RENDER_CAP} ta hal qilingan muammo (filtr bilan toraytiring)
-                  </p>
-                )}
-              </div>
-            }
-          />
         </div>
 
         {/* Yangi muammo yaratish — faqat boshliq/admin (xodimga admin biriktiradi) */}

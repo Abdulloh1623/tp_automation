@@ -513,6 +513,14 @@ export default async function ClientDetailPage({
                 <span className="text-sm text-slate-500 dark:text-slate-400">Holat</span>
                 <PaymentStatusBadge nextPaymentDate={client.nextPaymentDate} />
               </div>
+              {client.debtAmount > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-500 dark:text-slate-400">Qarz qoldig'i</span>
+                  <span className="text-sm font-semibold text-red-600 dark:text-red-400">
+                    {formatMoney(client.debtAmount, client.currency)}
+                  </span>
+                </div>
+              )}
 
               <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-4">
                 <PaymentForm

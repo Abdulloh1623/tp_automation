@@ -129,6 +129,7 @@ model Client {
   monthlyAmount   Float     @default(0)
   currency        String    @default("USD") // USD | UZS
   nextPaymentDate DateTime?
+  debtAmount      Float     @default(0) // joriy qarz qoldig'i (mijozning currency'sida)
   notes           String?
   assignedToId    String?
   assignedTo      User?     @relation("AssignedOperator", fields: [assignedToId], references: [id])

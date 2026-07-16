@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { PackagePlus, Undo2, AlertCircle, Check, Clock } from "lucide-react";
 import {
@@ -31,6 +31,12 @@ export type EqTypeOpt = {
   salePrice: number;
   warehouse: number;
 };
+/** Ustaning zaxirasidagi uskunalar (o'zi olib borgan) — manba tanlash uchun. */
+export type UstaSource = {
+  ustaId: string;
+  ustaName: string;
+  items: { equipmentTypeId: string; quantity: number }[];
+};
 
 export function ClientEquipmentPanel({
   clientId,
@@ -38,6 +44,7 @@ export function ClientEquipmentPanel({
   currency,
   items,
   types,
+  ustaSources,
   pendingReturn,
 }: {
   clientId: string;
@@ -45,6 +52,7 @@ export function ClientEquipmentPanel({
   currency: string;
   items: EqItem[];
   types: EqTypeOpt[];
+  ustaSources: UstaSource[];
   pendingReturn: { status: string; note: string | null } | null;
 }) {
   const router = useRouter();
@@ -55,6 +63,26 @@ export function ClientEquipmentPanel({
   const [aType, setAType] = useState(types[0]?.id ?? "");
   const [aOwn, setAOwn] = useState("RENTAL");
   const [aQty, setAQty] = useState("1");
+  const [aSource, setASource] = useState("WAREHOUSE");
+
+  // Tanlangan texnika turi bo'yicha mavjud manbalar: ombor + o'sha turdan
+  // zaxirasi bor ustalar. Qoldiq (dona) yonida ko'rsatiladi.
+  const sourceOptions = useMemo(() => {
+    const wh = types.find((t) => t.id === aType)?.warehouse ?? 0;
+    const opts = [{ key: "WAREHOUSE", label: `Sklad (omborda: ${wh})` }];
+    for (const u of ustaSources) {
+      const qty = u.items.find((i) => i.equipmentTypeId === aType)?.quantity ?? 0;
+      if (qty > 0) {
+        opts.push({ key: `USTA:${u.ustaId}`, label: `Usta: ${u.ustaName} (${qty} dona)` });
+      }
+    }
+    return opts;
+  }, [aType, types, ustaSources]);
+
+  // Tanlov ro'yxatda bo'lmasa (tur o'zgargan) — birinchi mavjud manbaga tushamiz.
+  const effSource = sourceOptions.some((o) => o.key === aSource)
+    ? aSource
+    : (sourceOptions[0]?.key ?? "WAREHOUSE");
 
   const [rNote, setRNote] = useState("");
 
@@ -159,6 +187,19 @@ export function ClientEquipmentPanel({
               </Select>
             </div>
           </div>
+          <div>
+            <Label>Manba (qayerdan)</Label>
+            <Select value={effSource} onChange={(e) => setASource(e.target.value)}>
+              {sourceOptions.map((o) => (
+                <option key={o.key} value={o.key}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+              Usta o'zi olib borgan bo'lsa — usta zaxirasidan; Toshkentda ombordan olib ketilsa — Sklad.
+            </p>
+          </div>
           <div className="grid grid-cols-2 items-end gap-2">
             <div>
               <Label>Miqdor</Label>
@@ -171,12 +212,15 @@ export function ClientEquipmentPanel({
             </div>
             <Button
               disabled={pending || !aType}
-              onClick={() =>
+              onClick={() => {
+                const source = effSource.startsWith("USTA:")
+                  ? ({ type: "USTA", ustaId: effSource.slice(5) } as const)
+                  : ({ type: "WAREHOUSE" } as const);
                 run(
-                  () => assignEquipmentToClient(clientId, aType, aOwn, Number(aQty)),
+                  () => assignEquipmentToClient(clientId, aType, aOwn, Number(aQty), source),
                   "Uskuna biriktirildi",
-                )
-              }
+                );
+              }}
             >
               <PackagePlus className="h-4 w-4" /> Biriktirish
             </Button>

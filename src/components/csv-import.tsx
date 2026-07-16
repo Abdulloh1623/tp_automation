@@ -343,6 +343,16 @@ export function CsvImport() {
                       {report.callLogsCreated} ta operator aloqasi yozildi
                     </div>
                   )}
+                  {report.paymentsCreated > 0 && (
+                    <div className="text-sm text-emerald-700 dark:text-emerald-300">
+                      {report.paymentsCreated} ta boshlang'ich to'lov yozildi
+                    </div>
+                  )}
+                  {report.equipmentAttached > 0 && (
+                    <div className="text-sm text-sky-700 dark:text-sky-300">
+                      {report.equipmentAttached} ta uskuna biriktirildi
+                    </div>
+                  )}
                 </div>
                 {report.unmatchedOperators.length > 0 && (
                   <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
@@ -352,6 +362,15 @@ export function CsvImport() {
                     import qiling:{" "}
                     <span className="font-medium">
                       {report.unmatchedOperators.join(", ")}
+                    </span>
+                  </div>
+                )}
+                {report.unmatchedEquipment.length > 0 && (
+                  <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+                    Quyidagi uskuna turlari omborda topilmadi (biriktirilmadi) — avval
+                    Ombor bo'limida shu nomdagi uskuna turini yarating:{" "}
+                    <span className="font-medium">
+                      {report.unmatchedEquipment.join(", ")}
                     </span>
                   </div>
                 )}

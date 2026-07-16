@@ -39,6 +39,7 @@ export type ClientFormValues = {
   monthlyAmount?: number;
   currency?: string;
   nextPaymentDate?: Date | string | null;
+  debtAmount?: number;
   notes?: string | null;
   assignedToId?: string | null;
 };
@@ -50,11 +51,14 @@ export function ClientForm({
   operators,
   defaultValues = {},
   submitLabel = "Saqlash",
+  showInitialPayment = false,
 }: {
   action: (prev: ClientFormState, formData: FormData) => Promise<ClientFormState>;
   operators: Operator[];
   defaultValues?: ClientFormValues;
   submitLabel?: string;
+  /** Yangi mijoz uchun: oxirgi (boshlang'ich) to'lov maydonlarini ko'rsatadi. */
+  showInitialPayment?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, initialState);
   const v = defaultValues;
@@ -198,7 +202,39 @@ export function ClientForm({
           />
           <FieldError message={fe.nextPaymentDate} />
         </div>
+        <div>
+          <Label htmlFor="debtAmount">Qarz qoldig'i</Label>
+          <MoneyInput
+            id="debtAmount"
+            name="debtAmount"
+            defaultValue={v.debtAmount ?? 0}
+            aria-invalid={!!fe.debtAmount}
+          />
+          <FieldError message={fe.debtAmount} />
+        </div>
       </div>
+
+      {showInitialPayment && (
+        <div className="space-y-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">
+          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            Oxirgi to'lov (ixtiyoriy)
+          </div>
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            Oldindan mavjud mijoz allaqachon to'lagan bo'lsa — summani va sanani kiriting.
+            Bitta tarixiy to'lov yoziladi (chek shart emas). Bo'sh qoldirsangiz — yozilmaydi.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="lastPaymentAmount">To'lov summasi</Label>
+              <MoneyInput id="lastPaymentAmount" name="lastPaymentAmount" defaultValue={0} />
+            </div>
+            <div>
+              <Label htmlFor="lastPaymentDate">To'lov sanasi</Label>
+              <Input id="lastPaymentDate" name="lastPaymentDate" type="date" />
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>

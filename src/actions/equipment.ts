@@ -206,12 +206,17 @@ export async function assignEquipmentBatchToClient(
   items: { equipmentTypeId: string; quantity: number }[],
   ownership: string,
   source: EquipmentSource = { type: "WAREHOUSE" },
+  opts: { alreadyInstalled?: boolean } = {},
 ): Promise<EqState> {
   const m = await requireManager();
   if (!m.ok) return m;
   if (!["RENTAL", "SOLD"].includes(ownership)) {
     return { ok: false, error: "Egalik turi noto'g'ri" };
   }
+  // "Allaqachon o'rnatilgan" — oldindan mavjud mijoz uchun: uskuna omborda emas,
+  // allaqachon mijozda. Shuning uchun manba qoldig'i AYIRILMAYDI va sotuvda yangi
+  // Payment YOZILMAYDI (tarixiy — allaqachon to'langan/o'rnatilgan).
+  const installed = opts.alreadyInstalled === true;
   if (!items || items.length === 0) {
     return { ok: false, error: "Kamida bitta texnika kerak" };
   }
@@ -228,7 +233,9 @@ export async function assignEquipmentBatchToClient(
 
   const srcType = source.type === "USTA" ? "USTA" : WAREHOUSE;
   const srcId = source.type === "USTA" ? source.ustaId : WAREHOUSE;
-  if (srcType === "USTA" && !srcId) return { ok: false, error: "Usta tanlanmagan" };
+  if (!installed && srcType === "USTA" && !srcId) {
+    return { ok: false, error: "Usta tanlanmagan" };
+  }
 
   const client = await db.client.findUnique({ where: { id: clientId } });
   if (!client) return { ok: false, error: "Mijoz topilmadi" };
@@ -257,25 +264,29 @@ export async function assignEquipmentBatchToClient(
       for (const [equipmentTypeId, quantity] of entries) {
         const type = typeById.get(equipmentTypeId)!;
 
-        const src = await tx.inventoryStock.findUnique({
-          where: {
-            locationType_locationId_equipmentTypeId: {
-              locationType: srcType,
-              locationId: srcId,
-              equipmentTypeId,
+        // "O'rnatilgan" rejimda uskuna manbadan (ombor/usta) kelmaydi — qoldiq
+        // ayirilmaydi. Aks holda manbadan yetarlicha bo'lishi tekshiriladi va ayiriladi.
+        if (!installed) {
+          const src = await tx.inventoryStock.findUnique({
+            where: {
+              locationType_locationId_equipmentTypeId: {
+                locationType: srcType,
+                locationId: srcId,
+                equipmentTypeId,
+              },
             },
-          },
-        });
-        const available = src?.quantity ?? 0;
-        if (available < quantity) {
-          throw new Error(
-            `${type.name}: ${srcType === "USTA" ? "ustada" : "omborda"} yetarli emas (mavjud: ${available})`,
-          );
+          });
+          const available = src?.quantity ?? 0;
+          if (available < quantity) {
+            throw new Error(
+              `${type.name}: ${srcType === "USTA" ? "ustada" : "omborda"} yetarli emas (mavjud: ${available})`,
+            );
+          }
+          await tx.inventoryStock.update({
+            where: { id: src!.id },
+            data: { quantity: available - quantity },
+          });
         }
-        await tx.inventoryStock.update({
-          where: { id: src!.id },
-          data: { quantity: available - quantity },
-        });
 
         const existing = await tx.clientEquipment.findUnique({
           where: {
@@ -297,21 +308,25 @@ export async function assignEquipmentBatchToClient(
           data: {
             equipmentTypeId,
             quantity,
-            fromType: srcType,
-            fromId: srcId,
+            fromType: installed ? null : srcType,
+            fromId: installed ? null : srcId,
             toType: "CLIENT",
             toId: clientId,
-            reason: ownership === "RENTAL" ? "Mijozga ijara" : "Mijozga sotuv",
+            reason: installed
+              ? "Allaqachon o'rnatilgan (import)"
+              : ownership === "RENTAL"
+                ? "Mijozga ijara"
+                : "Mijozga sotuv",
             note: ustaName ? `Usta: ${ustaName}` : null,
             byUserId: m.userId,
           },
         });
 
-        if (ownership === "SOLD") saleTotal += type.salePrice * quantity;
+        if (!installed && ownership === "SOLD") saleTotal += type.salePrice * quantity;
       }
 
-      // Sotuv — barcha turlar bo'yicha bitta yig'ma to'lov.
-      if (ownership === "SOLD" && saleTotal > 0) {
+      // Sotuv — barcha turlar bo'yicha bitta yig'ma to'lov (o'rnatilganda YOZILMAYDI).
+      if (!installed && ownership === "SOLD" && saleTotal > 0) {
         const note =
           "Uskuna sotuvi: " +
           entries.map(([id, q]) => `${typeById.get(id)!.name} ×${q}`).join(", ");
@@ -338,7 +353,11 @@ export async function assignEquipmentBatchToClient(
     detail:
       entries.map(([id, q]) => `${typeById.get(id)!.name} ×${q}`).join(", ") +
       ` (${ownership === "RENTAL" ? "ijara" : "sotuv"})` +
-      (ustaName ? ` · ${ustaName} zaxirasidan` : " · ombordan"),
+      (installed
+        ? " · allaqachon o'rnatilgan"
+        : ustaName
+          ? ` · ${ustaName} zaxirasidan`
+          : " · ombordan"),
   });
   revalidatePath(`/mijozlar/${clientId}`);
   revalidatePath("/ombor");

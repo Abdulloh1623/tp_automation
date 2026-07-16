@@ -65,6 +65,9 @@ export function ClientEquipmentPanel({
 
   const [aOwn, setAOwn] = useState("RENTAL");
   const [aSource, setASource] = useState("WAREHOUSE");
+  // "Allaqachon o'rnatilgan" — oldindan mavjud mijoz uchun: ombordan qoldiq
+  // ayirilmaydi, sotuvda yangi to'lov yozilmaydi (uskuna allaqachon mijozda).
+  const [installed, setInstalled] = useState(false);
   const [rows, setRows] = useState<Row[]>([{ key: 1, typeId: types[0]?.id ?? "", qty: "1" }]);
   const [seq, setSeq] = useState(1);
 
@@ -136,7 +139,9 @@ export function ClientEquipmentPanel({
       ? { type: "USTA", ustaId: effSource.slice(5) }
       : { type: "WAREHOUSE" };
     run(async () => {
-      const res = await assignEquipmentBatchToClient(clientId, list, aOwn, source);
+      const res = await assignEquipmentBatchToClient(clientId, list, aOwn, source, {
+        alreadyInstalled: installed,
+      });
       if (res.ok) {
         setRows([{ key: seq + 1, typeId: types[0]?.id ?? "", qty: "1" }]);
         setSeq((s) => s + 1);
@@ -220,7 +225,11 @@ export function ClientEquipmentPanel({
             </div>
             <div>
               <Label>Manba (qayerdan)</Label>
-              <Select value={effSource} onChange={(e) => setASource(e.target.value)}>
+              <Select
+                value={effSource}
+                onChange={(e) => setASource(e.target.value)}
+                disabled={installed}
+              >
                 {sourceOptions.map((o) => (
                   <option key={o.key} value={o.key}>
                     {o.label}
@@ -229,15 +238,33 @@ export function ClientEquipmentPanel({
               </Select>
             </div>
           </div>
-          <p className="text-xs text-slate-400 dark:text-slate-500">
-            Usta o'zi olib borgan bo'lsa — usta zaxirasidan; Toshkentda ombordan olib ketilsa — Sklad.
-          </p>
+
+          <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-200">
+            <input
+              type="checkbox"
+              checked={installed}
+              onChange={(e) => setInstalled(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Allaqachon o'rnatilgan (ombordan qoldiq ayirilmaydi)
+              <span className="block text-xs text-slate-400 dark:text-slate-500">
+                Oldindan mavjud mijoz uchun — uskuna allaqachon mijozda, sotuvda yangi to'lov yozilmaydi.
+              </span>
+            </span>
+          </label>
+
+          {!installed && (
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              Usta o'zi olib borgan bo'lsa — usta zaxirasidan; Toshkentda ombordan olib ketilsa — Sklad.
+            </p>
+          )}
 
           {/* Texnika qatorlari */}
           <div className="space-y-2">
             {rows.map((r) => {
               const avail = availFor(r.typeId);
-              const over = Number(r.qty) > avail;
+              const over = !installed && Number(r.qty) > avail;
               return (
                 <div key={r.key} className="flex items-end gap-2">
                   <div className="flex-1">
@@ -262,14 +289,16 @@ export function ClientEquipmentPanel({
                       onChange={(e) => updateRow(r.key, { qty: e.target.value })}
                       className={over ? "border-red-300 dark:border-red-700" : ""}
                     />
-                    <p
-                      className={
-                        "mt-0.5 text-[11px] " +
-                        (over ? "text-red-600 dark:text-red-400" : "text-slate-400 dark:text-slate-500")
-                      }
-                    >
-                      mavjud: {avail}
-                    </p>
+                    {!installed && (
+                      <p
+                        className={
+                          "mt-0.5 text-[11px] " +
+                          (over ? "text-red-600 dark:text-red-400" : "text-slate-400 dark:text-slate-500")
+                        }
+                      >
+                        mavjud: {avail}
+                      </p>
+                    )}
                   </div>
                   <Button
                     variant="ghost"

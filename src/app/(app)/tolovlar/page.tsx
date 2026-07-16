@@ -42,7 +42,10 @@ export default async function PaymentsPage() {
   await requireRole(["ADMIN", "MANAGER", "OPERATOR"]);
   const clients = await db.client.findMany({
     where: { status: "ACTIVE" },
-    include: { assignedTo: { select: { name: true } } },
+    include: {
+      assignedTo: { select: { name: true } },
+      specialNoteBy: { select: { name: true } },
+    },
   });
 
   const monthStart = startOfMonth(new Date());
@@ -89,6 +92,9 @@ export default async function PaymentsPage() {
       overdue: state === "OVERDUE",
       monthlyFmt: formatMoney(c.monthlyAmount, c.currency),
       operatorName: c.assignedTo?.name ?? "—",
+      specialNote: c.specialNote,
+      specialNoteBy: c.specialNoteBy?.name ?? null,
+      specialNoteAt: c.specialNoteAt ? c.specialNoteAt.toISOString() : null,
     };
   });
 

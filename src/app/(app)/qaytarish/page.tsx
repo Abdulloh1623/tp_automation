@@ -22,7 +22,16 @@ export default async function QaytarishPage() {
       orderBy: { createdAt: "asc" },
       include: {
         client: {
-          select: { restaurantName: true, fullName: true, phone: true, region: true },
+          select: {
+            id: true,
+            restaurantName: true,
+            fullName: true,
+            phone: true,
+            region: true,
+            specialNote: true,
+            specialNoteAt: true,
+            specialNoteBy: { select: { name: true } },
+          },
         },
       },
     }),
@@ -47,10 +56,14 @@ export default async function QaytarishPage() {
   const items: ReturnQueueItem[] = requests.map((r) => ({
     id: r.id,
     status: r.status,
+    clientId: r.client.id,
     restaurantName: r.client.restaurantName,
     fullName: r.client.fullName,
     phone: r.client.phone,
     region: r.client.region,
+    specialNote: r.client.specialNote,
+    specialNoteBy: r.client.specialNoteBy?.name ?? null,
+    specialNoteAt: r.client.specialNoteAt ? r.client.specialNoteAt.toISOString() : null,
     note: r.note,
     byName: r.byUserId ? userById.get(r.byUserId)?.name ?? null : null,
     ustaName: r.ustaId ? userById.get(r.ustaId)?.name ?? null : null,

@@ -31,6 +31,7 @@ export default async function NewClientPage() {
             action={createClient}
             operators={operators}
             submitLabel="Mijozni qo'shish"
+            showInitialPayment
           />
         </CardContent>
       </Card>

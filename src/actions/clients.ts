@@ -38,6 +38,7 @@ const clientSchema = z.object({
   monthlyAmount: z.coerce.number().min(0).default(0),
   currency: currencyEnum.default("USD"),
   nextPaymentDate: z.string().optional(),
+  debtAmount: z.coerce.number().min(0).default(0),
   notes: noteString.optional(),
   assignedToId: z.string().optional(),
 }).superRefine(requireActivePaymentDate);
@@ -89,6 +90,7 @@ function parseForm(formData: FormData) {
     monthlyAmount: s(formData.get("monthlyAmount")) ?? 0,
     currency: s(formData.get("currency")) ?? "USD",
     nextPaymentDate,
+    debtAmount: s(formData.get("debtAmount")) ?? 0,
     notes: s(formData.get("notes")),
     assignedToId: s(formData.get("assignedToId")),
   });
@@ -111,6 +113,7 @@ function toData(parsed: z.infer<typeof clientSchema>) {
     nextPaymentDate: parsed.nextPaymentDate
       ? new Date(parsed.nextPaymentDate)
       : null,
+    debtAmount: parsed.debtAmount,
     notes: parsed.notes ?? null,
     assignedToId: parsed.assignedToId ?? null,
   };
@@ -147,6 +150,7 @@ function diffClient(
   cmp("monthlyAmount", before.monthlyAmount, after.monthlyAmount);
   cmp("currency", before.currency, after.currency);
   cmp("nextPaymentDate", day(before.nextPaymentDate), day(after.nextPaymentDate));
+  cmp("debtAmount", before.debtAmount, after.debtAmount);
   cmp("notes", before.notes, after.notes);
   cmp("assignedToId", before.assignedToId, after.assignedToId);
 
@@ -178,6 +182,25 @@ export async function createClient(
   const created = await db.client.create({
     data: { ...toData(parsed.data), assignedToId, phones: { create: phones } },
   });
+
+  // Oxirgi (boshlang'ich) to'lov — oldindan mavjud mijoz uchun ixtiyoriy: bitta
+  // tarixiy Payment yoziladi. Tarixiy bo'lgani uchun chek MAJBURIY emas.
+  const payAmount = Number(s(formData.get("lastPaymentAmount")) ?? "");
+  const payDate = s(formData.get("lastPaymentDate"));
+  if (Number.isFinite(payAmount) && payAmount > 0) {
+    const paidAt = payDate ? new Date(payDate) : null;
+    await db.payment.create({
+      data: {
+        clientId: created.id,
+        amount: payAmount,
+        currency: created.currency,
+        paidAt: paidAt && !Number.isNaN(paidAt.getTime()) ? paidAt : undefined,
+        receiptNote: "Boshlang'ich to'lov (oldindan mavjud mijoz)",
+        recordedById: g.session.userId,
+      },
+    });
+  }
+
   await logAudit("Mijoz qo'shildi", {
     entity: "Client",
     entityId: created.id,

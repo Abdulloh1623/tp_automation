@@ -23,6 +23,7 @@ import { TicketIntegratorControl } from "@/components/ticket-integrator-control"
 import { TicketForm } from "@/components/ticket-form";
 import { TicketTabs, type TicketTab } from "@/components/ticket-tabs";
 import { PhoneCopyButton } from "@/components/phone-copy";
+import { SpecialNoteBell } from "@/components/special-note-bell";
 import { EmptyState } from "@/components/empty-state";
 import { TICKET_TYPE, TICKET_PRIORITY } from "@/lib/constants";
 import { formatDate, formatPhone, normalizePhone } from "@/lib/utils";
@@ -100,6 +101,9 @@ export default async function TicketsPage({
             restaurantName: true,
             fullName: true,
             phone: true,
+            specialNote: true,
+            specialNoteAt: true,
+            specialNoteBy: { select: { name: true } },
             callLogs: {
               where: { note: { not: null } },
               orderBy: { calledAt: "desc" },
@@ -159,12 +163,21 @@ export default async function TicketsPage({
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="font-medium text-slate-900 dark:text-slate-100">{t.title}</div>
-            <Link
-              href={`/mijozlar/${t.client.id}`}
-              className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700"
-            >
-              {t.client.restaurantName}
-            </Link>
+            <span className="inline-flex items-center gap-1.5">
+              <Link
+                href={`/mijozlar/${t.client.id}`}
+                className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700"
+              >
+                {t.client.restaurantName}
+              </Link>
+              <SpecialNoteBell
+                clientId={t.client.id}
+                restaurantName={t.client.restaurantName || t.client.fullName}
+                note={t.client.specialNote}
+                noteBy={t.client.specialNoteBy?.name ?? null}
+                noteAt={t.client.specialNoteAt ? t.client.specialNoteAt.toISOString() : null}
+              />
+            </span>
             <span className="text-sm text-slate-400 dark:text-slate-500"> · {t.client.fullName}</span>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">

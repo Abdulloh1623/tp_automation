@@ -14,6 +14,7 @@ import { toast } from "@/components/toaster";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PhoneCopyButton } from "@/components/phone-copy";
+import { SpecialNoteBell } from "@/components/special-note-bell";
 import {
   SearchInput,
   RegionSelect,
@@ -37,6 +38,9 @@ export type SuggestionItem = {
   createdAtFmt: string;
   resolvedAtFmt: string | null;
   overdue: boolean;
+  specialNote: string | null;
+  specialNoteBy: string | null;
+  specialNoteAt: string | null;
 };
 
 export function SuggestionsList({ items }: { items: SuggestionItem[] }) {
@@ -119,8 +123,17 @@ export function SuggestionsList({ items }: { items: SuggestionItem[] }) {
                 <CardContent className="space-y-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <div className="font-medium text-slate-900 dark:text-slate-100">
-                        {s.restaurantName}
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium text-slate-900 dark:text-slate-100">
+                          {s.restaurantName}
+                        </span>
+                        <SpecialNoteBell
+                          clientId={s.clientId}
+                          restaurantName={s.restaurantName || s.fullName}
+                          note={s.specialNote}
+                          noteBy={s.specialNoteBy}
+                          noteAt={s.specialNoteAt}
+                        />
                       </div>
                       <div className="flex flex-wrap items-center gap-x-3 text-xs text-slate-500 dark:text-slate-400">
                         <span>{s.fullName}</span>

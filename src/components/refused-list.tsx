@@ -6,6 +6,7 @@ import { Ban, MapPin, Phone } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { LeadRevertButton } from "@/components/lead-revert-button";
 import { PhoneCopyButton } from "@/components/phone-copy";
+import { SpecialNoteBell } from "@/components/special-note-bell";
 import {
   SearchInput,
   RegionSelect,
@@ -25,6 +26,9 @@ export type RefusedItem = {
   lastNote: string | null;
   lastNoteBy: string | null;
   lastNoteAtFmt: string | null;
+  specialNote: string | null;
+  specialNoteBy: string | null;
+  specialNoteAt: string | null;
 };
 
 export function RefusedList({
@@ -69,8 +73,17 @@ export function RefusedList({
               <CardContent className="space-y-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <div className="font-medium text-slate-900 dark:text-slate-100">
-                      {c.restaurantName}
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium text-slate-900 dark:text-slate-100">
+                        {c.restaurantName}
+                      </span>
+                      <SpecialNoteBell
+                        clientId={c.id}
+                        restaurantName={c.restaurantName || c.fullName}
+                        note={c.specialNote}
+                        noteBy={c.specialNoteBy}
+                        noteAt={c.specialNoteAt}
+                      />
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 text-xs text-slate-500 dark:text-slate-400">
                       <span>{c.fullName}</span>

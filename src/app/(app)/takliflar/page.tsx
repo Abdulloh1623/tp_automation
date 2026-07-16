@@ -13,7 +13,18 @@ export default async function SuggestionsPage() {
     orderBy: [{ status: "asc" }, { createdAt: "desc" }], // OPEN oldin, so'ng yangi
     take: 300,
     include: {
-      client: { select: { id: true, restaurantName: true, fullName: true, phone: true, region: true } },
+      client: {
+        select: {
+          id: true,
+          restaurantName: true,
+          fullName: true,
+          phone: true,
+          region: true,
+          specialNote: true,
+          specialNoteAt: true,
+          specialNoteBy: { select: { name: true } },
+        },
+      },
     },
   });
 
@@ -46,6 +57,9 @@ export default async function SuggestionsPage() {
     createdAtFmt: formatDateTime(s.createdAt),
     resolvedAtFmt: s.resolvedAt ? formatDateTime(s.resolvedAt) : null,
     overdue: s.status === "OPEN" && s.createdAt < overdueBefore,
+    specialNote: s.client.specialNote,
+    specialNoteBy: s.client.specialNoteBy?.name ?? null,
+    specialNoteAt: s.client.specialNoteAt ? s.client.specialNoteAt.toISOString() : null,
   }));
 
   const openCount = items.filter((i) => i.status === "OPEN").length;

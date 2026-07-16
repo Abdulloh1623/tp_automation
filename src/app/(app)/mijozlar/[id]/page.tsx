@@ -36,6 +36,7 @@ import {
   TicketTypeBadge,
 } from "@/components/status-badge";
 import { CallLogForm } from "@/components/call-log-form";
+import { SpecialNoteBell } from "@/components/special-note-bell";
 import { ClientRefuseButton } from "@/components/client-refuse-button";
 import { PaymentForm } from "@/components/payment-form";
 import { PaymentHistoryActions } from "@/components/payment-history-actions";
@@ -129,6 +130,7 @@ export default async function ClientDetailPage({
       },
       tickets: { orderBy: { createdAt: "desc" } },
       phones: { orderBy: { createdAt: "asc" } },
+      specialNoteBy: { select: { name: true } },
       equipmentItems: { include: { equipmentType: true } },
       returnRequests: {
         where: { status: { in: ["PENDING", "APPROVED"] } },
@@ -232,6 +234,13 @@ export default async function ClientDetailPage({
             <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
               {client.restaurantName}
             </h1>
+            <SpecialNoteBell
+              clientId={client.id}
+              restaurantName={client.restaurantName || client.fullName}
+              note={client.specialNote}
+              noteBy={client.specialNoteBy?.name ?? null}
+              noteAt={client.specialNoteAt ? client.specialNoteAt.toISOString() : null}
+            />
             <ClientStatusBadge status={client.status} />
             {client.stage === "REFUSED" && (
               <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 dark:bg-rose-950 px-2.5 py-0.5 text-xs font-medium text-rose-700 dark:text-rose-300">

@@ -87,6 +87,7 @@ export default async function ClientsPage({
         take: 1,
         select: { operator: { select: { name: true } } },
       },
+      specialNoteBy: { select: { name: true } },
     },
   });
 
@@ -101,6 +102,9 @@ export default async function ClientsPage({
     monthlyAmount: c.monthlyAmount,
     currency: c.currency,
     lastOperatorName: c.callLogs[0]?.operator?.name ?? null,
+    specialNote: c.specialNote,
+    specialNoteBy: c.specialNoteBy?.name ?? null,
+    specialNoteAt: c.specialNoteAt ? c.specialNoteAt.toISOString() : null,
   }));
 
   // Sahifa havolasini joriy filtrlarni saqlab tuzish

@@ -11,6 +11,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Global kalit-qiymat sozlamalar (masalan `statsResetAt` — tablo ko'rsatkichlari
+// shu sanadan boshlab hisoblanadi; ma'lumot o'chirilmaydi, faqat filtrlanadi).
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 model User {
   id              String   @id @default(cuid())
   name            String

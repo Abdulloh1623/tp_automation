@@ -1,5 +1,6 @@
 import { addDays, endOfDay, startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { db } from "@/lib/db";
+import { getStatsResetAt } from "@/lib/settings";
 import {
   ACTIVE_STAGES,
   CLIENT_STATUS,
@@ -102,13 +103,23 @@ export async function getAnalytics(shift?: Shift): Promise<Analytics> {
   const now = new Date();
   const activeShift = shift ?? currentShift(now);
   const { start: shiftStart, end: shiftEnd } = shiftRange(activeShift, now);
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // dushanba
-  const monthStart = startOfMonth(now);
+  let weekStart = startOfWeek(now, { weekStartsOn: 1 }); // dushanba
+  let monthStart = startOfMonth(now);
+  let effShiftStart = shiftStart;
+
+  // Tablo hisob chegarasi (statsResetAt) — belgilangan bo'lsa, undan oldingi
+  // CallLog'lar hisobga OLINMAYDI (o'chirilmaydi — jurnal to'liq qoladi). Shunda
+  // "oldingi natijalar" 0 bo'ladi, bugungisi saqlanadi.
+  const statsFloor = await getStatsResetAt();
+  if (statsFloor) {
+    if (weekStart < statsFloor) weekStart = statsFloor;
+    if (monthStart < statsFloor) monthStart = statsFloor;
+    if (effShiftStart < statsFloor) effShiftStart = statsFloor;
+  }
+
   // Loglar barcha oynalarni (smena/hafta/oy) qamrashi uchun — eng erta boshidan.
-  // (Oy boshida hafta boshi oy boshidan oldin bo'lishi mumkin — shunda weekTalked
-  //  kam sanalmasligi uchun weekStart ham hisobga olinadi.)
   const logsSince = new Date(
-    Math.min(shiftStart.getTime(), weekStart.getTime(), monthStart.getTime()),
+    Math.min(effShiftStart.getTime(), weekStart.getTime(), monthStart.getTime()),
   );
 
   const todayStart = startOfDay(now);
@@ -189,20 +200,20 @@ export async function getAnalytics(shift?: Shift): Promise<Analytics> {
   for (const l of logs) {
     // "Gaplashildi" — operator mijozga haqiqatan yetgan natija (ko'tarmadi/o'chiq/band emas)
     const talked = TALKED_RESULTS.includes(l.result);
+    // Oynalar statsFloor bilan qirqilgan (weekStart/monthStart/effShiftStart).
+    const inMonth = l.calledAt >= monthStart;
     const inWeek = l.calledAt >= weekStart;
-    // "today" — tanlangan smena oynasi: [shiftStart, shiftEnd)
-    const inToday = l.calledAt >= shiftStart && l.calledAt < shiftEnd;
+    // "today" — tanlangan smena oynasi: [effShiftStart, shiftEnd)
+    const inToday = l.calledAt >= effShiftStart && l.calledAt < shiftEnd;
 
-    totals.monthCalls++;
-    if (talked) totals.monthTalked++;
+    if (inMonth) { totals.monthCalls++; if (talked) totals.monthTalked++; }
     if (inWeek) { totals.weekCalls++; if (talked) totals.weekTalked++; }
     if (inToday) { totals.todayCalls++; if (talked) totals.todayTalked++; }
 
     if (!l.operatorId) continue;
     let a = byOp.get(l.operatorId);
     if (!a) { a = blank(); byOp.set(l.operatorId, a); }
-    a.monthCalls++;
-    if (talked) a.monthTalked++;
+    if (inMonth) { a.monthCalls++; if (talked) a.monthTalked++; }
     if (inWeek) { a.weekCalls++; if (talked) a.weekTalked++; }
     if (inToday) {
       a.todayCalls++;

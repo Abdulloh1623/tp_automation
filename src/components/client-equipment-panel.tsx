@@ -2,10 +2,11 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { PackagePlus, Undo2, AlertCircle, Check, Clock } from "lucide-react";
+import { PackagePlus, Undo2, AlertCircle, Check, Clock, Plus, Trash2 } from "lucide-react";
 import {
-  assignEquipmentToClient,
+  assignEquipmentBatchToClient,
   requestEquipmentReturn,
+  type EquipmentSource,
 } from "@/actions/equipment";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,8 @@ export type UstaSource = {
   items: { equipmentTypeId: string; quantity: number }[];
 };
 
+type Row = { key: number; typeId: string; qty: string };
+
 export function ClientEquipmentPanel({
   clientId,
   role,
@@ -60,35 +63,52 @@ export function ClientEquipmentPanel({
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const [aType, setAType] = useState(types[0]?.id ?? "");
   const [aOwn, setAOwn] = useState("RENTAL");
-  const [aQty, setAQty] = useState("1");
   const [aSource, setASource] = useState("WAREHOUSE");
-
-  // Tanlangan texnika turi bo'yicha mavjud manbalar: ombor + o'sha turdan
-  // zaxirasi bor ustalar. Qoldiq (dona) yonida ko'rsatiladi.
-  const sourceOptions = useMemo(() => {
-    const wh = types.find((t) => t.id === aType)?.warehouse ?? 0;
-    const opts = [{ key: "WAREHOUSE", label: `Sklad (omborda: ${wh})` }];
-    for (const u of ustaSources) {
-      const qty = u.items.find((i) => i.equipmentTypeId === aType)?.quantity ?? 0;
-      if (qty > 0) {
-        opts.push({ key: `USTA:${u.ustaId}`, label: `Usta: ${u.ustaName} (${qty} dona)` });
-      }
-    }
-    return opts;
-  }, [aType, types, ustaSources]);
-
-  // Tanlov ro'yxatda bo'lmasa (tur o'zgargan) — birinchi mavjud manbaga tushamiz.
-  const effSource = sourceOptions.some((o) => o.key === aSource)
-    ? aSource
-    : (sourceOptions[0]?.key ?? "WAREHOUSE");
+  const [rows, setRows] = useState<Row[]>([{ key: 1, typeId: types[0]?.id ?? "", qty: "1" }]);
+  const [seq, setSeq] = useState(1);
 
   const [rNote, setRNote] = useState("");
 
   const isManager = role === "ADMIN" || role === "MANAGER";
   const canReturn = role === "ADMIN" || role === "MANAGER" || role === "OPERATOR";
   const hasRental = items.some((i) => i.ownership === "RENTAL" && i.quantity > 0);
+
+  // Manba ro'yxati (umumiy — barcha qatorlarga): ombor + zaxirasi bor ustalar.
+  const sourceOptions = useMemo(() => {
+    const opts = [{ key: "WAREHOUSE", label: "Sklad (ombor)" }];
+    for (const u of ustaSources) {
+      opts.push({ key: `USTA:${u.ustaId}`, label: `Usta: ${u.ustaName}` });
+    }
+    return opts;
+  }, [ustaSources]);
+  const effSource = sourceOptions.some((o) => o.key === aSource)
+    ? aSource
+    : (sourceOptions[0]?.key ?? "WAREHOUSE");
+
+  // Tanlangan manbadagi mavjud qoldiq (tur bo'yicha).
+  function availFor(typeId: string): number {
+    if (effSource.startsWith("USTA:")) {
+      const uid = effSource.slice(5);
+      return (
+        ustaSources.find((u) => u.ustaId === uid)?.items.find((i) => i.equipmentTypeId === typeId)
+          ?.quantity ?? 0
+      );
+    }
+    return types.find((t) => t.id === typeId)?.warehouse ?? 0;
+  }
+
+  function addRow() {
+    const next = seq + 1;
+    setSeq(next);
+    setRows((rs) => [...rs, { key: next, typeId: types[0]?.id ?? "", qty: "1" }]);
+  }
+  function removeRow(key: number) {
+    setRows((rs) => (rs.length > 1 ? rs.filter((r) => r.key !== key) : rs));
+  }
+  function updateRow(key: number, patch: Partial<Row>) {
+    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  }
 
   function run(fn: () => Promise<{ ok: boolean; error?: string }>, okMsg: string) {
     setErr(null);
@@ -102,6 +122,27 @@ export function ClientEquipmentPanel({
         setErr(res.error ?? "Xatolik");
       }
     });
+  }
+
+  function submitAssign() {
+    const list = rows
+      .map((r) => ({ equipmentTypeId: r.typeId, quantity: Number(r.qty) }))
+      .filter((i) => i.equipmentTypeId && i.quantity > 0);
+    if (list.length === 0) {
+      setErr("Kamida bitta texnika va miqdor kiriting");
+      return;
+    }
+    const source: EquipmentSource = effSource.startsWith("USTA:")
+      ? { type: "USTA", ustaId: effSource.slice(5) }
+      : { type: "WAREHOUSE" };
+    run(async () => {
+      const res = await assignEquipmentBatchToClient(clientId, list, aOwn, source);
+      if (res.ok) {
+        setRows([{ key: seq + 1, typeId: types[0]?.id ?? "", qty: "1" }]);
+        setSeq((s) => s + 1);
+      }
+      return res;
+    }, "Uskunalar biriktirildi");
   }
 
   return (
@@ -164,21 +205,12 @@ export function ClientEquipmentPanel({
         </div>
       )}
 
-      {/* Manager: uskuna biriktirish */}
+      {/* Manager: bir yoki bir nechta uskuna biriktirish */}
       {isManager && (
         <div className="space-y-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">
           <div className="text-sm font-medium text-slate-700 dark:text-slate-200">Uskuna biriktirish</div>
+
           <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label>Texnika</Label>
-              <Select value={aType} onChange={(e) => setAType(e.target.value)}>
-                {types.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} (omborda: {t.warehouse})
-                  </option>
-                ))}
-              </Select>
-            </div>
             <div>
               <Label>Egalik</Label>
               <Select value={aOwn} onChange={(e) => setAOwn(e.target.value)}>
@@ -186,42 +218,78 @@ export function ClientEquipmentPanel({
                 <option value="SOLD">Sotuv</option>
               </Select>
             </div>
-          </div>
-          <div>
-            <Label>Manba (qayerdan)</Label>
-            <Select value={effSource} onChange={(e) => setASource(e.target.value)}>
-              {sourceOptions.map((o) => (
-                <option key={o.key} value={o.key}>
-                  {o.label}
-                </option>
-              ))}
-            </Select>
-            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-              Usta o'zi olib borgan bo'lsa — usta zaxirasidan; Toshkentda ombordan olib ketilsa — Sklad.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 items-end gap-2">
             <div>
-              <Label>Miqdor</Label>
-              <Input
-                type="number"
-                min={1}
-                value={aQty}
-                onChange={(e) => setAQty(e.target.value)}
-              />
+              <Label>Manba (qayerdan)</Label>
+              <Select value={effSource} onChange={(e) => setASource(e.target.value)}>
+                {sourceOptions.map((o) => (
+                  <option key={o.key} value={o.key}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
             </div>
-            <Button
-              disabled={pending || !aType}
-              onClick={() => {
-                const source = effSource.startsWith("USTA:")
-                  ? ({ type: "USTA", ustaId: effSource.slice(5) } as const)
-                  : ({ type: "WAREHOUSE" } as const);
-                run(
-                  () => assignEquipmentToClient(clientId, aType, aOwn, Number(aQty), source),
-                  "Uskuna biriktirildi",
-                );
-              }}
-            >
+          </div>
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            Usta o'zi olib borgan bo'lsa — usta zaxirasidan; Toshkentda ombordan olib ketilsa — Sklad.
+          </p>
+
+          {/* Texnika qatorlari */}
+          <div className="space-y-2">
+            {rows.map((r) => {
+              const avail = availFor(r.typeId);
+              const over = Number(r.qty) > avail;
+              return (
+                <div key={r.key} className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Label>Texnika</Label>
+                    <Select
+                      value={r.typeId}
+                      onChange={(e) => updateRow(r.key, { typeId: e.target.value })}
+                    >
+                      {types.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="w-24">
+                    <Label>Miqdor</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={r.qty}
+                      onChange={(e) => updateRow(r.key, { qty: e.target.value })}
+                      className={over ? "border-red-300 dark:border-red-700" : ""}
+                    />
+                    <p
+                      className={
+                        "mt-0.5 text-[11px] " +
+                        (over ? "text-red-600 dark:text-red-400" : "text-slate-400 dark:text-slate-500")
+                      }
+                    >
+                      mavjud: {avail}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    className="mb-5 h-9 w-9 shrink-0 p-0 text-slate-400 hover:text-red-600"
+                    disabled={rows.length <= 1}
+                    onClick={() => removeRow(r.key)}
+                    aria-label="Qatorni o'chirish"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center justify-between gap-2">
+            <Button variant="outline" className="text-sm" onClick={addRow} disabled={pending}>
+              <Plus className="h-4 w-4" /> Texnika qo'shish
+            </Button>
+            <Button disabled={pending} onClick={submitAssign}>
               <PackagePlus className="h-4 w-4" /> Biriktirish
             </Button>
           </div>

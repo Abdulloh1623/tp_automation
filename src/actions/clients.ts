@@ -163,6 +163,38 @@ function diffClient(
   return changes;
 }
 
+type EqRow = { typeId: string; qty: number; ownership: string; price: number };
+
+/**
+ * Yangi mijoz formasidagi uskuna tanlovini o'qiydi (faqat ADMIN/MANAGER, eqMode=
+ * EQUIPMENT bo'lganda). Bir xil (tur+egalik) qatorlari birlashtiriladi.
+ */
+function parseEquipmentSelection(
+  formData: FormData,
+  canEquip: boolean,
+): { rows: EqRow[]; source: string } {
+  const source = s(formData.get("eqSource")) ?? "WAREHOUSE";
+  if (!canEquip || s(formData.get("eqMode")) !== "EQUIPMENT") return { rows: [], source };
+  const typeIds = formData.getAll("eqTypeId").map(String);
+  const qtys = formData.getAll("eqQty").map(String);
+  const owns = formData.getAll("eqOwnership").map(String);
+  const prices = formData.getAll("eqPrice").map(String);
+  const merged = new Map<string, EqRow>();
+  for (let i = 0; i < typeIds.length; i++) {
+    const typeId = (typeIds[i] ?? "").trim();
+    const qty = Math.floor(Number(qtys[i]));
+    if (!typeId || !Number.isFinite(qty) || qty <= 0) continue;
+    const ownership = owns[i] === "SOLD" ? "SOLD" : "RENTAL";
+    const p = Number(prices[i]);
+    const price = Number.isFinite(p) && p >= 0 ? p : 0;
+    const key = `${typeId}|${ownership}`;
+    const ex = merged.get(key);
+    if (ex) ex.qty += qty;
+    else merged.set(key, { typeId, qty, ownership, price });
+  }
+  return { rows: [...merged.values()], source };
+}
+
 export async function createClient(
   _prev: ClientFormState,
   formData: FormData,
@@ -179,35 +211,162 @@ export async function createClient(
   const phones = parsePhones(formData);
   // assignedToId xavfsiz aniqlanadi (OPERATOR doimo o'ziga; ADMIN/MANAGER validatsiya bilan)
   const assignedToId = await resolveAssignee(g.session, parsed.data.assignedToId);
-  const created = await db.client.create({
-    data: { ...toData(parsed.data), assignedToId, phones: { create: phones } },
-  });
 
-  // Oxirgi (boshlang'ich) to'lov — oldindan mavjud mijoz uchun ixtiyoriy: bitta
-  // tarixiy Payment yoziladi. Tarixiy bo'lgani uchun chek MAJBURIY emas.
-  const payAmount = Number(s(formData.get("lastPaymentAmount")) ?? "");
-  const payDate = s(formData.get("lastPaymentDate"));
-  if (Number.isFinite(payAmount) && payAmount > 0) {
-    const paidAt = payDate ? new Date(payDate) : null;
-    await db.payment.create({
-      data: {
-        clientId: created.id,
-        amount: payAmount,
-        currency: created.currency,
-        paidAt: paidAt && !Number.isNaN(paidAt.getTime()) ? paidAt : undefined,
-        receiptNote: "Boshlang'ich to'lov (oldindan mavjud mijoz)",
-        recordedById: g.session.userId,
-      },
+  // Uskuna tanlovi (faqat ADMIN/MANAGER)
+  const canEquip = g.session.role === "ADMIN" || g.session.role === "MANAGER";
+  const { rows: eqRows, source: eqSource } = parseEquipmentSelection(formData, canEquip);
+  const installed = eqSource === "INSTALLED";
+  const srcType = eqSource.startsWith("USTA:") ? "USTA" : "WAREHOUSE";
+  const srcId = eqSource.startsWith("USTA:") ? eqSource.slice(5) : "WAREHOUSE";
+
+  // Uskuna turlarini tekshirish (nom + tekshiruv uchun)
+  const typeById = new Map<string, { name: string }>();
+  if (eqRows.length > 0) {
+    const ids = [...new Set(eqRows.map((r) => r.typeId))];
+    const types = await db.equipmentType.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true },
     });
+    for (const t of types) typeById.set(t.id, { name: t.name });
+    if (typeById.size !== ids.length) return { error: "Uskuna turi topilmadi" };
+    if (srcType === "USTA" && !srcId) return { error: "Usta tanlanmagan" };
+  }
+
+  // Ijara oylik summasi MRR ustiga qo'shiladi; sotuv shu oy daromadi (bitta Payment).
+  const rentalMonthly = eqRows
+    .filter((r) => r.ownership === "RENTAL")
+    .reduce((sum, r) => sum + r.price * r.qty, 0);
+  const saleTotal = eqRows
+    .filter((r) => r.ownership === "SOLD")
+    .reduce((sum, r) => sum + r.price * r.qty, 0);
+  const equipmentMode = eqRows.some((r) => r.ownership === "RENTAL")
+    ? "RENTAL"
+    : eqRows.some((r) => r.ownership === "SOLD")
+      ? "SOLD"
+      : "PROGRAM_ONLY";
+
+  const clientData = toData(parsed.data);
+  clientData.monthlyAmount = clientData.monthlyAmount + rentalMonthly;
+
+  // Oxirgi (boshlang'ich) to'lov — ixtiyoriy tarixiy Payment (chek shart emas).
+  const payAmount = Number(s(formData.get("lastPaymentAmount")) ?? "");
+  const payDateRaw = s(formData.get("lastPaymentDate"));
+  const initPaidAt = payDateRaw ? new Date(payDateRaw) : null;
+
+  let createdId: string;
+  try {
+    createdId = await db.$transaction(async (tx) => {
+      const created = await tx.client.create({
+        data: { ...clientData, equipmentMode, assignedToId, phones: { create: phones } },
+      });
+
+      if (eqRows.length > 0) {
+        // Ombordan/usta zaxirasidan ayirish (o'rnatilgan bo'lmasa) — tur bo'yicha
+        // umumiy miqdor (bir tur ijara+sotuv bo'lishi mumkin).
+        if (!installed) {
+          const perType = new Map<string, number>();
+          for (const r of eqRows) perType.set(r.typeId, (perType.get(r.typeId) ?? 0) + r.qty);
+          for (const [typeId, qty] of perType) {
+            const src = await tx.inventoryStock.findUnique({
+              where: {
+                locationType_locationId_equipmentTypeId: {
+                  locationType: srcType,
+                  locationId: srcId,
+                  equipmentTypeId: typeId,
+                },
+              },
+            });
+            const avail = src?.quantity ?? 0;
+            if (avail < qty) {
+              throw new Error(
+                `${typeById.get(typeId)!.name}: ${srcType === "USTA" ? "ustada" : "omborda"} yetarli emas (mavjud: ${avail})`,
+              );
+            }
+            await tx.inventoryStock.update({
+              where: { id: src!.id },
+              data: { quantity: avail - qty },
+            });
+          }
+        }
+
+        for (const r of eqRows) {
+          await tx.clientEquipment.create({
+            data: {
+              clientId: created.id,
+              equipmentTypeId: r.typeId,
+              ownership: r.ownership,
+              quantity: r.qty,
+              unitPrice: r.price,
+            },
+          });
+          await tx.equipmentMovement.create({
+            data: {
+              equipmentTypeId: r.typeId,
+              quantity: r.qty,
+              fromType: installed ? null : srcType,
+              fromId: installed ? null : srcId,
+              toType: "CLIENT",
+              toId: created.id,
+              reason: installed
+                ? "Yangi mijoz — o'rnatilgan"
+                : r.ownership === "RENTAL"
+                  ? "Yangi mijoz — ijara"
+                  : "Yangi mijoz — sotuv",
+              byUserId: g.session.userId,
+            },
+          });
+        }
+
+        if (saleTotal > 0) {
+          const note =
+            "Uskuna sotuvi: " +
+            eqRows
+              .filter((r) => r.ownership === "SOLD")
+              .map((r) => `${typeById.get(r.typeId)!.name} ×${r.qty}`)
+              .join(", ");
+          await tx.payment.create({
+            data: {
+              clientId: created.id,
+              amount: saleTotal,
+              currency: created.currency,
+              receiptNote: note,
+              recordedById: g.session.userId,
+            },
+          });
+        }
+      }
+
+      if (Number.isFinite(payAmount) && payAmount > 0) {
+        await tx.payment.create({
+          data: {
+            clientId: created.id,
+            amount: payAmount,
+            currency: created.currency,
+            paidAt: initPaidAt && !Number.isNaN(initPaidAt.getTime()) ? initPaidAt : undefined,
+            receiptNote: "Boshlang'ich to'lov (oldindan mavjud mijoz)",
+            recordedById: g.session.userId,
+          },
+        });
+      }
+
+      return created.id;
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Saqlashda xatolik" };
   }
 
   await logAudit("Mijoz qo'shildi", {
     entity: "Client",
-    entityId: created.id,
-    detail: created.restaurantName,
+    entityId: createdId,
+    detail:
+      parsed.data.restaurantName +
+      (eqRows.length > 0
+        ? ` · uskuna: ${eqRows.map((r) => `${typeById.get(r.typeId)!.name} ×${r.qty}`).join(", ")}`
+        : ""),
   });
   revalidatePath("/mijozlar");
-  redirect(`/mijozlar/${created.id}`);
+  revalidatePath("/ombor");
+  redirect(`/mijozlar/${createdId}`);
 }
 
 export async function updateClient(

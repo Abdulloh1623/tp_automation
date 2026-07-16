@@ -199,8 +199,11 @@ export default async function ClientDetailPage({
     name: e.equipmentType.name,
     ownership: e.ownership,
     quantity: e.quantity,
-    rentalPrice: e.equipmentType.rentalPrice,
-    salePrice: e.equipmentType.salePrice,
+    // Biriktirishda kelishilgan narx (unitPrice) bo'lsa — o'sha; aks holda turning standarti.
+    rentalPrice:
+      e.ownership === "RENTAL" && e.unitPrice != null ? e.unitPrice : e.equipmentType.rentalPrice,
+    salePrice:
+      e.ownership === "SOLD" && e.unitPrice != null ? e.unitPrice : e.equipmentType.salePrice,
   }));
 
   // Oylik to'lov = monthlyAmount (mijoz to'laydigan JAMI). Uskuna ijara summasi

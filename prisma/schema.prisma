@@ -314,6 +314,7 @@ model ClientEquipment {
   equipmentType   EquipmentType @relation(fields: [equipmentTypeId], references: [id])
   quantity        Int           @default(0)
   ownership       String // RENTAL | SOLD
+  unitPrice       Float? // biriktirishda kelishilgan birlik narxi; null = EquipmentType standart narxi
 
   @@unique([clientId, equipmentTypeId, ownership])
   @@index([clientId])

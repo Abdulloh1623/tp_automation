@@ -14,6 +14,8 @@ import {
   ClientPhonesField,
   type PhoneValue,
 } from "@/components/client-phones-field";
+import { ClientEquipmentPicker } from "@/components/client-equipment-picker";
+import type { EqTypeOpt, UstaSource } from "@/components/client-equipment-panel";
 import { FieldError } from "@/components/field-error";
 import {
   CLIENT_STATUS,
@@ -52,6 +54,8 @@ export function ClientForm({
   defaultValues = {},
   submitLabel = "Saqlash",
   showInitialPayment = false,
+  equipmentTypes,
+  ustaSources,
 }: {
   action: (prev: ClientFormState, formData: FormData) => Promise<ClientFormState>;
   operators: Operator[];
@@ -59,7 +63,11 @@ export function ClientForm({
   submitLabel?: string;
   /** Yangi mijoz uchun: oxirgi (boshlang'ich) to'lov maydonlarini ko'rsatadi. */
   showInitialPayment?: boolean;
+  /** Berilsa (ADMIN/MANAGER + yangi mijoz) — uskuna tanlash bo'limi ko'rsatiladi. */
+  equipmentTypes?: EqTypeOpt[];
+  ustaSources?: UstaSource[];
 }) {
+  const showEquipment = Array.isArray(equipmentTypes);
   const [state, formAction, pending] = useActionState(action, initialState);
   const v = defaultValues;
   const fe = state.fieldErrors ?? {};
@@ -172,7 +180,9 @@ export function ClientForm({
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div>
-          <Label htmlFor="monthlyAmount">Oylik to'lov</Label>
+          <Label htmlFor="monthlyAmount">
+            {showEquipment ? "Oylik to'lov (ilova)" : "Oylik to'lov"}
+          </Label>
           <MoneyInput
             id="monthlyAmount"
             name="monthlyAmount"
@@ -180,6 +190,11 @@ export function ClientForm({
             aria-invalid={!!fe.monthlyAmount}
           />
           <FieldError message={fe.monthlyAmount} />
+          {showEquipment && (
+            <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">
+              Ijara uskuna summasi ustiga avtomatik qo'shiladi
+            </p>
+          )}
         </div>
         <div>
           <Label htmlFor="currency">Valyuta</Label>
@@ -213,6 +228,17 @@ export function ClientForm({
           <FieldError message={fe.debtAmount} />
         </div>
       </div>
+
+      {showEquipment && (
+        <div className="space-y-2">
+          <Label>Uskuna</Label>
+          <ClientEquipmentPicker
+            types={equipmentTypes ?? []}
+            ustaSources={ustaSources ?? []}
+            currency={v.currency ?? "USD"}
+          />
+        </div>
+      )}
 
       {showInitialPayment && (
         <div className="space-y-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">

@@ -11,6 +11,7 @@ import { Select } from "@/components/ui/select";
 import { ClientStatusBadge, PaymentStatusBadge } from "@/components/status-badge";
 import { formatDate, formatMoney, formatPhone, normalizePhone } from "@/lib/utils";
 import { PhoneCopyButton } from "@/components/phone-copy";
+import { SpecialNoteBell } from "@/components/special-note-bell";
 
 export type ClientRow = {
   id: string;
@@ -23,6 +24,9 @@ export type ClientRow = {
   monthlyAmount: number;
   currency: string;
   lastOperatorName: string | null; // oxirgi gaplashgan operator (CallLog'dan)
+  specialNote: string | null;
+  specialNoteBy: string | null;
+  specialNoteAt: string | null;
 };
 
 type Operator = { id: string; name: string };
@@ -199,10 +203,19 @@ export function ClientsTable({
                   </td>
                 )}
                 <td className="px-4 py-3">
-                  <Link href={`/mijozlar/${c.id}`} className="block">
-                    <div className="font-medium text-slate-900 dark:text-slate-100">{c.restaurantName || c.fullName || "—"}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">{c.fullName}</div>
-                  </Link>
+                  <div className="flex items-center gap-1.5">
+                    <Link href={`/mijozlar/${c.id}`} className="block min-w-0">
+                      <div className="font-medium text-slate-900 dark:text-slate-100">{c.restaurantName || c.fullName || "—"}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">{c.fullName}</div>
+                    </Link>
+                    <SpecialNoteBell
+                      clientId={c.id}
+                      restaurantName={c.restaurantName || c.fullName}
+                      note={c.specialNote}
+                      noteBy={c.specialNoteBy}
+                      noteAt={c.specialNoteAt}
+                    />
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{c.region ?? "—"}</td>
                 <td className="px-4 py-3">
@@ -260,10 +273,19 @@ export function ClientsTable({
                 />
               )}
               <div className="min-w-0 flex-1">
-                <Link href={`/mijozlar/${c.id}`} className="block">
-                  <div className="font-medium text-slate-900 dark:text-slate-100">{c.restaurantName || c.fullName || "—"}</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">{c.fullName}</div>
-                </Link>
+                <div className="flex items-center gap-1.5">
+                  <Link href={`/mijozlar/${c.id}`} className="block min-w-0">
+                    <div className="font-medium text-slate-900 dark:text-slate-100">{c.restaurantName || c.fullName || "—"}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">{c.fullName}</div>
+                  </Link>
+                  <SpecialNoteBell
+                    clientId={c.id}
+                    restaurantName={c.restaurantName || c.fullName}
+                    note={c.specialNote}
+                    noteBy={c.specialNoteBy}
+                    noteAt={c.specialNoteAt}
+                  />
+                </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <ClientStatusBadge status={c.status} />
                   <PaymentStatusBadge nextPaymentDate={c.nextPaymentDate ? new Date(c.nextPaymentDate) : null} />

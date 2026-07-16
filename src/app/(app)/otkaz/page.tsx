@@ -13,6 +13,7 @@ export default async function RefusedPage() {
     orderBy: { updatedAt: "desc" },
     include: {
       assignedTo: { select: { name: true } },
+      specialNoteBy: { select: { name: true } },
       callLogs: {
         orderBy: { calledAt: "desc" },
         take: 1,
@@ -33,6 +34,9 @@ export default async function RefusedPage() {
       lastNote: last?.note ?? null,
       lastNoteBy: last?.operator?.name ?? null,
       lastNoteAtFmt: last ? formatDateTime(last.calledAt) : null,
+      specialNote: c.specialNote,
+      specialNoteBy: c.specialNoteBy?.name ?? null,
+      specialNoteAt: c.specialNoteAt ? c.specialNoteAt.toISOString() : null,
     };
   });
 

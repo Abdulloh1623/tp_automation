@@ -20,15 +20,20 @@ import { Badge } from "@/components/ui/badge";
 import { confirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { PhoneCopyButton } from "@/components/phone-copy";
+import { SpecialNoteBell } from "@/components/special-note-bell";
 import { formatPhone, normalizePhone } from "@/lib/utils";
 
 export type ReturnQueueItem = {
   id: string;
   status: string; // PENDING | APPROVED
+  clientId: string;
   restaurantName: string;
   fullName: string;
   phone: string;
   region: string | null;
+  specialNote: string | null;
+  specialNoteBy: string | null;
+  specialNoteAt: string | null;
   note: string | null;
   byName: string | null;
   ustaName: string | null; // biriktirilgan (APPROVED)
@@ -148,6 +153,13 @@ function Row({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium text-slate-900 dark:text-slate-100">{r.restaurantName || r.fullName || "—"}</span>
+            <SpecialNoteBell
+              clientId={r.clientId}
+              restaurantName={r.restaurantName || r.fullName}
+              note={r.specialNote}
+              noteBy={r.specialNoteBy}
+              noteAt={r.specialNoteAt}
+            />
             <Badge tone="slate">{r.region ?? "viloyatsiz"}</Badge>
             {approved && <Badge tone="amber">Ustada</Badge>}
           </div>

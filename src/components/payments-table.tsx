@@ -6,6 +6,7 @@ import { Search, ArrowRight, X } from "lucide-react";
 import type { PaymentState } from "@/lib/payment-status";
 import { formatPhone } from "@/lib/utils";
 import { PhoneCopyButton } from "@/components/phone-copy";
+import { SpecialNoteBell } from "@/components/special-note-bell";
 
 export type PaymentRow = {
   id: string;
@@ -20,6 +21,9 @@ export type PaymentRow = {
   overdue: boolean;
   monthlyFmt: string;
   operatorName: string;
+  specialNote: string | null;
+  specialNoteBy: string | null;
+  specialNoteAt: string | null;
 };
 
 const STATE_TONE: Record<PaymentState, string> = {
@@ -188,7 +192,16 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
                 className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800"
               >
                 <td className="px-4 py-3">
-                  <div className="font-medium text-slate-900 dark:text-slate-100">{r.restaurantName}</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium text-slate-900 dark:text-slate-100">{r.restaurantName}</span>
+                    <SpecialNoteBell
+                      clientId={r.id}
+                      restaurantName={r.restaurantName || r.fullName}
+                      note={r.specialNote}
+                      noteBy={r.specialNoteBy}
+                      noteAt={r.specialNoteAt}
+                    />
+                  </div>
                   <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-500 dark:text-slate-400">
                     <span>{r.fullName}</span>
                     {r.phone && (
@@ -239,7 +252,16 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="font-medium text-slate-900 dark:text-slate-100">{r.restaurantName}</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium text-slate-900 dark:text-slate-100">{r.restaurantName}</span>
+                  <SpecialNoteBell
+                    clientId={r.id}
+                    restaurantName={r.restaurantName || r.fullName}
+                    note={r.specialNote}
+                    noteBy={r.specialNoteBy}
+                    noteAt={r.specialNoteAt}
+                  />
+                </div>
                 <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-500 dark:text-slate-400">
                   <span>{r.fullName}</span>
                   {r.phone && (

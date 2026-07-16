@@ -206,11 +206,12 @@ export default async function DashboardPage() {
       client: { select: { currency: true } },
     },
   });
+  // Uskuna ijarasi MRR ichidagi ulush (monthlyAmount = jami) — qo'shilmaydi,
+  // faqat "shundan qanchasi uskuna" ma'lumoti sifatida ko'rsatiladi.
   const rentalRev: Money = { USD: 0, UZS: 0 };
   for (const e of rentalEquipment) {
     addMoney(rentalRev, e.client.currency, e.quantity * e.equipmentType.rentalPrice);
   }
-  const totalMonthly: Money = { USD: mrr.USD + rentalRev.USD, UZS: mrr.UZS + rentalRev.UZS };
   const collected: Money = { USD: 0, UZS: 0 };
   const todayPay: Money = { USD: 0, UZS: 0 };
   const todayPayments = monthPayments.filter((p) => p.paidAt >= todayStart);
@@ -389,18 +390,15 @@ export default async function DashboardPage() {
       {/* Daromad xulosasi */}
       <Card>
         <CardHeader><CardTitle>Daromad xulosasi</CardTitle></CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/60">
-            <div className="text-xs text-slate-500 dark:text-slate-400">Obuna daromadi (MRR)</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">Oylik daromad (MRR)</div>
             <div className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{money2(mrr)}</div>
           </div>
           <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-950 dark:bg-blue-950/40">
-            <div className="text-xs text-blue-700 dark:text-blue-300">Uskuna ijarasi (oylik)</div>
+            <div className="text-xs text-blue-700 dark:text-blue-300">Shundan uskuna ijarasi</div>
             <div className="mt-1 text-xl font-semibold text-blue-700 dark:text-blue-300">{money2(rentalRev)}</div>
-          </div>
-          <div className="rounded-xl border border-violet-100 bg-violet-50 p-4 dark:border-violet-950 dark:bg-violet-950/40">
-            <div className="text-xs text-violet-700 dark:text-violet-300">Umumiy oylik daromad</div>
-            <div className="mt-1 text-xl font-semibold text-violet-700 dark:text-violet-300">{money2(totalMonthly)}</div>
+            <div className="text-[11px] text-blue-600/70 dark:text-blue-300/60">MRR ichida · ma'lumot</div>
           </div>
           <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 dark:border-emerald-950 dark:bg-emerald-950/40">
             <div className="text-xs text-emerald-700 dark:text-emerald-300">Bu oy yig'ilgan</div>

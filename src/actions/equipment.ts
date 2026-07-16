@@ -194,6 +194,157 @@ export async function assignEquipmentToClient(
   return { ok: true };
 }
 
+/**
+ * Manager: mijozga BIR NECHTA texnikani BIR operatsiyada biriktiradi (usta bitta
+ * komplekt olib boradi: monoblok + printer + router...). Umumiy egalik (ijara/
+ * sotuv) va umumiy manba (ombor yoki bitta usta zaxirasi). Barcha qatorlar bitta
+ * `$transaction` ichida — biror turda qoldiq yetmasa, hech nima yozilmaydi.
+ * Sotuvda barcha turlar bo'yicha bitta yig'ma to'lov (Payment) yoziladi.
+ */
+export async function assignEquipmentBatchToClient(
+  clientId: string,
+  items: { equipmentTypeId: string; quantity: number }[],
+  ownership: string,
+  source: EquipmentSource = { type: "WAREHOUSE" },
+): Promise<EqState> {
+  const m = await requireManager();
+  if (!m.ok) return m;
+  if (!["RENTAL", "SOLD"].includes(ownership)) {
+    return { ok: false, error: "Egalik turi noto'g'ri" };
+  }
+  if (!items || items.length === 0) {
+    return { ok: false, error: "Kamida bitta texnika kerak" };
+  }
+
+  // Bir xil tur bir necha qatorda kelsa — miqdorlarni birlashtiramiz.
+  const merged = new Map<string, number>();
+  for (const it of items) {
+    const qty = Number(it.quantity);
+    if (!it.equipmentTypeId) return { ok: false, error: "Texnika tanlanmagan" };
+    if (!qty || qty <= 0) return { ok: false, error: "Miqdor noto'g'ri" };
+    merged.set(it.equipmentTypeId, (merged.get(it.equipmentTypeId) ?? 0) + qty);
+  }
+  const entries = [...merged.entries()];
+
+  const srcType = source.type === "USTA" ? "USTA" : WAREHOUSE;
+  const srcId = source.type === "USTA" ? source.ustaId : WAREHOUSE;
+  if (srcType === "USTA" && !srcId) return { ok: false, error: "Usta tanlanmagan" };
+
+  const client = await db.client.findUnique({ where: { id: clientId } });
+  if (!client) return { ok: false, error: "Mijoz topilmadi" };
+
+  const types = await db.equipmentType.findMany({
+    where: { id: { in: entries.map(([id]) => id) } },
+  });
+  const typeById = new Map(types.map((t) => [t.id, t]));
+  if (typeById.size !== entries.length) {
+    return { ok: false, error: "Texnika turi topilmadi" };
+  }
+
+  let ustaName: string | null = null;
+  if (srcType === "USTA") {
+    const u = await db.user.findUnique({
+      where: { id: srcId },
+      select: { name: true, role: true },
+    });
+    if (!u || u.role !== "INSTALLER") return { ok: false, error: "Usta topilmadi" };
+    ustaName = u.name;
+  }
+
+  try {
+    await db.$transaction(async (tx) => {
+      let saleTotal = 0;
+      for (const [equipmentTypeId, quantity] of entries) {
+        const type = typeById.get(equipmentTypeId)!;
+
+        const src = await tx.inventoryStock.findUnique({
+          where: {
+            locationType_locationId_equipmentTypeId: {
+              locationType: srcType,
+              locationId: srcId,
+              equipmentTypeId,
+            },
+          },
+        });
+        const available = src?.quantity ?? 0;
+        if (available < quantity) {
+          throw new Error(
+            `${type.name}: ${srcType === "USTA" ? "ustada" : "omborda"} yetarli emas (mavjud: ${available})`,
+          );
+        }
+        await tx.inventoryStock.update({
+          where: { id: src!.id },
+          data: { quantity: available - quantity },
+        });
+
+        const existing = await tx.clientEquipment.findUnique({
+          where: {
+            clientId_equipmentTypeId_ownership: { clientId, equipmentTypeId, ownership },
+          },
+        });
+        if (existing) {
+          await tx.clientEquipment.update({
+            where: { id: existing.id },
+            data: { quantity: existing.quantity + quantity },
+          });
+        } else {
+          await tx.clientEquipment.create({
+            data: { clientId, equipmentTypeId, ownership, quantity },
+          });
+        }
+
+        await tx.equipmentMovement.create({
+          data: {
+            equipmentTypeId,
+            quantity,
+            fromType: srcType,
+            fromId: srcId,
+            toType: "CLIENT",
+            toId: clientId,
+            reason: ownership === "RENTAL" ? "Mijozga ijara" : "Mijozga sotuv",
+            note: ustaName ? `Usta: ${ustaName}` : null,
+            byUserId: m.userId,
+          },
+        });
+
+        if (ownership === "SOLD") saleTotal += type.salePrice * quantity;
+      }
+
+      // Sotuv — barcha turlar bo'yicha bitta yig'ma to'lov.
+      if (ownership === "SOLD" && saleTotal > 0) {
+        const note =
+          "Uskuna sotuvi: " +
+          entries.map(([id, q]) => `${typeById.get(id)!.name} ×${q}`).join(", ");
+        await tx.payment.create({
+          data: {
+            clientId,
+            amount: saleTotal,
+            currency: client.currency,
+            receiptNote: note,
+            recordedById: m.userId,
+          },
+        });
+      }
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Xatolik" };
+  }
+
+  await recomputeMode(clientId);
+
+  await logAudit("Mijozga uskunalar biriktirildi", {
+    entity: "Client",
+    entityId: clientId,
+    detail:
+      entries.map(([id, q]) => `${typeById.get(id)!.name} ×${q}`).join(", ") +
+      ` (${ownership === "RENTAL" ? "ijara" : "sotuv"})` +
+      (ustaName ? ` · ${ustaName} zaxirasidan` : " · ombordan"),
+  });
+  revalidatePath(`/mijozlar/${clientId}`);
+  revalidatePath("/ombor");
+  return { ok: true };
+}
+
 /** Operator/manager: mijoz bilan gaplashib uskunani qaytarish arizasini yaratadi. */
 export async function requestEquipmentReturn(
   clientId: string,

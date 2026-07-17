@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Check, Pencil, CheckCircle2 } from "lucide-react";
 import { quickCompleteClient } from "@/actions/clients";
 import { SearchInput, FoundCount, matchesQuery } from "@/components/list-filter";
+import { ClientLink } from "@/components/client-link";
 import { toast } from "@/components/toaster";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,7 +57,7 @@ function RowEditor({ c, onSaved }: { c: IncompleteRow; onSaved: () => void }) {
       {/* Desktop qator */}
       <tr className="hidden border-b border-slate-100 dark:border-slate-800 last:border-0 md:table-row">
         <td className="px-3 py-2.5">
-          <div className="font-medium text-slate-900 dark:text-slate-100">{c.fullName || "—"}</div>
+          <ClientLink id={c.id} name={c.fullName || "—"} />
           <div className="text-xs text-slate-400 dark:text-slate-500">{c.contractNumber || "—"}</div>
         </td>
         <td className="px-3 py-2.5">
@@ -108,7 +109,7 @@ function RowEditor({ c, onSaved }: { c: IncompleteRow; onSaved: () => void }) {
         <td colSpan={5} className="px-0 py-1.5">
           <Card className="space-y-2 p-3">
             <div className="flex items-center justify-between">
-              <div className="font-medium text-slate-900 dark:text-slate-100">{c.fullName || "—"}</div>
+              <ClientLink id={c.id} name={c.fullName || "—"} />
               {done && !dirty && (
                 <span className="inline-flex items-center gap-0.5 text-xs text-emerald-600">
                   <Check className="h-3.5 w-3.5" /> saqlandi

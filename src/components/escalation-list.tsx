@@ -4,6 +4,7 @@
 import { useMemo, useState } from "react";
 import { Phone, PhoneOff, MapPin, Wrench, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { ClientLink } from "@/components/client-link";
 import { AssignUstaForm } from "@/components/assign-usta-form";
 import { UstaStatusControl } from "@/components/usta-status-control";
 import { LeadRevertButton } from "@/components/lead-revert-button";
@@ -120,9 +121,7 @@ export function EscalationList({
                   <CardContent className="space-y-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <div className="font-medium text-slate-900 dark:text-slate-100">
-                          {c.restaurantName}
-                        </div>
+                        <ClientLink id={c.id} name={c.restaurantName || c.fullName || "—"} />
                         <div className="flex flex-wrap items-center gap-x-3 text-xs text-slate-500 dark:text-slate-400">
                           <span>{c.fullName}</span>
                           {c.region && (
@@ -211,7 +210,7 @@ export function EscalationList({
                   <CardContent className="space-y-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <div className="font-medium text-slate-900 dark:text-slate-100">{c.restaurantName}</div>
+                        <ClientLink id={c.id} name={c.restaurantName || c.fullName || "—"} />
                         <div className="flex flex-wrap items-center gap-x-3 text-xs text-slate-500 dark:text-slate-400">
                           <span>{c.fullName}</span>
                           {c.region && (

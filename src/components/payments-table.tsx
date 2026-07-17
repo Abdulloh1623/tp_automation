@@ -6,6 +6,7 @@ import { Search, ArrowRight, X } from "lucide-react";
 import type { PaymentState } from "@/lib/payment-status";
 import { formatPhone } from "@/lib/utils";
 import { PhoneCopyButton } from "@/components/phone-copy";
+import { ClientLink } from "@/components/client-link";
 import { SpecialNoteBell } from "@/components/special-note-bell";
 
 export type PaymentRow = {
@@ -193,7 +194,7 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
               >
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-medium text-slate-900 dark:text-slate-100">{r.restaurantName}</span>
+                    <ClientLink id={r.id} name={r.restaurantName || r.fullName || "—"} />
                     <SpecialNoteBell
                       clientId={r.id}
                       restaurantName={r.restaurantName || r.fullName}
@@ -253,7 +254,7 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-medium text-slate-900 dark:text-slate-100">{r.restaurantName}</span>
+                  <ClientLink id={r.id} name={r.restaurantName || r.fullName || "—"} />
                   <SpecialNoteBell
                     clientId={r.id}
                     restaurantName={r.restaurantName || r.fullName}

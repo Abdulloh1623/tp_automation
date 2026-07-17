@@ -27,6 +27,7 @@ const ROUTE_ROLES: { prefix: string; roles: Role[] }[] = [
   { prefix: "/ustalar", roles: ["ADMIN", "MANAGER"] },
   { prefix: "/analitika", roles: ["ADMIN", "MANAGER"] },
   { prefix: "/hisobot", roles: ["ADMIN", "MANAGER"] },
+  { prefix: "/moliya", roles: ["ADMIN", "MANAGER"] },
   { prefix: "/foydalanuvchilar", roles: ["ADMIN"] },
   { prefix: "/audit", roles: ["ADMIN"] },
   { prefix: "/import", roles: ["ADMIN"] },

@@ -268,12 +268,20 @@ export async function finishDay(
         nextContactDate = null;
     }
 
+    // Otkaz/o'chirilgan (workflow'dan chiqqan) — mijoz nofaol bo'ladi, churn
+    // vaqti yoziladi va biriktiruv bo'shatiladi (moliya + qarzdorlik oqimidan chiqadi).
+    const churnPatch =
+      target === "REFUSED" || target === "DEACTIVATED"
+        ? { status: "INACTIVE", deactivatedAt: new Date(), assignedToId: null }
+        : {};
+
     await db.client.update({
       where: { id: lead.id },
       data: {
         stage: target,
         pendingStage: null,
         nextContactDate,
+        ...churnPatch,
         ...(paymentPatch ? { nextPaymentDate: paymentPatch } : {}),
         ...escalationStagePatch(target, { stage: lead.stage, escalatedAt: lead.escalatedAt }),
       },
@@ -622,6 +630,9 @@ export async function revertLead(
         escalatedAt: null,
         escalationStaffId: null,
         slaNotifiedAt: null,
+        // Kunlik ishga qaytgani uchun qayta faollashtiramiz (churn belgisini olib tashlaymiz)
+        status: "ACTIVE",
+        deactivatedAt: null,
       },
     });
     await logAudit("Lid orqaga qaytarildi (kunlik ishga)", {

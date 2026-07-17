@@ -25,6 +25,10 @@ export type ImportReport = {
 const MAX_ROWS = 5000;
 const NOTE_MAX = 2000;
 
+// Bir vaqtda nechta qator DB'ga yoziladi (parallel). Prisma ulanish puliga
+// mos, lekin ketma-ket <await>'dan ancha tez (round-trip'lar bir-birini kutmaydi).
+const CONCURRENCY = 8;
+
 // Import qilingan aloqa yozuvlari TARIXIY — operatorlar bu mijozlar bilan o'tmishда
 // gaplashgan. Jonli tabloda (bugun/hafta/oy) operatorlarni shishirib ko'rsatmasligi
 // uchun o'tmishdagi sana bilan yoziladi (analitika oraliqlaridan tashqarida).
@@ -36,6 +40,51 @@ function clampNote(v?: string): string | null {
   const t = opt(v);
   return t ? t.slice(0, NOTE_MAX) : null;
 }
+
+/** Elementlarni cheklangan parallellik bilan qayta ishlaydi (round-trip'lar bir-birini kutmaydi). */
+async function runPool<T>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  let idx = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (idx < items.length) {
+      const cur = idx++;
+      await worker(items[cur]);
+    }
+  });
+  await Promise.all(runners);
+}
+
+// Bajarilishga tayyor bitta qator — validatsiya/dedup ketma-ket (pre-pass)
+// bajarilgach, mustaqil (bir-biriga bog'liq bo'lmagan) yozuv sifatida parallel bajariladi.
+type ImportTask = {
+  raw: ImportRow;
+  reportRow: number;
+  existingId?: string; // update rejimida mavjud mijoz
+  data: {
+    fullName: string;
+    restaurantName: string;
+    phone: string;
+    region: string | null;
+    contractNumber: string | null;
+    contractDate: Date | null;
+    installerName: string | null;
+    monoblokCount: number;
+    equipment: string | null;
+    monthlyAmount: number;
+    currency: string;
+    nextPaymentDate: Date | null;
+    debtAmount: number;
+    status: string;
+    notes: string | null;
+  };
+  phoneKey: string;
+  extraPhone: { label: string; number: string } | null;
+  operatorId?: string;
+  note: string | null;
+};
 
 export async function importClients(payload: {
   mode: ImportMode;
@@ -127,6 +176,9 @@ export async function importClients(payload: {
   const unmatched = new Set<string>();
   const unmatchedEquip = new Set<string>();
 
+  // --- 1-faza (ketma-ket, DB yozuvisiz): validatsiya + dedup -> bajariladigan
+  // vazifalar ro'yxati. Dedup shu yerda hal bo'lgani uchun 2-faza xavfsiz parallel. ---
+  const tasks: ImportTask[] = [];
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i];
     const reportRow = lines[i] ?? i + 1;
@@ -155,6 +207,18 @@ export async function importClients(payload: {
     }
     if (phoneKey) seen.add(phoneKey);
 
+    const existingId = phoneKey ? existingByPhone.get(phoneKey) : undefined;
+
+    // create rejimi: mavjud telefonni o'tkazib yuborib, dublikatni oldini olamiz
+    if (payload.mode === "create" && existingId) {
+      report.skipped += 1;
+      report.errors.push({
+        row: reportRow,
+        message: "Bu telefon bazada allaqachon mavjud",
+      });
+      continue;
+    }
+
     const extra = opt(raw.phoneSecondary);
     const extraPhone = extra ? { label: "Qo'shimcha", number: extra } : null;
 
@@ -164,57 +228,51 @@ export async function importClients(payload: {
     if (operatorName && !operatorId) unmatched.add(operatorName);
     const note = clampNote(raw.notes);
 
-    const data = {
-      fullName,
-      restaurantName,
-      phone,
-      region: normalizeRegion(opt(raw.region)),
-      contractNumber: opt(raw.contractNumber),
-      contractDate: parseDate(raw.contractDate),
-      installerName: opt(raw.installerName),
-      monoblokCount: Math.max(0, Math.round(num(raw.monoblokCount) ?? 1)),
-      equipment: opt(raw.equipment),
-      monthlyAmount: num(raw.monthlyAmount) ?? 0,
-      currency: normCurrency(raw.currency, fallbackCurrency),
-      nextPaymentDate: parseDate(raw.nextPaymentDate),
-      debtAmount: Math.max(0, num(raw.debtAmount) ?? 0),
-      status: normStatus(raw.status),
-      notes: note,
-    };
+    tasks.push({
+      raw,
+      reportRow,
+      existingId: payload.mode === "update" ? existingId : undefined,
+      data: {
+        fullName,
+        restaurantName,
+        phone,
+        region: normalizeRegion(opt(raw.region)),
+        contractNumber: opt(raw.contractNumber),
+        contractDate: parseDate(raw.contractDate),
+        installerName: opt(raw.installerName),
+        monoblokCount: Math.max(0, Math.round(num(raw.monoblokCount) ?? 1)),
+        equipment: opt(raw.equipment),
+        monthlyAmount: num(raw.monthlyAmount) ?? 0,
+        currency: normCurrency(raw.currency, fallbackCurrency),
+        nextPaymentDate: parseDate(raw.nextPaymentDate),
+        debtAmount: Math.max(0, num(raw.debtAmount) ?? 0),
+        status: normStatus(raw.status),
+        notes: note,
+      },
+      phoneKey,
+      extraPhone,
+      operatorId,
+      note,
+    });
+  }
 
+  // --- 2-faza (cheklangan parallel): har bir vazifa mustaqil (telefon bo'yicha
+  // dedup qilingani uchun ikki vazifa bir mijozga tegmaydi) — xavfsiz parallel. ---
+  await runPool(tasks, CONCURRENCY, async (task) => {
+    const { raw, reportRow, existingId, data, extraPhone, operatorId, note } = task;
     try {
-      const existingId = phoneKey ? existingByPhone.get(phoneKey) : undefined;
       let clientId: string | null = null;
 
-      if (payload.mode === "update") {
-        if (existingId) {
-          await db.client.update({ where: { id: existingId }, data });
-          clientId = existingId;
-          report.updated += 1;
-        } else {
-          const c = await db.client.create({
-            data: { ...data, phones: extraPhone ? { create: [extraPhone] } : undefined },
-          });
-          clientId = c.id;
-          if (phoneKey) existingByPhone.set(phoneKey, c.id);
-          report.created += 1;
-        }
+      if (existingId) {
+        await db.client.update({ where: { id: existingId }, data });
+        clientId = existingId;
+        report.updated += 1;
       } else {
-        // create rejimi: mavjud telefonni o'tkazib yuborib, dublikatni oldini olamiz
-        if (existingId) {
-          report.skipped += 1;
-          report.errors.push({
-            row: reportRow,
-            message: "Bu telefon bazada allaqachon mavjud",
-          });
-        } else {
-          const c = await db.client.create({
-            data: { ...data, phones: extraPhone ? { create: [extraPhone] } : undefined },
-          });
-          clientId = c.id;
-          if (phoneKey) existingByPhone.set(phoneKey, c.id);
-          report.created += 1;
-        }
+        const c = await db.client.create({
+          data: { ...data, phones: extraPhone ? { create: [extraPhone] } : undefined },
+        });
+        clientId = c.id;
+        report.created += 1;
       }
 
       // Operator topilgan bo'lsa — "kim gaplashgani" aloqa tarixiga yoziladi.
@@ -298,7 +356,7 @@ export async function importClients(payload: {
       report.skipped += 1;
       report.errors.push({ row: reportRow, message: "Bazaga saqlashda xatolik" });
     }
-  }
+  });
 
   report.unmatchedOperators = [...unmatched];
   report.unmatchedEquipment = [...unmatchedEquip];

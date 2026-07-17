@@ -99,6 +99,18 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ];
 
+// Nav yonidagi badge foni — har bo'limga mos rang (oq matn bilan kontrast uchun -600).
+// To'liq literal sinf nomlari (Tailwind JIT purge qilmasligi uchun).
+const BADGE_COLOR: Record<string, string> = {
+  "/lidlar": "bg-sky-600",
+  "/muammolar": "bg-red-600",
+  "/eskalatsiya": "bg-amber-600",
+  "/qaytarish": "bg-violet-600",
+  "/takliflar": "bg-emerald-600",
+  "/bildirishnomalar": "bg-indigo-600",
+};
+const badgeColorFor = (href: string) => BADGE_COLOR[href] ?? "bg-red-600";
+
 export function AppShell({
   user,
   badges = {},
@@ -176,7 +188,10 @@ export function AppShell({
                     <span className="flex-1">{item.label}</span>
                     {badgeFor(item.href) > 0 && (
                       <span
-                        className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-semibold leading-none text-white"
+                        className={cn(
+                          "rounded-full px-1.5 py-0.5 text-xs font-semibold leading-none text-white",
+                          badgeColorFor(item.href),
+                        )}
                         title={`${badgeFor(item.href)} ta hal qilinmagan`}
                       >
                         {badgeText(badgeFor(item.href))}
@@ -254,7 +269,7 @@ export function AppShell({
                 )}
               >
                 {badgeFor(item.href) > 0 && (
-                  <span className="absolute right-1 top-0.5 min-w-[16px] rounded-full bg-red-500 px-1 text-center text-[10px] font-semibold leading-4 text-white">
+                  <span className={cn("absolute right-1 top-0.5 min-w-[16px] rounded-full px-1 text-center text-[10px] font-semibold leading-4 text-white", badgeColorFor(item.href))}>
                     {badgeText(badgeFor(item.href))}
                   </span>
                 )}

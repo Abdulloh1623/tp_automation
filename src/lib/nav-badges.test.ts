@@ -6,12 +6,14 @@ const {
   ticketCount,
   returnCount,
   suggestionCount,
+  taxCount,
 } = vi.hoisted(() => ({
   notifCount: vi.fn(),
   clientCount: vi.fn(),
   ticketCount: vi.fn(),
   returnCount: vi.fn(),
   suggestionCount: vi.fn(),
+  taxCount: vi.fn(),
 }));
 
 vi.mock("./db", () => ({
@@ -21,6 +23,7 @@ vi.mock("./db", () => ({
     ticket: { count: ticketCount },
     equipmentReturnRequest: { count: returnCount },
     suggestion: { count: suggestionCount },
+    taxConnection: { count: taxCount },
   },
 }));
 
@@ -33,6 +36,7 @@ beforeEach(() => {
   ticketCount.mockResolvedValue(3);
   returnCount.mockResolvedValue(4);
   suggestionCount.mockResolvedValue(7);
+  taxCount.mockResolvedValue(6);
 });
 
 describe("getNavBadges", () => {
@@ -42,6 +46,7 @@ describe("getNavBadges", () => {
     expect(b["/muammolar"]).toBe(3);
     expect(b["/qaytarish"]).toBe(4);
     expect(b["/takliflar"]).toBe(7);
+    expect(b["/soliq"]).toBe(6);
     expect(returnCount).toHaveBeenCalledTimes(1);
     expect(suggestionCount).toHaveBeenCalledTimes(1);
   });
@@ -55,6 +60,9 @@ describe("getNavBadges", () => {
     // O'ziga tegishli bo'limlar baribir sanaladi
     expect(b["/muammolar"]).toBe(3);
     expect(b["/lidlar"]).toBe(5);
+    // Soliqqa ulash — operator o'zinikini ko'radi (sanaladi)
+    expect(b["/soliq"]).toBe(6);
+    expect(taxCount).toHaveBeenCalledTimes(1);
   });
 
   it("har doim barcha kalitlar mavjud (nol bo'lsa ham)", async () => {
@@ -66,6 +74,7 @@ describe("getNavBadges", () => {
       "/eskalatsiya",
       "/qaytarish",
       "/takliflar",
+      "/soliq",
     ]) {
       expect(b).toHaveProperty(href);
     }

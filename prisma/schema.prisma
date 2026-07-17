@@ -172,6 +172,11 @@ model Client {
   biznexStatus    String? // ACTIVE | EXPIRED | INACTIVE | NOT_FOUND
   biznexCheckedAt DateTime? // oxirgi Biznex tekshiruvi vaqti
 
+  // Mijoz "yo'qotilgan" (churn) bo'lgan vaqt — status INACTIVE bo'lganda yoki
+  // otkaz/o'chirilgan (REFUSED/DEACTIVATED) bo'lganda yoziladi; qayta faollashsa
+  // tozalanadi (null). Moliya (MRR o'sish/churn) tarixiy hisobi shu bo'yicha.
+  deactivatedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -191,6 +196,7 @@ model Client {
   @@index([assignedUstaId])
   @@index([escalationStaffId])
   @@index([biznexStatus])
+  @@index([deactivatedAt])
 }
 
 model ClientPhone {

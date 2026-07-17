@@ -257,7 +257,14 @@ export async function createClient(
   try {
     createdId = await db.$transaction(async (tx) => {
       const created = await tx.client.create({
-        data: { ...clientData, equipmentMode, assignedToId, phones: { create: phones } },
+        data: {
+          ...clientData,
+          equipmentMode,
+          assignedToId,
+          // Nofaol holatда yaratilsa churn vaqti darhol yoziladi (moliya hisobi).
+          deactivatedAt: clientData.status === "INACTIVE" ? new Date() : null,
+          phones: { create: phones },
+        },
       });
 
       if (eqRows.length > 0) {
@@ -408,9 +415,22 @@ export async function updateClient(
 
   const after = { ...toData(parsed.data), assignedToId };
 
+  // Churn vaqti (deactivatedAt): status ACTIVE/PENDING -> INACTIVE bo'lsa yoziladi,
+  // INACTIVE -> faol bo'lsa tozalanadi. O'zgarmasa tegilmaydi (undefined).
+  const deactivatedAt =
+    after.status === "INACTIVE" && before.status !== "INACTIVE"
+      ? new Date()
+      : after.status !== "INACTIVE" && before.status === "INACTIVE"
+        ? null
+        : undefined;
+
   await db.client.update({
     where: { id },
-    data: { ...after, phones: { deleteMany: {}, create: phones } },
+    data: {
+      ...after,
+      ...(deactivatedAt !== undefined ? { deactivatedAt } : {}),
+      phones: { deleteMany: {}, create: phones },
+    },
   });
 
   // Har bir tahrir AuditLog'ga: kim (userId — logAudit sessiyadan oladi), qaysi
@@ -501,6 +521,7 @@ export async function refuseClient(
     data: {
       stage: "REFUSED",
       status: "INACTIVE",
+      deactivatedAt: new Date(), // churn vaqti (moliya hisobi uchun)
       assignedToId: null,
       pendingStage: null,
       lastOutcome: "REFUSED",

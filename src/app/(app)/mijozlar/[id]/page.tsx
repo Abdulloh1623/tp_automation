@@ -42,7 +42,8 @@ import { PaymentForm } from "@/components/payment-form";
 import { PaymentHistoryActions } from "@/components/payment-history-actions";
 import { TicketForm } from "@/components/ticket-form";
 import { TicketStatusControl } from "@/components/ticket-status-control";
-import { paymentMethodLabel } from "@/lib/constants";
+import { SoliqConnectDialog } from "@/components/soliq-connect-dialog";
+import { paymentMethodLabel, TAX_CONNECTION_STATUS } from "@/lib/constants";
 import { formatDate, formatDateTime, formatMoney, formatPhone, normalizePhone } from "@/lib/utils";
 import { PhoneCopyButton } from "@/components/phone-copy";
 
@@ -137,6 +138,7 @@ export default async function ClientDetailPage({
         orderBy: { createdAt: "desc" },
         take: 1,
       },
+      taxConnections: { orderBy: { createdAt: "desc" }, take: 1 },
     },
   });
 
@@ -218,6 +220,9 @@ export default async function ClientDetailPage({
   const openReturn = client.returnRequests[0]
     ? { status: client.returnRequests[0].status, note: client.returnRequests[0].note }
     : null;
+
+  const soliqDocUrl = (p: string | null) => (p ? `/api/soliq/${p.replace(/^soliq\//, "")}` : null);
+  const soliq = client.taxConnections[0] ?? null;
 
   return (
     <div className="space-y-6">
@@ -557,6 +562,66 @@ export default async function ClientDetailPage({
                 ustaSources={ustaSources}
                 pendingReturn={openReturn}
               />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Soliqqa ulash</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {soliq ? (
+                <div className="space-y-2 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={
+                        "rounded-full px-2 py-0.5 text-xs font-medium " +
+                        (soliq.status === "CONNECTED"
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                          : "bg-amber-500/15 text-amber-700 dark:text-amber-300")
+                      }
+                    >
+                      {TAX_CONNECTION_STATUS[soliq.status as keyof typeof TAX_CONNECTION_STATUS] ?? soliq.status}
+                    </span>
+                    <Link href="/soliq" className="text-xs text-primary-600 hover:underline dark:text-primary-400">
+                      Bo'limda ochish →
+                    </Link>
+                  </div>
+                  <div className="text-slate-600 dark:text-slate-300">
+                    <span className="text-slate-500 dark:text-slate-400">Guvohnoma: </span>
+                    {soliq.certificateNo}
+                  </div>
+                  <div className="text-slate-600 dark:text-slate-300">
+                    <span className="text-slate-500 dark:text-slate-400">Rahbar: </span>
+                    {soliq.directorName} · {soliq.directorPhone}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <a href={soliq.geoLink} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline dark:text-primary-400">
+                      Geolokatsiya
+                    </a>
+                    {soliqDocUrl(soliq.certificatePath) && (
+                      <a href={soliqDocUrl(soliq.certificatePath)!} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline dark:text-primary-400">
+                        Guvohnoma fayli
+                      </a>
+                    )}
+                    {soliqDocUrl(soliq.documentPath) && (
+                      <a href={soliqDocUrl(soliq.documentPath)!} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline dark:text-primary-400">
+                        Kadastr/ijara
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Bu mijozni soliqqa ulash uchun admin/menejerga yuboring.
+                  </p>
+                  <SoliqConnectDialog
+                    clientId={client.id}
+                    clientName={client.restaurantName || client.fullName}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 

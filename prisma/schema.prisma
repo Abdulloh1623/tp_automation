@@ -181,6 +181,7 @@ model Client {
   suggestions    Suggestion[]
   equipmentItems ClientEquipment[]
   returnRequests EquipmentReturnRequest[]
+  taxConnections TaxConnection[]
   phones         ClientPhone[]
 
   @@index([status])
@@ -363,5 +364,29 @@ model EquipmentReturnRequest {
   createdAt  DateTime  @default(now())
   resolvedAt DateTime?
 
+  @@index([status])
+}
+
+// Soliqqa ulash arizasi — operator mijozni soliqqa ulash uchun yuboradi,
+// admin/menejer ko'radi va ulangach "Ulandi" deb belgilaydi.
+model TaxConnection {
+  id              String    @id @default(cuid())
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  certificateNo   String // Firma guvohnomasi raqami
+  certificatePath String? // Guvohnoma skani (pdf/jpeg/word)
+  directorName    String // Firma rahbarining ismi va familiyasi
+  directorPhone   String // Firma rahbari telefon raqami
+  documentPath    String? // Firma kadastri yoki ijara shartnomasi (pdf/jpeg/word)
+  geoLink         String // Firma geolokatsiyasi linki
+  note            String?
+  status          String    @default("PENDING") // PENDING | CONNECTED
+  byUserId        String? // yuborgan operator
+  connectedById   String? // "Ulandi" deb belgilagan boshliq
+  connectedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([clientId])
   @@index([status])
 }

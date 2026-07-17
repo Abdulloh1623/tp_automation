@@ -12,6 +12,7 @@ import { ClientStatusBadge, PaymentStatusBadge } from "@/components/status-badge
 import { formatDate, formatMoney, formatPhone, normalizePhone } from "@/lib/utils";
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { SpecialNoteBell } from "@/components/special-note-bell";
+import { SoliqConnectDialog } from "@/components/soliq-connect-dialog";
 
 export type ClientRow = {
   id: string;
@@ -215,6 +216,7 @@ export function ClientsTable({
                       noteBy={c.specialNoteBy}
                       noteAt={c.specialNoteAt}
                     />
+                    <SoliqConnectDialog compact clientId={c.id} clientName={c.restaurantName || c.fullName || "—"} />
                   </div>
                 </td>
                 <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{c.region ?? "—"}</td>
@@ -285,6 +287,7 @@ export function ClientsTable({
                     noteBy={c.specialNoteBy}
                     noteAt={c.specialNoteAt}
                   />
+                  <SoliqConnectDialog compact clientId={c.id} clientName={c.restaurantName || c.fullName || "—"} />
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <ClientStatusBadge status={c.status} />

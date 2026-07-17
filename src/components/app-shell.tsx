@@ -25,6 +25,7 @@ import {
   Bell,
   Ban,
   Lightbulb,
+  Landmark,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Toaster } from "@/components/toaster";
@@ -65,6 +66,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/muammolar", label: "Muammolar", icon: Wrench, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
       { href: "/eskalatsiya", label: "Eskalatsiya", icon: AlertTriangle, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
       { href: "/qaytarish", label: "Qaytarish", icon: PackageCheck, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
+      { href: "/soliq", label: "Soliqqa ulash", icon: Landmark, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
       { href: "/otkaz", label: "Otkaz", icon: Ban, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
       { href: "/takliflar", label: "Takliflar", icon: Lightbulb, roles: ["ADMIN", "MANAGER"] },
     ],
@@ -107,6 +109,7 @@ const BADGE_COLOR: Record<string, string> = {
   "/eskalatsiya": "bg-amber-600",
   "/qaytarish": "bg-violet-600",
   "/takliflar": "bg-emerald-600",
+  "/soliq": "bg-teal-600",
   "/bildirishnomalar": "bg-indigo-600",
 };
 const badgeColorFor = (href: string) => BADGE_COLOR[href] ?? "bg-red-600";

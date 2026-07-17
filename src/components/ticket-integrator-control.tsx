@@ -16,19 +16,22 @@ type Assigned = { id: string; name: string; phone: string | null } | null;
 function AssignRow({
   kind,
   assigned,
+  note,
   options,
   canAssign,
   action,
 }: {
   kind: "XODIM" | "USTA";
   assigned: Assigned;
+  note: string | null;
   options: IntegratorOpt[];
   canAssign: boolean;
-  action: (id: string | null) => Promise<{ ok: boolean; error?: string }>;
+  action: (id: string | null, note?: string) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [pick, setPick] = useState<string>("");
+  const [noteText, setNoteText] = useState<string>("");
 
   const isXodim = kind === "XODIM";
   const label = isXodim ? "Mas'ul xodim" : "Usta (joyida)";
@@ -38,11 +41,12 @@ function AssignRow({
     : "bg-violet-50 dark:bg-violet-950/30";
   const iconTone = isXodim ? "text-sky-500" : "text-violet-500";
 
-  function run(id: string | null, okMsg: string) {
+  function run(id: string | null, okMsg: string, noteArg?: string) {
     start(async () => {
-      const res = await action(id);
+      const res = await action(id, noteArg);
       if (res.ok) {
         toast(okMsg, "success");
+        setNoteText("");
         router.refresh();
       } else {
         toast(res.error ?? "Xatolik", "error");
@@ -52,29 +56,36 @@ function AssignRow({
 
   if (assigned) {
     return (
-      <div className={`flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-sm ${tone}`}>
-        <Icon className={`h-4 w-4 shrink-0 ${iconTone}`} />
-        <span className="font-medium text-slate-800 dark:text-slate-200">
-          {label}: {assigned.name}
-        </span>
-        {assigned.phone && (
-          <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300">
-            <a href={`tel:${normalizePhone(assigned.phone)}`} className="text-primary-600 dark:text-primary-400">
-              {formatPhone(assigned.phone)}
-            </a>
-            <PhoneCopyButton phone={assigned.phone} />
+      <div className={`rounded-lg px-3 py-2 text-sm ${tone}`}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Icon className={`h-4 w-4 shrink-0 ${iconTone}`} />
+          <span className="font-medium text-slate-800 dark:text-slate-200">
+            {label}: {assigned.name}
           </span>
-        )}
-        {canAssign && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto h-7 px-2 text-xs text-red-600 dark:text-red-400"
-            disabled={pending}
-            onClick={() => run(null, "Biriktiruv olib tashlandi")}
-          >
-            <X className="h-3.5 w-3.5" /> Olib tashlash
-          </Button>
+          {assigned.phone && (
+            <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300">
+              <a href={`tel:${normalizePhone(assigned.phone)}`} className="text-primary-600 dark:text-primary-400">
+                {formatPhone(assigned.phone)}
+              </a>
+              <PhoneCopyButton phone={assigned.phone} />
+            </span>
+          )}
+          {canAssign && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto h-7 px-2 text-xs text-red-600 dark:text-red-400"
+              disabled={pending}
+              onClick={() => run(null, "Biriktiruv olib tashlandi")}
+            >
+              <X className="h-3.5 w-3.5" /> Olib tashlash
+            </Button>
+          )}
+        </div>
+        {note && (
+          <p className="mt-1.5 whitespace-pre-wrap text-xs text-slate-600 dark:text-slate-300">
+            <span className="font-medium">Izoh:</span> {note}
+          </p>
         )}
       </div>
     );
@@ -89,29 +100,43 @@ function AssignRow({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-        <Icon className={`h-3.5 w-3.5 ${iconTone}`} /> {label}:
-      </span>
-      <select
-        value={pick}
-        onChange={(e) => setPick(e.target.value)}
-        className="h-8 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-sm"
-      >
-        <option value="">{isXodim ? "Xodim tanlang…" : "Usta tanlang…"}</option>
-        {options.map((u) => (
-          <option key={u.id} value={u.id}>
-            {u.name}
-          </option>
-        ))}
-      </select>
-      <Button
-        size="sm"
-        disabled={pending || !pick}
-        onClick={() => run(pick, isXodim ? "Mas'ul xodim biriktirildi" : "Ustaga biriktirildi")}
-      >
-        <Check className="h-3.5 w-3.5" /> Biriktirish
-      </Button>
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+          <Icon className={`h-3.5 w-3.5 ${iconTone}`} /> {label}:
+        </span>
+        <select
+          value={pick}
+          onChange={(e) => setPick(e.target.value)}
+          className="h-8 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-sm"
+        >
+          <option value="">{isXodim ? "Xodim tanlang…" : "Usta tanlang…"}</option>
+          {options.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name}
+            </option>
+          ))}
+        </select>
+        <Button
+          size="sm"
+          disabled={pending || !pick}
+          onClick={() =>
+            run(pick, isXodim ? "Mas'ul xodim biriktirildi" : "Ustaga biriktirildi", noteText)
+          }
+        >
+          <Check className="h-3.5 w-3.5" /> Biriktirish
+        </Button>
+      </div>
+      {pick && (
+        <textarea
+          value={noteText}
+          onChange={(e) => setNoteText(e.target.value)}
+          maxLength={500}
+          rows={2}
+          placeholder={isXodim ? "Xodimga izoh (ixtiyoriy)…" : "Ustaga izoh (ixtiyoriy)…"}
+          className="w-full resize-y rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-sm"
+        />
+      )}
     </div>
   );
 }
@@ -125,6 +150,8 @@ export function TicketIntegratorControl({
   canAssign,
   staff,
   usta,
+  staffNote,
+  ustaNote,
   ustalar,
   xodimlar,
 }: {
@@ -132,6 +159,8 @@ export function TicketIntegratorControl({
   canAssign: boolean;
   staff: Assigned;
   usta: Assigned;
+  staffNote: string | null;
+  ustaNote: string | null;
   ustalar: IntegratorOpt[];
   xodimlar: IntegratorOpt[];
 }) {
@@ -140,16 +169,18 @@ export function TicketIntegratorControl({
       <AssignRow
         kind="XODIM"
         assigned={staff}
+        note={staffNote}
         options={xodimlar}
         canAssign={canAssign}
-        action={(id) => assignTicketStaff(ticketId, id)}
+        action={(id, note) => assignTicketStaff(ticketId, id, note)}
       />
       <AssignRow
         kind="USTA"
         assigned={usta}
+        note={ustaNote}
         options={ustalar}
         canAssign={canAssign}
-        action={(id) => assignTicketUsta(ticketId, id)}
+        action={(id, note) => assignTicketUsta(ticketId, id, note)}
       />
     </div>
   );

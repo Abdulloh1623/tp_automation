@@ -258,6 +258,9 @@ model Ticket {
   // Xodim (operator/menejer/admin) — muammoni online hal etish uchun biriktiriladi
   assignedStaffId String?
   assignedStaff  User?     @relation("TicketStaff", fields: [assignedStaffId], references: [id])
+  // Biriktirishda boshliq yozgan izoh — mas'ul xodim / usta uchun (biriktiruv bilan birga tozalanadi)
+  staffNote      String? // mas'ul xodimga izoh
+  ustaNote       String? // ustaga izoh
   resolutionNote String?
   createdAt      DateTime  @default(now())
   resolvedAt     DateTime?

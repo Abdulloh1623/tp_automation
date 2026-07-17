@@ -19,7 +19,7 @@ export async function getNavBadges(
   const escScope = assignedStaffScope(role, userId, "escalationStaffId");
   const manager = isManagerRole(role);
 
-  const [unread, lidlar, muammolar, eskalatsiya, qaytarish, takliflar] =
+  const [unread, lidlar, muammolar, eskalatsiya, qaytarish, takliflar, soliq] =
     await Promise.all([
       // Bildirishnomalar — o'qilmagan
       db.notificationRecipient.count({ where: { userId, readAt: null } }),
@@ -54,6 +54,10 @@ export async function getNavBadges(
       manager
         ? db.suggestion.count({ where: { status: "OPEN" } })
         : Promise.resolve(0),
+      // Soliqqa ulash — kutilayotgan arizalar (boshliq hammasi, operator o'ziniki)
+      db.taxConnection.count({
+        where: { status: "PENDING", ...(manager ? {} : { byUserId: userId }) },
+      }),
     ]);
 
   return {
@@ -63,5 +67,6 @@ export async function getNavBadges(
     "/eskalatsiya": eskalatsiya,
     "/qaytarish": qaytarish,
     "/takliflar": takliflar,
+    "/soliq": soliq,
   };
 }

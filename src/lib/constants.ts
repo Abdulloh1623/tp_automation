@@ -110,6 +110,13 @@ export const SUGGESTION_STATUS = {
 } as const;
 export type SuggestionStatus = keyof typeof SUGGESTION_STATUS;
 
+// Soliqqa ulash arizasi holati
+export const TAX_CONNECTION_STATUS = {
+  PENDING: "Kutilmoqda",
+  CONNECTED: "Ulandi",
+} as const;
+export type TaxConnectionStatus = keyof typeof TAX_CONNECTION_STATUS;
+
 export function suggestionStatusLabel(s: string): string {
   return SUGGESTION_STATUS[s as SuggestionStatus] ?? s;
 }

@@ -6,12 +6,14 @@ export type TicketTab = {
   key: string;
   label: string;
   icon: ReactNode;
-  tone: "amber" | "sky" | "emerald";
+  tone: "red" | "amber" | "sky" | "emerald";
   count: number; // qamrov bo'yicha jami (filtrdan mustaqil)
   content: ReactNode;
 };
 
 const ACTIVE_TONE: Record<TicketTab["tone"], string> = {
+  red:
+    "border-red-500 text-red-700 bg-red-50 dark:border-red-400 dark:text-red-300 dark:bg-red-950/40",
   amber:
     "border-amber-500 text-amber-700 bg-amber-50 dark:border-amber-400 dark:text-amber-300 dark:bg-amber-950/40",
   sky:
@@ -20,7 +22,10 @@ const ACTIVE_TONE: Record<TicketTab["tone"], string> = {
     "border-emerald-500 text-emerald-700 bg-emerald-50 dark:border-emerald-400 dark:text-emerald-300 dark:bg-emerald-950/40",
 };
 
+// Hisoblagich (badge) — faol/nofaol bo'lishidan qat'i nazar doim o'z rangida
+// (qizil/sariq son doim ko'zga tashlanib turishi uchun).
 const BADGE_TONE: Record<TicketTab["tone"], string> = {
+  red: "bg-red-500/15 text-red-700 dark:text-red-300",
   amber: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
   sky: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
   emerald: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
@@ -70,7 +75,7 @@ export function TicketTabs({
               <span
                 className={
                   "inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold " +
-                  (isActive ? BADGE_TONE[t.tone] : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300")
+                  BADGE_TONE[t.tone]
                 }
               >
                 {t.count}

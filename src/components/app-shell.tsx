@@ -26,6 +26,7 @@ import {
   Ban,
   Lightbulb,
   Landmark,
+  Wallet,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Toaster } from "@/components/toaster";
@@ -82,6 +83,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: "Tahlil",
     items: [
       { href: "/analitika", label: "Jonli analitika", icon: Activity, roles: ["ADMIN", "MANAGER"] },
+      { href: "/moliya", label: "Moliya", icon: Wallet, roles: ["ADMIN", "MANAGER"] },
       { href: "/hisobot", label: "Hisobot", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
     ],
   },

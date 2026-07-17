@@ -16,6 +16,7 @@ import {
   confirmReturnCollected,
 } from "@/actions/equipment";
 import { Button } from "@/components/ui/button";
+import { ClientLink } from "@/components/client-link";
 import { Badge } from "@/components/ui/badge";
 import { confirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
@@ -152,7 +153,7 @@ function Row({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium text-slate-900 dark:text-slate-100">{r.restaurantName || r.fullName || "—"}</span>
+            <ClientLink id={r.clientId} name={r.restaurantName || r.fullName || "—"} />
             <SpecialNoteBell
               clientId={r.clientId}
               restaurantName={r.restaurantName || r.fullName}

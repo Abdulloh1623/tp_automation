@@ -4,6 +4,7 @@
 import { useMemo, useState } from "react";
 import { Ban, MapPin, Phone } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { ClientLink } from "@/components/client-link";
 import { LeadRevertButton } from "@/components/lead-revert-button";
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { SpecialNoteBell } from "@/components/special-note-bell";
@@ -74,9 +75,7 @@ export function RefusedList({
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="font-medium text-slate-900 dark:text-slate-100">
-                        {c.restaurantName}
-                      </span>
+                      <ClientLink id={c.id} name={c.restaurantName || c.fullName || "—"} />
                       <SpecialNoteBell
                         clientId={c.id}
                         restaurantName={c.restaurantName || c.fullName}

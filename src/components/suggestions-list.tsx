@@ -10,6 +10,7 @@ import {
   deleteSuggestion,
 } from "@/actions/suggestions";
 import { confirmDialog } from "@/components/confirm-dialog";
+import { ClientLink } from "@/components/client-link";
 import { toast } from "@/components/toaster";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -124,9 +125,7 @@ export function SuggestionsList({ items }: { items: SuggestionItem[] }) {
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-medium text-slate-900 dark:text-slate-100">
-                          {s.restaurantName}
-                        </span>
+                        <ClientLink id={s.clientId} name={s.restaurantName || s.fullName || "—"} />
                         <SpecialNoteBell
                           clientId={s.clientId}
                           restaurantName={s.restaurantName || s.fullName}

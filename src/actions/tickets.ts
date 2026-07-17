@@ -128,6 +128,12 @@ export async function setTicketStatus(
 // XODIM (ofis xodimi) sifatida mas'ul qilib biriktirilishi mumkin bo'lgan rollar
 const ASSIGNABLE_STAFF_ROLES = ["ADMIN", "MANAGER", "OPERATOR"];
 
+// Biriktirish izohini tozalaydi: trim + 500 belgigacha; bo'sh bo'lsa null.
+function assignNote(note?: string): string | null {
+  const t = typeof note === "string" ? note.trim() : "";
+  return t ? t.slice(0, 500) : null;
+}
+
 /** OPEN muammoni biriktirilganda "Jarayonda"ga o'tkazadi (boshqa holatga tegmaydi). */
 function progressIfOpen(status: string): "IN_PROGRESS" | undefined {
   return status === "OPEN" ? "IN_PROGRESS" : undefined;
@@ -141,6 +147,7 @@ function progressIfOpen(status: string): "IN_PROGRESS" | undefined {
 export async function assignTicketStaff(
   ticketId: string,
   staffId: string | null,
+  note?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const g = await guardRole(["ADMIN", "MANAGER"]);
   if (!g.ok) return { ok: false, error: g.error };
@@ -149,7 +156,7 @@ export async function assignTicketStaff(
     try {
       const ticket = await db.ticket.update({
         where: { id: ticketId },
-        data: { assignedStaffId: null },
+        data: { assignedStaffId: null, staffNote: null },
       });
       await logAudit("Muammo mas'uli olindi", { entity: "Ticket", entityId: ticketId });
       revalidateTicket(ticket.clientId);
@@ -167,20 +174,31 @@ export async function assignTicketStaff(
     return { ok: false, error: "Xodim topilmadi yoki faol emas" };
   }
 
+  const cleanNote = assignNote(note);
+
   try {
     const current = await db.ticket.findUnique({ where: { id: ticketId }, select: { status: true } });
     if (!current) return { ok: false, error: "Muammo topilmadi" };
     const ticket = await db.ticket.update({
       where: { id: ticketId },
-      data: { assignedStaffId: staffId, assigneeType: "XODIM", status: progressIfOpen(current.status) },
+      data: {
+        assignedStaffId: staffId,
+        assigneeType: "XODIM",
+        staffNote: cleanNote,
+        status: progressIfOpen(current.status),
+      },
       select: { clientId: true, title: true, client: { select: { restaurantName: true } } },
     });
-    await logAudit(`Muammo mas'uli: ${u.name} (xodim)`, { entity: "Ticket", entityId: ticketId });
+    await logAudit(`Muammo mas'uli: ${u.name} (xodim)`, {
+      entity: "Ticket",
+      entityId: ticketId,
+      detail: cleanNote ?? undefined,
+    });
     // Biriktirilgan xodimga ilova-ichi bildirishnoma (o'ziga biriktirsa — yubormaydi)
     if (staffId !== g.session.userId) {
       await createNotification({
         title: "Sizga yangi muammo biriktirildi",
-        body: `${ticket.client.restaurantName} — ${ticket.title}`,
+        body: `${ticket.client.restaurantName} — ${ticket.title}${cleanNote ? `\n\nIzoh: ${cleanNote}` : ""}`,
         userIds: [staffId],
       });
     }
@@ -198,6 +216,7 @@ export async function assignTicketStaff(
 export async function assignTicketUsta(
   ticketId: string,
   ustaId: string | null,
+  note?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const g = await guardRole(["ADMIN", "MANAGER"]);
   if (!g.ok) return { ok: false, error: g.error };
@@ -206,7 +225,7 @@ export async function assignTicketUsta(
     try {
       const ticket = await db.ticket.update({
         where: { id: ticketId },
-        data: { assignedUstaId: null },
+        data: { assignedUstaId: null, ustaNote: null },
       });
       await logAudit("Muammodan usta olindi", { entity: "Ticket", entityId: ticketId });
       revalidateTicket(ticket.clientId);
@@ -224,14 +243,20 @@ export async function assignTicketUsta(
     return { ok: false, error: "Usta topilmadi yoki faol emas" };
   }
 
+  const cleanNote = assignNote(note);
+
   try {
     const current = await db.ticket.findUnique({ where: { id: ticketId }, select: { status: true } });
     if (!current) return { ok: false, error: "Muammo topilmadi" };
     const ticket = await db.ticket.update({
       where: { id: ticketId },
-      data: { assignedUstaId: ustaId, status: progressIfOpen(current.status) },
+      data: { assignedUstaId: ustaId, ustaNote: cleanNote, status: progressIfOpen(current.status) },
     });
-    await logAudit(`Muammoga usta: ${u.name}`, { entity: "Ticket", entityId: ticketId });
+    await logAudit(`Muammoga usta: ${u.name}`, {
+      entity: "Ticket",
+      entityId: ticketId,
+      detail: cleanNote ?? undefined,
+    });
     revalidateTicket(ticket.clientId);
     return { ok: true };
   } catch {

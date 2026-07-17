@@ -226,6 +226,8 @@ export default async function TicketsPage({
             canAssign={canAssign}
             staff={t.assignedStaff ?? null}
             usta={t.assignedUsta ?? null}
+            staffNote={t.staffNote}
+            ustaNote={t.ustaNote}
             ustalar={ustalar}
             xodimlar={xodimlar}
           />

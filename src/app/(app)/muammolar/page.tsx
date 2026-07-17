@@ -268,7 +268,7 @@ export default async function TicketsPage({
       key: "yangi",
       label: "Yangi",
       icon: <Inbox className="h-4 w-4" />,
-      tone: "amber",
+      tone: "red", // yangi tushgan muammolar — qizil (e'tibor talab qiladi)
       count: yangiTotal,
       content: panel(yangi, "Biriktirilmagan yangi muammo yo'q."),
     });
@@ -277,7 +277,8 @@ export default async function TicketsPage({
     key: "biriktirilgan",
     label: "Biriktirilgan",
     icon: <UserCheck className="h-4 w-4" />,
-    tone: "sky",
+    // Admin/menejerda sariq (nazorat), xodimda qizil (bajarilishi kutilmoqda)
+    tone: canAssign ? "amber" : "red",
     count: biriktirilganTotal,
     content: panel(
       biriktirilgan,

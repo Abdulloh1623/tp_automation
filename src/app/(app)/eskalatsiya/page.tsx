@@ -10,6 +10,8 @@ import {
 } from "@/components/escalation-list";
 import { type StaffOption } from "@/components/assign-escalation-staff";
 import { CountStrip, type CountItem } from "@/components/count-strip";
+import { EscalationStatsPanel } from "@/components/escalation-stats-panel";
+import { getEscalationStats } from "@/lib/escalation-stats";
 import { slaThreshold } from "@/lib/sla";
 import { assignedStaffScope } from "@/lib/visibility";
 
@@ -30,7 +32,7 @@ export default async function EscalationPage() {
 
   const staffInclude = { escalationStaff: { select: { id: true, name: true } } };
 
-  const [clients, forwardedRaw, resolvedRaw, ustalarFull, xodimlarFull] = await Promise.all([
+  const [clients, forwardedRaw, resolvedRaw, ustalarFull, xodimlarFull, stats] = await Promise.all([
     db.client.findMany({
       where: { stage: "ESCALATED", ...scope },
       orderBy: { updatedAt: "desc" },
@@ -77,6 +79,8 @@ export default async function EscalationPage() {
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    // Statistika paneli — faqat boshliq/admin ko'radi
+    isManager ? getEscalationStats() : Promise.resolve(null),
   ]);
 
   const escalated: EscalatedItem[] = clients.map((c) => {
@@ -166,6 +170,7 @@ export default async function EscalationPage() {
           <CountStrip items={summary} />
         </div>
       </div>
+      {stats && <EscalationStatsPanel stats={stats} />}
       <EscalationList
         escalated={escalated}
         forwarded={forwarded}

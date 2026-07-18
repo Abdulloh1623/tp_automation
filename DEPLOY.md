@@ -114,7 +114,10 @@ docker compose logs -f app worker # loglar
 ```
 
 Oldingi image lokalda tag'langan (dangling emas) → `image prune` uni o'chirmaydi →
-rollback tarmoqsiz, bir necha soniyada bajariladi.
+rollback tarmoqsiz, bir necha soniyada bajariladi. Deploy skripti oxirgi **8**
+reliz image'ini saqlaydi (`KEEP` — `deploy-pull.sh`), eskilarini o'chiradi (disk
+to'lib qolmasin). Undan eskiroq relizga rollback qilinsa image GHCR'dan qayta
+tortiladi (tarmoq kerak, lekin ishlaydi).
 
 > ⚠️ **Schema rollback:** `rollback.sh` faqat **app image**'ini qaytaradi. Prisma
 > migratsiyalari `up -d`'da avtomatik qo'llanadi va **avtomatik orqaga qaytmaydi**.

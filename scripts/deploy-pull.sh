@@ -60,4 +60,16 @@ mv .deploy-history.tmp .deploy-history
 
 # Dangling (tegsiz) qatlamlarni tozalash — teg'langan SHA image'lar saqlanadi
 sudo docker image prune -f >/dev/null 2>&1 || true
+
+# Eski app image'larini tozalash — har deploy yangi SHA-tag image tortadi va u
+# TEGLI bo'lgani uchun `image prune -f` uni o'chirmaydi → cheksiz yig'ilib disk
+# to'ldiradi. Joriy + oxirgi (KEEP-1) relizni saqlab (rollback uchun yetarli),
+# qolganini o'chiramiz. `docker images` yangidan-eskiga tartiblaydi; ishlab
+# turgan image'ni `rmi` o'chira olmaydi (xatoni yutamiz — xavfsiz).
+KEEP=8
+sudo docker images --format '{{.Repository}}:{{.Tag}}' "${IMAGE_REPO}" \
+  | grep -v ':<none>$' \
+  | tail -n +$((KEEP + 1)) \
+  | xargs -r sudo docker rmi >/dev/null 2>&1 || true
+
 echo "$(date '+%F %T') — deployed ${SHA}"

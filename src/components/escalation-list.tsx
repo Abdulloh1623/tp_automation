@@ -1,8 +1,8 @@
 "use client";
 
 // Eskalatsiya ro'yxatlari — ichki bo'limlarga (tab) ajratilgan:
-// Yangi (xodim biriktirilmagan) · Biriktirilgan (xodim ishlayapti, usta yo'q) ·
-// Ustada (jarayonda). Qidiruv + viloyat filtri barcha bo'limlarga ta'sir qiladi.
+// Yangi (navbatda, usta biriktirilmagan) · Jarayonda (ustada) · Yakunlangan.
+// Qidiruv + viloyat filtri barcha bo'limlarga ta'sir qiladi.
 import { useMemo, useState, type ReactNode } from "react";
 import {
   Phone,
@@ -11,7 +11,7 @@ import {
   Wrench,
   AlertTriangle,
   Inbox,
-  UserCheck,
+  CheckCircle2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { ClientLink } from "@/components/client-link";
@@ -64,6 +64,18 @@ export type ForwardedItem = {
   overdue: boolean;
 };
 
+export type ResolvedItem = {
+  id: string;
+  restaurantName: string;
+  fullName: string;
+  phone: string;
+  region: string | null;
+  ustaName: string | null;
+  ustaPhone: string | null;
+  operatorName: string | null;
+  resolvedAt: string;
+};
+
 /** 3 kundan oshgan eskalatsiya belgisi. */
 function OverdueBadge() {
   return (
@@ -92,12 +104,14 @@ export type UstaOption = {
 export function EscalationList({
   escalated,
   forwarded,
+  resolved,
   ustalar,
   staffOptions,
   isManager,
 }: {
   escalated: EscalatedItem[];
   forwarded: ForwardedItem[];
+  resolved: ResolvedItem[];
   ustalar: UstaOption[];
   staffOptions: StaffOption[];
   isManager: boolean;
@@ -106,8 +120,8 @@ export function EscalationList({
   const [region, setRegion] = useState("");
 
   const regions = useMemo(
-    () => uniqueRegions([...escalated, ...forwarded]),
-    [escalated, forwarded],
+    () => uniqueRegions([...escalated, ...forwarded, ...resolved]),
+    [escalated, forwarded, resolved],
   );
   const match = (c: { restaurantName: string; fullName: string; phone: string; region: string | null }) =>
     (!region || c.region === region) &&
@@ -115,13 +129,10 @@ export function EscalationList({
 
   const escFiltered = useMemo(() => escalated.filter(match), [escalated, query, region]); // eslint-disable-line react-hooks/exhaustive-deps
   const fwdFiltered = useMemo(() => forwarded.filter(match), [forwarded, query, region]); // eslint-disable-line react-hooks/exhaustive-deps
+  const resFiltered = useMemo(() => resolved.filter(match), [resolved, query, region]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ESCALATED ichida: xodim biriktirilmagan (yangi) va biriktirilgan (jarayonda).
-  const yangi = useMemo(() => escFiltered.filter((c) => !c.staffId), [escFiltered]);
-  const biriktirilgan = useMemo(() => escFiltered.filter((c) => !!c.staffId), [escFiltered]);
-
-  const total = escalated.length + forwarded.length;
-  const found = escFiltered.length + fwdFiltered.length;
+  const total = escalated.length + forwarded.length + resolved.length;
+  const found = escFiltered.length + fwdFiltered.length + resFiltered.length;
 
   // ESCALATED bosqichidagi mijoz kartasi (usta hali biriktirilmagan).
   function escalatedCard(c: EscalatedItem) {
@@ -276,46 +287,81 @@ export function EscalationList({
     );
   }
 
+  // Yakunlangan (RESOLVED — usta "Bajarildi" degan) mijoz kartasi (faqat ko'rsatish).
+  function resolvedCard(c: ResolvedItem) {
+    return (
+      <Card key={c.id}>
+        <CardContent className="space-y-2">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <ClientLink id={c.id} name={c.restaurantName || c.fullName || "—"} />
+              <div className="flex flex-wrap items-center gap-x-3 text-xs text-slate-500 dark:text-slate-400">
+                <span>{c.fullName}</span>
+                {c.region && (
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {c.region}
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1">
+                  <a
+                    href={`tel:${normalizePhone(c.phone)}`}
+                    className="inline-flex items-center gap-1 text-primary-600 dark:text-primary-400"
+                  >
+                    <Phone className="h-3 w-3" />
+                    {formatPhone(c.phone)}
+                  </a>
+                  <PhoneCopyButton phone={c.phone} />
+                </span>
+                {c.ustaName && (
+                  <span className="inline-flex items-center gap-1">
+                    <Wrench className="h-3 w-3" /> {c.ustaName}
+                  </span>
+                )}
+                {c.operatorName && <span>· operator: {c.operatorName}</span>}
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+              <CheckCircle2 className="h-3 w-3" /> Yakunlandi · {c.resolvedAt}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Bo'lim ichi: kartalar ro'yxati yoki bo'sh ko'rsatkich.
   function panel<T>(items: T[], render: (c: T) => ReactNode, emptyHint: string) {
     if (items.length === 0) return <EmptyPanel hint={emptyHint} />;
     return <div className="space-y-3">{items.map(render)}</div>;
   }
 
-  const tabs: TicketTab[] = [];
-  // "Yangi" (xodim biriktirilmagan) — faqat boshliq/admin biriktira oladi.
-  if (isManager) {
-    tabs.push({
+  const tabs: TicketTab[] = [
+    {
       key: "yangi",
       label: "Yangi",
       icon: <Inbox className="h-4 w-4" />,
-      tone: "red",
-      count: yangi.length,
-      content: panel(yangi, escalatedCard, "Biriktirilmagan yangi eskalatsiya yo'q."),
-    });
-  }
-  tabs.push({
-    key: "biriktirilgan",
-    label: "Biriktirilgan",
-    icon: <UserCheck className="h-4 w-4" />,
-    tone: isManager ? "amber" : "red",
-    count: biriktirilgan.length,
-    content: panel(
-      biriktirilgan,
-      escalatedCard,
-      isManager
-        ? "Xodimga biriktirilgan (usta kutayotgan) eskalatsiya yo'q."
-        : "Sizga biriktirilgan eskalatsiya yo'q.",
-    ),
-  });
-  tabs.push({
-    key: "ustada",
-    label: "Ustada (jarayonda)",
-    icon: <Wrench className="h-4 w-4" />,
-    tone: "sky",
-    count: fwdFiltered.length,
-    content: panel(fwdFiltered, forwardedCard, "Ustada (jarayonda) eskalatsiya yo'q."),
-  });
+      tone: "red", // navbatda — usta biriktirilishi kutilmoqda
+      count: escFiltered.length,
+      content: panel(escFiltered, escalatedCard, "Navbatda (usta kutayotgan) eskalatsiya yo'q."),
+    },
+    {
+      key: "jarayonda",
+      label: "Jarayonda",
+      icon: <Wrench className="h-4 w-4" />,
+      tone: "sky", // ustada — ish davom etmoqda
+      count: fwdFiltered.length,
+      content: panel(fwdFiltered, forwardedCard, "Jarayondagi (ustada) eskalatsiya yo'q."),
+    },
+    {
+      key: "yakunlangan",
+      label: "Yakunlangan",
+      icon: <CheckCircle2 className="h-4 w-4" />,
+      tone: "emerald",
+      count: resFiltered.length,
+      content: panel(resFiltered, resolvedCard, "Yakunlangan eskalatsiya yo'q."),
+    },
+  ];
 
   return (
     <div className="space-y-5">
@@ -336,7 +382,7 @@ export function EscalationList({
           Mijoz topilmadi
         </Card>
       ) : (
-        <TicketTabs tabs={tabs} initialKey={isManager ? "yangi" : "biriktirilgan"} />
+        <TicketTabs tabs={tabs} initialKey="yangi" />
       )}
     </div>
   );

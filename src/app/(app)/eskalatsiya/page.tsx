@@ -12,10 +12,10 @@ import { type StaffOption } from "@/components/assign-escalation-staff";
 import { CountStrip, type CountItem } from "@/components/count-strip";
 import { slaThreshold } from "@/lib/sla";
 import { assignedStaffScope } from "@/lib/visibility";
-import { formatDate } from "@/lib/utils";
 
-// "Yakunlangan" bo'limida ko'rsatiladigan maksimal karta (tarix o'smasin).
-const RESOLVED_RENDER_CAP = 30;
+// "Yakunlangan" bo'limi uchun serverdan olinadigan maksimal (yaqin) yozuv.
+// Sana filtri va "yana ko'rsatish" shu to'plam ustidan mijoz tomonida ishlaydi.
+const RESOLVED_FETCH_CAP = 200;
 
 export default async function EscalationPage() {
   const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR"]);
@@ -50,12 +50,18 @@ export default async function EscalationPage() {
       include: { assignedUsta: { select: { name: true, phone: true } }, ...staffInclude },
     }),
     // Yakunlangan eskalatsiyalar — usta "Bajarildi" degach stage RESOLVED bo'ladi
-    // va eskalatsiya belgilari (escalatedAt/escalationStaffId) tozalanadi; shu bois
-    // bu bo'lim scope'siz umumiy tarix sifatida ko'rsatiladi (oxirgi N ta).
+    // va eskalatsiya belgilari (escalatedAt/escalationStaffId) tozalanadi. Boshliq
+    // barchasini, operator esa faqat o'zi yakunlaganini (DONE izohi o'ziniki) ko'radi.
     db.client.findMany({
-      where: { stage: "RESOLVED", ustaStatus: "DONE" },
+      where: {
+        stage: "RESOLVED",
+        ustaStatus: "DONE",
+        ...(isManager
+          ? {}
+          : { callLogs: { some: { result: "DONE", operatorId: session.userId } } }),
+      },
       orderBy: { updatedAt: "desc" },
-      take: RESOLVED_RENDER_CAP,
+      take: RESOLVED_FETCH_CAP,
       include: {
         assignedTo: { select: { name: true } },
         assignedUsta: { select: { name: true, phone: true } },
@@ -119,7 +125,7 @@ export default async function EscalationPage() {
     ustaName: c.assignedUsta?.name ?? null,
     ustaPhone: c.assignedUsta?.phone ?? null,
     operatorName: c.assignedTo?.name ?? null,
-    resolvedAt: formatDate(c.updatedAt),
+    resolvedAt: c.updatedAt.toISOString(),
   }));
 
   const ustalar: UstaOption[] = ustalarFull.map((u) => ({

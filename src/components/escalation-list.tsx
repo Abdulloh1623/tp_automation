@@ -1,7 +1,8 @@
 "use client";
 
 // Eskalatsiya ro'yxatlari — ichki bo'limlarga (tab) ajratilgan:
-// Yangi (navbatda, usta biriktirilmagan) · Jarayonda (ustada) · Yakunlangan.
+// Yangi (navbatda, usta biriktirilmagan) · Biriktirildi (usta biriktirilgan,
+// hali boshlamagan) · Jarayonda (usta ish boshlagan) · Yakunlangan.
 // Qidiruv + viloyat filtri barcha bo'limlarga ta'sir qiladi.
 import { useMemo, useState, type ReactNode } from "react";
 import {
@@ -11,6 +12,7 @@ import {
   Wrench,
   AlertTriangle,
   Inbox,
+  UserCheck,
   CheckCircle2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -130,6 +132,11 @@ export function EscalationList({
   const escFiltered = useMemo(() => escalated.filter(match), [escalated, query, region]); // eslint-disable-line react-hooks/exhaustive-deps
   const fwdFiltered = useMemo(() => forwarded.filter(match), [forwarded, query, region]); // eslint-disable-line react-hooks/exhaustive-deps
   const resFiltered = useMemo(() => resolved.filter(match), [resolved, query, region]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // FORWARDED ichida: usta endigina biriktirilgan (ASSIGNED) va ish boshlagan (qolganlari).
+  const isJustAssigned = (c: ForwardedItem) => (c.ustaStatus ?? "ASSIGNED") === "ASSIGNED";
+  const biriktirildi = useMemo(() => fwdFiltered.filter(isJustAssigned), [fwdFiltered]);
+  const jarayonda = useMemo(() => fwdFiltered.filter((c) => !isJustAssigned(c)), [fwdFiltered]);
 
   const total = escalated.length + forwarded.length + resolved.length;
   const found = escFiltered.length + fwdFiltered.length + resFiltered.length;
@@ -346,12 +353,20 @@ export function EscalationList({
       content: panel(escFiltered, escalatedCard, "Navbatda (usta kutayotgan) eskalatsiya yo'q."),
     },
     {
+      key: "biriktirildi",
+      label: "Biriktirildi",
+      icon: <UserCheck className="h-4 w-4" />,
+      tone: "amber", // usta biriktirilgan, hali ishga kirishmagan
+      count: biriktirildi.length,
+      content: panel(biriktirildi, forwardedCard, "Usta biriktirilgan (kutayotgan) eskalatsiya yo'q."),
+    },
+    {
       key: "jarayonda",
       label: "Jarayonda",
       icon: <Wrench className="h-4 w-4" />,
-      tone: "sky", // ustada — ish davom etmoqda
-      count: fwdFiltered.length,
-      content: panel(fwdFiltered, forwardedCard, "Jarayondagi (ustada) eskalatsiya yo'q."),
+      tone: "sky", // usta ish boshlagan (yo'lda/bordi/...)
+      count: jarayonda.length,
+      content: panel(jarayonda, forwardedCard, "Jarayondagi (usta ishlayotgan) eskalatsiya yo'q."),
     },
     {
       key: "yakunlangan",

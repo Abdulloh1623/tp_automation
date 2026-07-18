@@ -5,12 +5,17 @@ import {
   EscalationList,
   type EscalatedItem,
   type ForwardedItem,
+  type ResolvedItem,
   type UstaOption,
 } from "@/components/escalation-list";
 import { type StaffOption } from "@/components/assign-escalation-staff";
 import { CountStrip, type CountItem } from "@/components/count-strip";
 import { slaThreshold } from "@/lib/sla";
 import { assignedStaffScope } from "@/lib/visibility";
+import { formatDate } from "@/lib/utils";
+
+// "Yakunlangan" bo'limida ko'rsatiladigan maksimal karta (tarix o'smasin).
+const RESOLVED_RENDER_CAP = 30;
 
 export default async function EscalationPage() {
   const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR"]);
@@ -25,7 +30,7 @@ export default async function EscalationPage() {
 
   const staffInclude = { escalationStaff: { select: { id: true, name: true } } };
 
-  const [clients, forwardedRaw, ustalarFull, xodimlarFull] = await Promise.all([
+  const [clients, forwardedRaw, resolvedRaw, ustalarFull, xodimlarFull] = await Promise.all([
     db.client.findMany({
       where: { stage: "ESCALATED", ...scope },
       orderBy: { updatedAt: "desc" },
@@ -43,6 +48,18 @@ export default async function EscalationPage() {
       where: { stage: "FORWARDED", ...scope },
       orderBy: { updatedAt: "desc" },
       include: { assignedUsta: { select: { name: true, phone: true } }, ...staffInclude },
+    }),
+    // Yakunlangan eskalatsiyalar — usta "Bajarildi" degach stage RESOLVED bo'ladi
+    // va eskalatsiya belgilari (escalatedAt/escalationStaffId) tozalanadi; shu bois
+    // bu bo'lim scope'siz umumiy tarix sifatida ko'rsatiladi (oxirgi N ta).
+    db.client.findMany({
+      where: { stage: "RESOLVED", ustaStatus: "DONE" },
+      orderBy: { updatedAt: "desc" },
+      take: RESOLVED_RENDER_CAP,
+      include: {
+        assignedTo: { select: { name: true } },
+        assignedUsta: { select: { name: true, phone: true } },
+      },
     }),
     db.user.findMany({
       where: { role: "INSTALLER", isActive: true },
@@ -93,6 +110,18 @@ export default async function EscalationPage() {
     overdue: isOverdue(c.escalatedAt, c.updatedAt),
   }));
 
+  const resolved: ResolvedItem[] = resolvedRaw.map((c) => ({
+    id: c.id,
+    restaurantName: c.restaurantName,
+    fullName: c.fullName,
+    phone: c.phone,
+    region: c.region,
+    ustaName: c.assignedUsta?.name ?? null,
+    ustaPhone: c.assignedUsta?.phone ?? null,
+    operatorName: c.assignedTo?.name ?? null,
+    resolvedAt: formatDate(c.updatedAt),
+  }));
+
   const ustalar: UstaOption[] = ustalarFull.map((u) => ({
     id: u.id,
     name: u.name,
@@ -105,9 +134,9 @@ export default async function EscalationPage() {
   const overdueCount =
     escalated.filter((c) => c.overdue).length + forwarded.filter((c) => c.overdue).length;
   const summary: CountItem[] = [
-    { label: "Jami eskalatsiya", value: escalated.length + forwarded.length },
-    { label: "Navbatda", value: escalated.length, tone: "amber" },
-    { label: "Ustada (jarayonda)", value: forwarded.length, tone: "sky" },
+    { label: "Yangi (navbatda)", value: escalated.length, tone: "amber" },
+    { label: "Jarayonda", value: forwarded.length, tone: "sky" },
+    { label: "Yakunlangan", value: resolved.length, tone: "emerald" },
     { label: "3 kundan oshgan", value: overdueCount, tone: "red" },
   ];
 
@@ -129,6 +158,7 @@ export default async function EscalationPage() {
       <EscalationList
         escalated={escalated}
         forwarded={forwarded}
+        resolved={resolved}
         ustalar={ustalar}
         staffOptions={staffOptions}
         isManager={isManager}

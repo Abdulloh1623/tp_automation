@@ -133,9 +133,14 @@ export default async function EscalationPage() {
 
   const overdueCount =
     escalated.filter((c) => c.overdue).length + forwarded.filter((c) => c.overdue).length;
+  // FORWARDED ichida: usta endigina biriktirilgan (ASSIGNED) va ish boshlaganlar.
+  const biriktirildiCount = forwarded.filter(
+    (c) => (c.ustaStatus ?? "ASSIGNED") === "ASSIGNED",
+  ).length;
   const summary: CountItem[] = [
-    { label: "Yangi (navbatda)", value: escalated.length, tone: "amber" },
-    { label: "Jarayonda", value: forwarded.length, tone: "sky" },
+    { label: "Yangi (navbatda)", value: escalated.length, tone: "red" },
+    { label: "Biriktirildi", value: biriktirildiCount, tone: "amber" },
+    { label: "Jarayonda", value: forwarded.length - biriktirildiCount, tone: "sky" },
     { label: "Yakunlangan", value: resolved.length, tone: "emerald" },
     { label: "3 kundan oshgan", value: overdueCount, tone: "red" },
   ];

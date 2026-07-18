@@ -1,9 +1,10 @@
 // Boshliq uchun qaytarish jarayoni bo'yicha umumiy hisobot kartalari.
-import { Clock, Wrench, PackageCheck, XCircle, TrendingUp } from "lucide-react";
+import { Clock, UserCheck, Wrench, PackageCheck, XCircle, TrendingUp } from "lucide-react";
 
 export type ReturnStatsData = {
-  pending: number; // usta kutilmoqda
-  inProgress: number; // ustada (TP xodimi kuzatmoqda)
+  pending: number; // usta kutilmoqda (yangi)
+  assigned: number; // usta biriktirilgan
+  inProgress: number; // jarayonda (TP xodimi kuzatmoqda)
   doneTotal: number;
   done30: number; // oxirgi 30 kunda yakunlangan
   rejectedTotal: number;
@@ -13,13 +14,19 @@ export type ReturnStatsData = {
 export function ReturnStats({ stats }: { stats: ReturnStatsData }) {
   const cards = [
     {
-      label: "Usta kutilmoqda",
+      label: "Yangi (usta kutilmoqda)",
       value: stats.pending,
       icon: Clock,
       tone: "text-amber-600 dark:text-amber-400",
     },
     {
-      label: "Jarayonda (ustada)",
+      label: "Biriktirilgan",
+      value: stats.assigned,
+      icon: UserCheck,
+      tone: "text-sky-600 dark:text-sky-400",
+    },
+    {
+      label: "Jarayonda",
       value: stats.inProgress,
       icon: Wrench,
       tone: "text-primary-600 dark:text-primary-400",
@@ -45,7 +52,7 @@ export function ReturnStats({ stats }: { stats: ReturnStatsData }) {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       {cards.map((c) => (
         <div
           key={c.label}

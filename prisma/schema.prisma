@@ -365,7 +365,7 @@ model EquipmentReturnRequest {
   client     Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   byUserId   String? // arizani bergan operator
   note       String?
-  status     String    @default("PENDING") // PENDING | APPROVED | REJECTED | DONE
+  status     String    @default("PENDING") // PENDING | APPROVED | IN_PROGRESS | REJECTED | DONE
   ustaId     String? // tasdiqlangach biriktirilgan usta
   createdAt  DateTime  @default(now())
   resolvedAt DateTime?

@@ -16,24 +16,30 @@ export default async function QaytarishPage() {
   const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR"]);
   const isManager = ["ADMIN", "MANAGER"].includes(session.role);
 
-  const [requests, ustalarFull, users] = await Promise.all([
+  const clientSelect = {
+    id: true,
+    restaurantName: true,
+    fullName: true,
+    phone: true,
+    region: true,
+    specialNote: true,
+    specialNoteAt: true,
+    specialNoteBy: { select: { name: true } },
+  } as const;
+
+  const [openReqs, doneReqs, ustalarFull, users] = await Promise.all([
+    // Ochiq navbat: yangi, biriktirilgan, jarayonda
     db.equipmentReturnRequest.findMany({
-      where: { status: { in: ["PENDING", "APPROVED"] } },
+      where: { status: { in: ["PENDING", "APPROVED", "IN_PROGRESS"] } },
       orderBy: { createdAt: "asc" },
-      include: {
-        client: {
-          select: {
-            id: true,
-            restaurantName: true,
-            fullName: true,
-            phone: true,
-            region: true,
-            specialNote: true,
-            specialNoteAt: true,
-            specialNoteBy: { select: { name: true } },
-          },
-        },
-      },
+      include: { client: { select: clientSelect } },
+    }),
+    // Yakunlangan (uskunalar qaytarilgan) — oxirgi 50 ta
+    db.equipmentReturnRequest.findMany({
+      where: { status: "DONE" },
+      orderBy: { resolvedAt: "desc" },
+      take: 50,
+      include: { client: { select: clientSelect } },
     }),
     db.user.findMany({
       where: { role: "INSTALLER", isActive: true },
@@ -43,6 +49,7 @@ export default async function QaytarishPage() {
     db.user.findMany({ select: { id: true, name: true, phone: true } }),
   ]);
 
+  const requests = [...openReqs, ...doneReqs];
   const userById = new Map(users.map((u) => [u.id, u]));
 
   // Viloyat -> usta id (avtomatik taklif)
@@ -69,11 +76,13 @@ export default async function QaytarishPage() {
     ustaName: r.ustaId ? userById.get(r.ustaId)?.name ?? null : null,
     ustaPhone: r.ustaId ? userById.get(r.ustaId)?.phone ?? null : null,
     matchedUstaId: r.client.region ? regionUsta.get(r.client.region) ?? null : null,
+    resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
   }));
 
   const ustalar: UstaOpt[] = ustalarFull.map((u) => ({ id: u.id, name: u.name }));
   const pendingCount = items.filter((i) => i.status === "PENDING").length;
   const approvedCount = items.filter((i) => i.status === "APPROVED").length;
+  const inProgressCount = items.filter((i) => i.status === "IN_PROGRESS").length;
 
   // Boshliq uchun umumiy hisobot (jarayon nazorati)
   let stats: ReturnStatsData | null = null;
@@ -101,7 +110,8 @@ export default async function QaytarishPage() {
         : null;
     stats = {
       pending: pendingCount,
-      inProgress: approvedCount,
+      assigned: approvedCount,
+      inProgress: inProgressCount,
       doneTotal,
       done30,
       rejectedTotal,
@@ -117,7 +127,7 @@ export default async function QaytarishPage() {
           {isManager
             ? "Yangi arizaga usta biriktiring — keyingi kuzatuvni TP xodimlari olib boradi."
             : "Usta biriktirilgan arizalarni kuzating: usta/mijoz bilan bog'laning va uskuna olib kelingach yakunlang."}
-          {" "}Yangi: {pendingCount} · Jarayonda: {approvedCount}
+          {" "}Yangi: {pendingCount} · Biriktirilgan: {approvedCount} · Jarayonda: {inProgressCount}
         </p>
       </div>
       {stats && <ReturnStats stats={stats} />}

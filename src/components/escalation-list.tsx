@@ -34,7 +34,10 @@ import {
   uniqueRegions,
 } from "@/components/list-filter";
 import { ustaStatusLabel } from "@/lib/constants";
-import { formatPhone, normalizePhone } from "@/lib/utils";
+import { formatDate, formatPhone, normalizePhone } from "@/lib/utils";
+
+// Boshida ko'rsatiladigan yakunlangan kartalar soni ("Yana ko'rsatish" oshiradi).
+const RESOLVED_PAGE = 20;
 
 export type EscalatedItem = {
   id: string;
@@ -120,6 +123,10 @@ export function EscalationList({
 }) {
   const [query, setQuery] = useState("");
   const [region, setRegion] = useState("");
+  // Yakunlangan bo'limi: sana oralig'i (yyyy-mm-dd) va ko'rsatilgan kartalar soni.
+  const [resFrom, setResFrom] = useState("");
+  const [resTo, setResTo] = useState("");
+  const [resShown, setResShown] = useState(RESOLVED_PAGE);
 
   const regions = useMemo(
     () => uniqueRegions([...escalated, ...forwarded, ...resolved]),
@@ -137,6 +144,16 @@ export function EscalationList({
   const isJustAssigned = (c: ForwardedItem) => (c.ustaStatus ?? "ASSIGNED") === "ASSIGNED";
   const biriktirildi = useMemo(() => fwdFiltered.filter(isJustAssigned), [fwdFiltered]);
   const jarayonda = useMemo(() => fwdFiltered.filter((c) => !isJustAssigned(c)), [fwdFiltered]);
+
+  // Yakunlangan — qidiruv/viloyat ustiga sana oralig'i filtri (yakunlangan kun bo'yicha).
+  const resDateFiltered = useMemo(
+    () =>
+      resFiltered.filter((c) => {
+        const day = c.resolvedAt.slice(0, 10); // ISO'dan yyyy-mm-dd
+        return (!resFrom || day >= resFrom) && (!resTo || day <= resTo);
+      }),
+    [resFiltered, resFrom, resTo],
+  );
 
   const total = escalated.length + forwarded.length + resolved.length;
   const found = escFiltered.length + fwdFiltered.length + resFiltered.length;
@@ -329,7 +346,7 @@ export function EscalationList({
               </div>
             </div>
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-              <CheckCircle2 className="h-3 w-3" /> Yakunlandi · {c.resolvedAt}
+              <CheckCircle2 className="h-3 w-3" /> Yakunlandi · {formatDate(new Date(c.resolvedAt))}
             </span>
           </div>
         </CardContent>
@@ -341,6 +358,77 @@ export function EscalationList({
   function panel<T>(items: T[], render: (c: T) => ReactNode, emptyHint: string) {
     if (items.length === 0) return <EmptyPanel hint={emptyHint} />;
     return <div className="space-y-3">{items.map(render)}</div>;
+  }
+
+  const dateInputCls =
+    "rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200";
+
+  // Yakunlangan bo'limi: sana oralig'i filtri + bosqichma-bosqich ko'rsatish.
+  function resolvedPanel() {
+    const shown = resDateFiltered.slice(0, resShown);
+    return (
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-800 dark:bg-slate-900/60">
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Yakunlangan sana:</span>
+          <input
+            type="date"
+            value={resFrom}
+            max={resTo || undefined}
+            onChange={(e) => {
+              setResFrom(e.target.value);
+              setResShown(RESOLVED_PAGE);
+            }}
+            className={dateInputCls}
+            aria-label="Boshlanish sanasi"
+          />
+          <span className="text-slate-400">—</span>
+          <input
+            type="date"
+            value={resTo}
+            min={resFrom || undefined}
+            onChange={(e) => {
+              setResTo(e.target.value);
+              setResShown(RESOLVED_PAGE);
+            }}
+            className={dateInputCls}
+            aria-label="Tugash sanasi"
+          />
+          {(resFrom || resTo) && (
+            <button
+              type="button"
+              onClick={() => {
+                setResFrom("");
+                setResTo("");
+                setResShown(RESOLVED_PAGE);
+              }}
+              className="text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
+            >
+              Tozalash
+            </button>
+          )}
+          <span className="ml-auto text-xs text-slate-400 dark:text-slate-500">
+            {resDateFiltered.length} ta
+          </span>
+        </div>
+
+        {resDateFiltered.length === 0 ? (
+          <EmptyPanel hint="Tanlangan oraliqda yakunlangan eskalatsiya yo'q." />
+        ) : (
+          <>
+            {shown.map(resolvedCard)}
+            {resDateFiltered.length > resShown && (
+              <button
+                type="button"
+                onClick={() => setResShown((n) => n + RESOLVED_PAGE)}
+                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800/60"
+              >
+                Yana ko'rsatish ({resDateFiltered.length - resShown} ta)
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    );
   }
 
   const tabs: TicketTab[] = [
@@ -373,8 +461,8 @@ export function EscalationList({
       label: "Yakunlangan",
       icon: <CheckCircle2 className="h-4 w-4" />,
       tone: "emerald",
-      count: resFiltered.length,
-      content: panel(resFiltered, resolvedCard, "Yakunlangan eskalatsiya yo'q."),
+      count: resDateFiltered.length,
+      content: resFiltered.length === 0 ? panel([], resolvedCard, "Yakunlangan eskalatsiya yo'q.") : resolvedPanel(),
     },
   ];
 

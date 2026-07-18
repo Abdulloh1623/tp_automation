@@ -389,7 +389,7 @@ export async function requestEquipmentReturn(
   }
 
   const open = await db.equipmentReturnRequest.findFirst({
-    where: { clientId, status: { in: ["PENDING", "APPROVED"] } },
+    where: { clientId, status: { in: ["PENDING", "APPROVED", "IN_PROGRESS"] } },
   });
   if (open) {
     return { ok: false, error: "Bu mijoz uchun ochiq qaytarish arizasi mavjud" };
@@ -497,9 +497,44 @@ export async function rejectReturnRequest(
 }
 
 /**
+ * Usta biriktirilgan arizani "Jarayonda"ga o'tkazish — TP xodimi (OPERATOR) usta
+ * bilan bog'landi va uskuna olib kelish jarayoni boshlandi. Boshliq ham qila oladi.
+ */
+export async function startReturnProgress(requestId: string): Promise<EqState> {
+  const session = await requireSession();
+  if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
+    return { ok: false, error: "Ruxsat yo'q" };
+  }
+  const req = await db.equipmentReturnRequest.findUnique({
+    where: { id: requestId },
+    include: { client: { select: { restaurantName: true } } },
+  });
+  if (!req || req.status !== "APPROVED") {
+    return { ok: false, error: "Ariza topilmadi yoki holati o'zgargan" };
+  }
+  await db.equipmentReturnRequest.update({
+    where: { id: requestId },
+    data: { status: "IN_PROGRESS" },
+  });
+  await db.client.update({
+    where: { id: req.clientId },
+    data: { ustaStatus: "EN_ROUTE" },
+  });
+  await logAudit("Qaytarish: jarayonga o'tdi", {
+    entity: "Client",
+    entityId: req.clientId,
+    detail: req.client.restaurantName,
+  });
+  revalidatePath("/qaytarish");
+  revalidatePath(`/mijozlar/${req.clientId}`);
+  return { ok: true };
+}
+
+/**
  * Uskuna olib kelindi — ijara uskunalari usta zaxirasiga o'tadi.
  * Usta biriktirilgach jarayonni TP xodimi (OPERATOR) kuzatadi va yakunlaydi;
- * boshliq (ADMIN/MANAGER) ham yakunlashi mumkin.
+ * boshliq (ADMIN/MANAGER) ham yakunlashi mumkin. Biriktirilgan (APPROVED) yoki
+ * jarayondagi (IN_PROGRESS) arizadan yakunlanadi.
  */
 export async function confirmReturnCollected(requestId: string): Promise<EqState> {
   const session = await requireSession();
@@ -507,7 +542,7 @@ export async function confirmReturnCollected(requestId: string): Promise<EqState
     where: { id: requestId },
     include: { client: { include: { equipmentItems: true } } },
   });
-  if (!req || req.status !== "APPROVED") {
+  if (!req || !["APPROVED", "IN_PROGRESS"].includes(req.status)) {
     return { ok: false, error: "Ariza topilmadi yoki holati o'zgargan" };
   }
   const canConfirm =

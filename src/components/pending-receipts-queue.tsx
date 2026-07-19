@@ -63,23 +63,40 @@ function todayIso(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+/** Bir vaqtda ko'rsatiladigan kartochkalar (tarixiy importdan keyin ~190 ta bo'ladi). */
+const PAGE = 25;
+
 export function PendingReceiptsQueue({ items }: { items: PendingReceiptItem[] }) {
   const [err, setErr] = useState<string | null>(null);
+  const [shown, setShown] = useState(PAGE);
+
+  const visible = items.slice(0, shown);
+  const rest = items.length - visible.length;
 
   return (
     <div className="space-y-3">
       <p className="text-sm text-slate-500 dark:text-slate-400">
         Telegram &laquo;To&apos;lov cheklari&raquo; guruhidan kelgan cheklar. Summani chekka
         qarab kiriting va tasdiqlang &mdash; shundan keyin to&apos;lov yoziladi.
+        {items.length > PAGE && (
+          <> Diqqat talab qiladiganlar (summa o&apos;qilmagan yoki mijoz topilmagan) tepada.</>
+        )}
       </p>
       {err && (
         <div className="flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle className="h-4 w-4 shrink-0" /> {err}
         </div>
       )}
-      {items.map((it) => (
+      {visible.map((it) => (
         <PendingRow key={it.id} it={it} onError={setErr} />
       ))}
+      {rest > 0 && (
+        <div className="pt-1 text-center">
+          <Button variant="outline" size="sm" onClick={() => setShown((n) => n + PAGE)}>
+            Yana ko&apos;rsatish ({rest} ta qoldi)
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -171,6 +188,11 @@ function PendingRow({
             <img
               src={receiptUrl}
               alt="Chek"
+              // Navbatda yuzlab chek bo'lishi mumkin (tarixiy importdan keyin
+              // ~190 ta). Hammasini birdan yuklash ~19MB trafik — ekranga
+              // kelganda yuklaymiz.
+              loading="lazy"
+              decoding="async"
               className="h-40 w-full rounded-lg border border-slate-200 object-cover dark:border-slate-700"
             />
           )}

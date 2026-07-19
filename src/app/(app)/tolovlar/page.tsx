@@ -7,7 +7,29 @@ import { PaymentsTable, type PaymentRow } from "@/components/payments-table";
 import {
   PendingReceiptsQueue,
   type PendingReceiptItem,
+  type AmountCandidate,
 } from "@/components/pending-receipts-queue";
+
+/**
+ * OCR summa nomzodlarini JSON matndan o'qiydi. Buzuq JSON sahifani
+ * yiqitmasligi kerak — xato bo'lsa bo'sh ro'yxat.
+ */
+function parseCandidates(raw: string | null): AmountCandidate[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((c) => c && typeof c.value === "number")
+      .map((c) => ({
+        value: c.value as number,
+        label: typeof c.label === "string" ? c.label : null,
+        currency: c.currency === "UZS" || c.currency === "USD" ? c.currency : null,
+      }));
+  } catch {
+    return [];
+  }
+}
 import { formatDate, formatMoney, daysUntil } from "@/lib/utils";
 import { paymentState, paymentUrgency, PAYMENT_STATE_LABEL } from "@/lib/payment-status";
 
@@ -81,7 +103,20 @@ export default async function PaymentsPage() {
       ? `${p.suggestedClient.restaurantName} — ${p.suggestedClient.fullName} (${p.suggestedClient.phone})`
       : null,
     receivedAt: p.receivedAt.toISOString(),
+    isHistorical: p.source === "HISTORY",
+    occurredAt: p.occurredAt?.toISOString() ?? null,
+    suggestedAmount: p.suggestedAmount,
+    suggestedCurrency: p.suggestedCurrency,
+    amountConfidence: (p.amountConfidence as "high" | "low" | "none" | null) ?? null,
+    amountCandidates: parseCandidates(p.amountCandidates),
   }));
+
+  // Diqqat talab qiladiganlar tepada: summa o'qilmagan / taxminiy bo'lganlar,
+  // keyin mijozi topilmaganlar. Ishonchli va to'liq to'ldirilganlar pastda.
+  const attentionRank = (r: PendingReceiptItem): number =>
+    (r.amountConfidence === "high" ? 2 : r.amountConfidence === "low" ? 1 : 0) +
+    (r.suggestedClientId ? 2 : 0);
+  pendingReceipts.sort((a, b) => attentionRank(a) - attentionRank(b));
 
   // Holatlarni hisoblash
   const withState = clients

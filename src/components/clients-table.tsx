@@ -13,6 +13,7 @@ import { formatDate, formatMoney, formatPhone, normalizePhone } from "@/lib/util
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { SpecialNoteBell } from "@/components/special-note-bell";
 import { SoliqConnectDialog } from "@/components/soliq-connect-dialog";
+import { ClientNotFound } from "@/components/add-client-link";
 
 export type ClientRow = {
   id: string;
@@ -179,8 +180,8 @@ export function ClientsTable({
           <tbody>
             {clients.length === 0 && (
               <tr>
-                <td colSpan={canManage ? 9 : 8} className="px-4 py-10 text-center text-slate-400 dark:text-slate-500">
-                  Mijoz topilmadi
+                <td colSpan={canManage ? 9 : 8} className="px-4 py-8">
+                  <ClientNotFound />
                 </td>
               </tr>
             )}
@@ -252,9 +253,7 @@ export function ClientsTable({
       {/* Mobil kartalar */}
       <div className="space-y-2 md:hidden">
         {clients.length === 0 && (
-          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center text-sm text-slate-400 dark:text-slate-500">
-            Mijoz topilmadi
-          </div>
+          <ClientNotFound />
         )}
         {clients.map((c) => (
           <div

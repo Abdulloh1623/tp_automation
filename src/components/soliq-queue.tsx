@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { ClientLink } from "@/components/client-link";
 import { confirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
+import { ClientNotFound } from "@/components/add-client-link";
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { TAX_CONNECTION_STATUS } from "@/lib/constants";
 import { formatPhone, normalizePhone } from "@/lib/utils";
@@ -123,9 +124,13 @@ export function SoliqQueue({
           <AlertCircle className="h-4 w-4 shrink-0" /> {err}
         </div>
       )}
-      {filtered.map((r) => (
-        <Row key={r.id} r={r} canManage={canManage} onError={setErr} />
-      ))}
+      {filtered.length === 0 ? (
+        <ClientNotFound query={query} hint="Bu navbatda topilmadi — mijoz bazada bo‘lishi, lekin bu ro‘yxatga tushmagan bo‘lishi mumkin." />
+      ) : (
+        filtered.map((r) => (
+          <Row key={r.id} r={r} canManage={canManage} onError={setErr} />
+        ))
+      )}
     </div>
   );
 }

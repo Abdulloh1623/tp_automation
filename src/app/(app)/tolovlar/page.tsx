@@ -1,14 +1,19 @@
 import { startOfMonth } from "date-fns";
-import { AlertTriangle, CalendarClock, Banknote } from "lucide-react";
+import { AlertTriangle, CalendarClock, Banknote, Users, Receipt } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { TicketTabs } from "@/components/ticket-tabs";
+import { EmptyState } from "@/components/empty-state";
 import { PaymentsTable, type PaymentRow } from "@/components/payments-table";
 import {
   PendingReceiptsQueue,
   type PendingReceiptItem,
   type AmountCandidate,
 } from "@/components/pending-receipts-queue";
+
+import { formatDate, formatMoney, daysUntil } from "@/lib/utils";
+import { paymentState, paymentUrgency, PAYMENT_STATE_LABEL } from "@/lib/payment-status";
 
 /**
  * OCR summa nomzodlarini JSON matndan o'qiydi. Buzuq JSON sahifani
@@ -30,8 +35,6 @@ function parseCandidates(raw: string | null): AmountCandidate[] {
     return [];
   }
 }
-import { formatDate, formatMoney, daysUntil } from "@/lib/utils";
-import { paymentState, paymentUrgency, PAYMENT_STATE_LABEL } from "@/lib/payment-status";
 
 function Metric({
   label,
@@ -193,30 +196,39 @@ export default async function PaymentsPage() {
         />
       </div>
 
-      {pendingReceipts.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              Telegramdan kelgan cheklar
-              <span className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-                {pendingReceipts.length} ta kutilmoqda
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PendingReceiptsQueue items={pendingReceipts} />
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Faol mijozlar — to'lov bo'yicha</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <PaymentsTable rows={rows} />
-        </CardContent>
-      </Card>
+      {/* Ikki alohida bo'lim — ilgari ular ustma-ust turib aralashib ketardi.
+          Tab naqshi loyihada allaqachon bor (Muammolar, Eskalatsiya). */}
+      <TicketTabs
+        tabs={[
+          {
+            key: "mijozlar",
+            label: "Mijozlar to'lovi",
+            icon: <Users className="h-4 w-4" />,
+            tone: "sky",
+            count: rows.length,
+            content: <PaymentsTable rows={rows} />,
+          },
+          {
+            key: "cheklar",
+            label: "Telegram cheklari",
+            icon: <Receipt className="h-4 w-4" />,
+            tone: "amber",
+            count: pendingReceipts.length,
+            content:
+              pendingReceipts.length > 0 ? (
+                <PendingReceiptsQueue items={pendingReceipts} />
+              ) : (
+                <EmptyState
+                  icon={Receipt}
+                  title="Tasdiqlanmagan chek yo'q"
+                  hint="Telegram «To'lov cheklari» guruhiga chek tashlansa, shu yerda paydo bo'ladi."
+                />
+              ),
+          },
+        ]}
+        // Kutayotgan chek bo'lsa — o'sha bo'lim ochiladi (ish shu yerda)
+        initialKey={pendingReceipts.length > 0 ? "cheklar" : "mijozlar"}
+      />
     </div>
   );
 }

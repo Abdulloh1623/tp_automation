@@ -32,16 +32,21 @@ TAG="${IMAGE_REPO}:${SHA}"
 
 echo "Rollback → ${SHA}"
 
-# TP_IMAGE ni .env ga upsert
+# Bu ishga tushirish uchun tegni muhitga beramiz (compose shundan o'qiydi).
+export TP_IMAGE="${TAG}"
+
+sudo -E docker compose pull --quiet || true   # lokalda bor bo'lsa no-op
+sudo -E docker compose up -d
+
+# TP_IMAGE ni .env ga upsert — ATAYLAB `up -d` DAN KEYIN: agar rollback image
+# na lokalda, na registryda bo'lsa `up -d` yiqiladi va `set -e` skriptni
+# to'xtatadi; .env eski (ishlayotgan) tegda qoladi. Yuqorida yozilsa .env
+# ko'tarilmaydigan image'ga ishora qilib qolardi.
 if grep -q '^TP_IMAGE=' .env 2>/dev/null; then
   sed -i "s|^TP_IMAGE=.*|TP_IMAGE=${TAG}|" .env
 else
   printf '\nTP_IMAGE=%s\n' "${TAG}" >> .env
 fi
-export TP_IMAGE="${TAG}"
-
-sudo -E docker compose pull --quiet || true   # lokalda bor bo'lsa no-op
-sudo -E docker compose up -d
 
 printf '%s\t%s\t(rollback)\n' "${SHA}" "$(date '+%F %T')" | cat - .deploy-history 2>/dev/null | head -20 > .deploy-history.tmp
 mv .deploy-history.tmp .deploy-history

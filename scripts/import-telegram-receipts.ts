@@ -17,7 +17,24 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { PrismaClient } from "@prisma/client";
-import { createWorker, type Worker } from "tesseract.js";
+// tesseract.js ATAYLAB fayl boshida import qilinmaydi: u devDependency, ya'ni
+// prod image'ida yo'q (Dockerfile: npm ci --omit=dev). Statik import bo'lsa
+// skript `--no-ocr` bilan ham ishga tushmasdan yiqilardi. Shuning uchun faqat
+// OCR kerak bo'lganda dinamik yuklanadi.
+type Worker = { recognize: (b: Buffer) => Promise<{ data: { text: string } }>; terminate: () => Promise<unknown> };
+
+async function startOcr(): Promise<Worker> {
+  try {
+    const tesseract = await import("tesseract.js");
+    return (await tesseract.createWorker(["rus", "eng"])) as unknown as Worker;
+  } catch {
+    throw new Error(
+      "tesseract.js topilmadi. Bu paket devDependency — prod image'ida yo'q.\n" +
+        "  Yechim: --no-ocr bilan ishga tushiring (summalarni operator kiritadi),\n" +
+        "  yoki avval `npm i --no-save tesseract.js` bajaring.",
+    );
+  }
+}
 import { parseReceiptText, matchClient, type ClientCandidate } from "../src/lib/receipt-intake";
 import { extractAmount } from "../src/lib/receipt-amount";
 
@@ -191,7 +208,7 @@ async function main() {
   let worker: Worker | null = null;
   if (!noOcr) {
     console.log("Tesseract ishga tushmoqda (birinchi marta til fayllari yuklanadi)...");
-    worker = await createWorker(["rus", "eng"]);
+    worker = await startOcr();
   }
 
   const stats = {

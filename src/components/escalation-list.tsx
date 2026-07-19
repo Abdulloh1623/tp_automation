@@ -26,6 +26,7 @@ import {
 } from "@/components/assign-escalation-staff";
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { TicketTabs, type TicketTab } from "@/components/ticket-tabs";
+import { ClientNotFound } from "@/components/add-client-link";
 import {
   SearchInput,
   RegionSelect,
@@ -481,8 +482,11 @@ export function EscalationList({
           Navbat bo'sh — eskalatsiya qilingan lid yo'q
         </Card>
       ) : found === 0 ? (
-        <Card className="p-10 text-center text-sm text-slate-400 dark:text-slate-500">
-          Mijoz topilmadi
+        <Card className="p-6">
+          <ClientNotFound
+            query={query}
+            hint="Bu navbatda topilmadi — mijoz bazada bo‘lishi, lekin bu ro‘yxatga tushmagan bo‘lishi mumkin."
+          />
         </Card>
       ) : (
         <TicketTabs tabs={tabs} initialKey="yangi" />

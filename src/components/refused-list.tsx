@@ -8,6 +8,7 @@ import { ClientLink } from "@/components/client-link";
 import { LeadRevertButton } from "@/components/lead-revert-button";
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { SpecialNoteBell } from "@/components/special-note-bell";
+import { ClientNotFound } from "@/components/add-client-link";
 import {
   SearchInput,
   RegionSelect,
@@ -64,8 +65,11 @@ export function RefusedList({
       </div>
 
       {filtered.length === 0 ? (
-        <Card className="p-10 text-center text-sm text-slate-400 dark:text-slate-500">
-          Mijoz topilmadi
+        <Card className="p-6">
+          <ClientNotFound
+            query={query}
+            hint="Bu navbatda topilmadi — mijoz bazada bo‘lishi, lekin bu ro‘yxatga tushmagan bo‘lishi mumkin."
+          />
         </Card>
       ) : (
         <div className="space-y-3">

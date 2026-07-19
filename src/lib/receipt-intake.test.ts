@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   parseReceiptText,
-  matchClientByPhone,
+  matchClient,
   phoneKey,
   type ClientCandidate,
 } from "./receipt-intake";
@@ -52,7 +52,13 @@ describe("parseReceiptText", () => {
   });
 
   it("bo'sh matnda yiqilmaydi", () => {
-    expect(parseReceiptText("")).toEqual({ name: null, phones: [], sheetNo: null });
+    expect(parseReceiptText("")).toEqual({
+      name: null,
+      phones: [],
+      sheetNo: null,
+      contracts: [],
+      lines: [],
+    });
   });
 });
 
@@ -69,39 +75,117 @@ describe("phoneKey", () => {
   });
 });
 
-describe("matchClientByPhone", () => {
+// Haqiqiy eksportdan olingan formatlar
+const SAMPLE_CONTRACT = `Rahimov Rahimbek (Samarqand sh,K.Bekzod MFY)
+AB130326158
+Sheyx Karaoke bar`;
+
+const SAMPLE_MULTIPHONE = `Bilol
+Obidov Zohid (Eshonguzar)
+Anor Baliq
+90 153 22 43, 95 133 44 49
+73-raqam`;
+
+describe("parseReceiptText — haqiqiy eksport formatlari", () => {
+  it("shartnoma raqamini ajratadi", () => {
+    const r = parseReceiptText(SAMPLE_CONTRACT);
+    expect(r.contracts).toEqual(["AB130326158"]);
+  });
+
+  // Ilgari BUZUQ edi: butun qatorning raqamlari sanalar edi (18 ta) va
+  // hech bir telefon topilmasdi.
+  it("bitta qatordagi IKKI telefonni ham topadi", () => {
+    const r = parseReceiptText(SAMPLE_MULTIPHONE);
+    expect(r.phones).toEqual(["901532243", "951334449"]);
+  });
+
+  it("bo'shliqli shartnoma raqamini normallashtiradi", () => {
+    expect(parseReceiptText("Mijoz\nAB 080626").contracts).toEqual(["AB080626"]);
+  });
+
+  it("raqamsiz 'AB' ni shartnoma deb olmaydi", () => {
+    expect(parseReceiptText("Mijoz\nAB").contracts).toEqual([]);
+  });
+
+  it("barcha qatorlarni saqlaydi (nom bo'yicha moslash uchun)", () => {
+    expect(parseReceiptText(SAMPLE_CONTRACT).lines).toContain("Sheyx Karaoke bar");
+  });
+
+  it("'328 - raqam' shaklini ham tushunadi", () => {
+    expect(parseReceiptText("Mijoz\n328 - raqam").sheetNo).toBe("328");
+  });
+});
+
+describe("matchClient — kalitlar ishonchlilik tartibida", () => {
   const clients: ClientCandidate[] = [
-    { id: "c1", phone: "+998909656589", extraPhones: [] },
-    { id: "c2", phone: "+998331234567", extraPhones: ["+998907966676"] },
+    { id: "c1", phone: "+998909656589", extraPhones: [], restaurantName: "Anor Baliq", contractNumber: "AB111111" },
+    { id: "c2", phone: "+998331234567", extraPhones: [], restaurantName: "ZGZ-FOOD", contractNumber: "AB130326158" },
   ];
 
-  it("asosiy telefon bo'yicha topadi", () => {
-    const r = matchClientByPhone(parseReceiptText(SAMPLE_A), clients);
-    expect(r).toEqual({ clientId: "c1", confidence: "exact", ambiguous: false });
+  it("shartnoma raqami bo'yicha topadi (eng kuchli kalit)", () => {
+    const r = matchClient(parseReceiptText(SAMPLE_CONTRACT), clients);
+    expect(r).toEqual({ clientId: "c2", matchedBy: "contract", ambiguous: false });
   });
 
-  it("qo'shimcha telefon (ClientPhone) bo'yicha ham topadi", () => {
-    const r = matchClientByPhone(parseReceiptText(SAMPLE_B), clients);
+  it("telefon bo'yicha topadi", () => {
+    const r = matchClient(parseReceiptText("Mijoz\n90 965 65 89"), clients);
+    expect(r.clientId).toBe("c1");
+    expect(r.matchedBy).toBe("phone");
+  });
+
+  it("restoran nomi bo'yicha topadi (eng zaif kalit)", () => {
+    const r = matchClient(parseReceiptText("Obidov Zohid (Eshonguzar)\nAnor Baliq"), clients);
+    expect(r.clientId).toBe("c1");
+    expect(r.matchedBy).toBe("name");
+  });
+
+  it("shartnoma telefondan USTUN", () => {
+    // Matnda c1 ning telefoni va c2 ning shartnomasi — shartnoma yutadi
+    const r = matchClient(parseReceiptText("AB130326158\n90 965 65 89"), clients);
     expect(r.clientId).toBe("c2");
+    expect(r.matchedBy).toBe("contract");
   });
 
-  it("topilmasa null qaytaradi", () => {
-    const r = matchClientByPhone(parseReceiptText("Mijoz\n90 111 11 11"), clients);
-    expect(r).toEqual({ clientId: null, confidence: "none", ambiguous: false });
-  });
+  // --- Noaniqlik himoyasi: bularsiz noto'g'ri mijozga pul yozilardi ---
 
-  it("bir raqam ikki mijozda bo'lsa avtomatik tanlamaydi", () => {
+  it("bir xil nomli ikki mijozda avtomatik tanlamaydi", () => {
     const dup: ClientCandidate[] = [
-      { id: "a", phone: "+998909656589", extraPhones: [] },
-      { id: "b", phone: "909656589", extraPhones: [] },
+      { id: "a", phone: "1", extraPhones: [], restaurantName: "Sulton kafe" },
+      { id: "b", phone: "2", extraPhones: [], restaurantName: "Sulton kafe" },
     ];
-    const r = matchClientByPhone(parseReceiptText(SAMPLE_A), dup);
+    const r = matchClient(parseReceiptText("Sulton kafe"), dup);
     expect(r.clientId).toBeNull();
     expect(r.ambiguous).toBe(true);
   });
 
-  it("telefon umuman yo'q bo'lsa taxmin qilmaydi", () => {
-    const r = matchClientByPhone(parseReceiptText("Nortojiyev Faxriddin"), clients);
+  // Bazada 98 ta mijozning restoran nomi BO'SH — bo'sh qator ular bilan
+  // moslashsa, tasodifiy mijozga pul yozilardi.
+  it("bo'sh restoran nomi bilan moslashmaydi", () => {
+    const blanks: ClientCandidate[] = [
+      { id: "a", phone: "1", extraPhones: [], restaurantName: "" },
+      { id: "b", phone: "2", extraPhones: [], restaurantName: "   " },
+    ];
+    expect(matchClient(parseReceiptText("Mijoz\n\n"), blanks).clientId).toBeNull();
+  });
+
+  it("noaniq kalitdan keyin zaifroq kalitni sinaydi", () => {
+    const mixed: ClientCandidate[] = [
+      { id: "a", phone: "+998901112233", extraPhones: [], contractNumber: "AB999999", restaurantName: "X" },
+      { id: "b", phone: "+998904445566", extraPhones: [], contractNumber: "AB999999", restaurantName: "Y" },
+    ];
+    // Shartnoma noaniq (ikkalasida bir xil), lekin telefon aniq → telefon yutadi
+    const r = matchClient(parseReceiptText("AB999999\n90 111 22 33"), mixed);
+    expect(r.clientId).toBe("a");
+    expect(r.matchedBy).toBe("phone");
+  });
+
+  it("qisman mos kelgan nomni QABUL QILMAYDI", () => {
+    const r = matchClient(parseReceiptText("Anor Baliq 2"), clients);
     expect(r.clientId).toBeNull();
+  });
+
+  it("hech narsa topilmasa null", () => {
+    const r = matchClient(parseReceiptText("Umuman boshqa matn"), clients);
+    expect(r).toEqual({ clientId: null, matchedBy: null, ambiguous: false });
   });
 });

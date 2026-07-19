@@ -10,7 +10,7 @@
 import { db } from "./db";
 import { saveReceipt, isAllowedMime } from "./receipts";
 import { downloadTelegramFile } from "./telegram";
-import { parseReceiptText, matchClientByPhone, type ClientCandidate } from "./receipt-intake";
+import { parseReceiptText, matchClient, type ClientCandidate } from "./receipt-intake";
 
 /** Matn va chek bir xabarga tegishli deb hisoblanadigan vaqt oynasi. */
 const PAIR_WINDOW_MS = 5 * 60 * 1000;
@@ -35,11 +35,19 @@ function sweep(now: number): void {
 /** Mijozni telefon bo'yicha topish uchun nomzodlar (telefon + qo'shimchalari). */
 async function loadCandidates(): Promise<ClientCandidate[]> {
   const rows = await db.client.findMany({
-    select: { id: true, phone: true, phones: { select: { number: true } } },
+    select: {
+      id: true,
+      phone: true,
+      restaurantName: true,
+      contractNumber: true,
+      phones: { select: { number: true } },
+    },
   });
   return rows.map((c) => ({
     id: c.id,
     phone: c.phone,
+    restaurantName: c.restaurantName,
+    contractNumber: c.contractNumber,
     extraPhones: c.phones.map((p) => p.number),
   }));
 }
@@ -47,7 +55,7 @@ async function loadCandidates(): Promise<ClientCandidate[]> {
 /** Matndan mijozni aniqlab, PendingPayment maydonlarini tayyorlaydi. */
 async function fieldsFromText(text: string) {
   const parsed = parseReceiptText(text);
-  const match = matchClientByPhone(parsed, await loadCandidates());
+  const match = matchClient(parsed, await loadCandidates());
   return {
     rawText: text,
     parsedName: parsed.name,

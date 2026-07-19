@@ -18,7 +18,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { PrismaClient } from "@prisma/client";
 import { createWorker, type Worker } from "tesseract.js";
-import { parseReceiptText, matchClientByPhone, type ClientCandidate } from "../src/lib/receipt-intake";
+import { parseReceiptText, matchClient, type ClientCandidate } from "../src/lib/receipt-intake";
 import { extractAmount } from "../src/lib/receipt-amount";
 
 const db = new PrismaClient();
@@ -70,11 +70,24 @@ function plainText(m: TgMessage): string {
   return "";
 }
 
-/** Xabardagi media fayl nisbiy yo'li (rasm yoki hujjat). */
+/**
+ * Xabardagi media fayl nisbiy yo'li (rasm yoki hujjat).
+ *
+ * Eksportda "Files" belgilanmagan bo'lsa, Telegram yo'l o'rniga izoh yozadi:
+ *   "(File not included. Change data exporting settings to download.)"
+ * Bunday xabarlarni fayli yo'q deb hisoblaymiz.
+ */
 function mediaPath(m: TgMessage): string | null {
-  if (typeof m.photo === "string") return m.photo;
-  if (typeof m.file === "string") return m.file;
-  return null;
+  const raw = typeof m.photo === "string" ? m.photo : typeof m.file === "string" ? m.file : null;
+  if (!raw) return null;
+  if (raw.startsWith("(") || /not included/i.test(raw)) return null;
+  return raw;
+}
+
+/** Media bo'lishi kerak edi, lekin eksportga qo'shilmagan. */
+function isMediaNotExported(m: TgMessage): boolean {
+  const raw = typeof m.photo === "string" ? m.photo : typeof m.file === "string" ? m.file : null;
+  return !!raw && (raw.startsWith("(") || /not included/i.test(raw));
 }
 
 function mimeFor(m: TgMessage, rel: string): string {
@@ -86,11 +99,19 @@ function mimeFor(m: TgMessage, rel: string): string {
 
 async function loadCandidates(): Promise<ClientCandidate[]> {
   const rows = await db.client.findMany({
-    select: { id: true, phone: true, phones: { select: { number: true } } },
+    select: {
+      id: true,
+      phone: true,
+      restaurantName: true,
+      contractNumber: true,
+      phones: { select: { number: true } },
+    },
   });
   return rows.map((c) => ({
     id: c.id,
     phone: c.phone,
+    restaurantName: c.restaurantName,
+    contractNumber: c.contractNumber,
     extraPhones: c.phones.map((p) => p.number),
   }));
 }
@@ -143,6 +164,15 @@ async function main() {
     }
     if (best) usedText.add(best.id);
     pairs.push({ media, text: best });
+  }
+
+  const notExported = messages.filter(isMediaNotExported).length;
+  if (notExported > 0) {
+    console.log(
+      `⚠ ${notExported} ta chek eksportga QO'SHILMAGAN (eksport sozlamalarida\n` +
+        `  "Files" belgilanmagan). Ular import qilinmaydi — kerak bo'lsa\n` +
+        `  eksportni "Photos + Files" bilan qayta oling.\n`,
+    );
   }
 
   const withText = pairs.filter((p) => p.text).length;
@@ -209,7 +239,7 @@ async function main() {
     // Matn tahlili → mijoz
     const body = text ? plainText(text) : "";
     const parsed = body ? parseReceiptText(body) : null;
-    const match = parsed ? matchClientByPhone(parsed, candidates) : null;
+    const match = parsed ? matchClient(parsed, candidates) : null;
     if (match?.clientId) stats.clientFound++;
 
     // OCR → summa (PDF ni tesseract o'qimaydi — o'tkazib yuboramiz)

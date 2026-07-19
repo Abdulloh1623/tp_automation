@@ -4,6 +4,10 @@ import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PaymentsTable, type PaymentRow } from "@/components/payments-table";
+import {
+  PendingReceiptsQueue,
+  type PendingReceiptItem,
+} from "@/components/pending-receipts-queue";
 import { formatDate, formatMoney, daysUntil } from "@/lib/utils";
 import { paymentState, paymentUrgency, PAYMENT_STATE_LABEL } from "@/lib/payment-status";
 
@@ -52,6 +56,32 @@ export default async function PaymentsPage() {
   const monthPayments = await db.payment.findMany({
     where: { paidAt: { gte: monthStart } },
   });
+
+  // Telegram guruhidan kelgan, hali tasdiqlanmagan cheklar
+  const pendingRows = await db.pendingPayment.findMany({
+    where: { status: "PENDING" },
+    orderBy: { receivedAt: "desc" },
+    include: {
+      suggestedClient: {
+        select: { restaurantName: true, fullName: true, phone: true },
+      },
+    },
+  });
+  const pendingReceipts: PendingReceiptItem[] = pendingRows.map((p) => ({
+    id: p.id,
+    senderName: p.senderName,
+    rawText: p.rawText,
+    parsedName: p.parsedName,
+    parsedPhone: p.parsedPhone,
+    sheetNo: p.sheetNo,
+    receiptMime: p.receiptMime,
+    isPdf: p.receiptMime === "application/pdf",
+    suggestedClientId: p.suggestedClientId,
+    suggestedClientLabel: p.suggestedClient
+      ? `${p.suggestedClient.restaurantName} — ${p.suggestedClient.fullName} (${p.suggestedClient.phone})`
+      : null,
+    receivedAt: p.receivedAt.toISOString(),
+  }));
 
   // Holatlarni hisoblash
   const withState = clients
@@ -127,6 +157,22 @@ export default async function PaymentsPage() {
           tone="emerald"
         />
       </div>
+
+      {pendingReceipts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              Telegramdan kelgan cheklar
+              <span className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                {pendingReceipts.length} ta kutilmoqda
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PendingReceiptsQueue items={pendingReceipts} />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

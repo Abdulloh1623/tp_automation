@@ -18,6 +18,14 @@ export function backupChannelId(): string | null {
   return process.env.TELEGRAM_BACKUP_CHANNEL_ID?.trim() || null;
 }
 
+/**
+ * "To'lov cheklari" guruhi — bot shu yerdan chek rasm/PDF larini o'qiydi.
+ * Bo'sh bo'lsa qabul qilish umuman o'chiq (bot boshqa guruhlarga aralashmaydi).
+ */
+export function receiptsGroupId(): string | null {
+  return process.env.TELEGRAM_RECEIPTS_GROUP_ID?.trim() || null;
+}
+
 export function telegramEnabled(): boolean {
   return !!botToken();
 }
@@ -167,20 +175,61 @@ export async function sendAlbumToChannel(items: AlbumItem[]): Promise<TgResult> 
  */
 export async function sendPaymentToChannel(
   caption: string,
-  png?: Buffer,
+  file?: Buffer,
+  mime?: string,
 ): Promise<TgResult> {
   const chat = paymentsChannelId();
   if (!chat) {
     console.log("[telegram:log-mode] (to'lovlar kanali yo'q) to'lov:\n" + caption + "\n");
     return { ok: true, mode: "log" };
   }
-  if (png) {
-    const res = await sendPhoto(chat, png, caption);
+  if (file) {
+    // PDF chek rasm sifatida ketmaydi — hujjat qilib yuboramiz
+    const res =
+      mime === "application/pdf"
+        ? await sendDocument(chat, file, "chek.pdf", caption)
+        : await sendPhoto(chat, file, caption);
     if (res.ok) return res;
-    // Rasm yuborilmasa (masalan buzuq fayl) — kamida matn ketsin
+    // Fayl yuborilmasa (masalan buzuq) — kamida matn ketsin
     return sendMessage(chat, caption);
   }
   return sendMessage(chat, caption);
+}
+
+// --- Fayl yuklab olish (Telegram -> biz) ---
+
+/** Telegram serveridan fayl hajmi chegarasi (Bot API getFile 20MB gacha). */
+const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
+
+/**
+ * file_id bo'yicha faylni yuklab oladi.
+ * Ikki qadam: getFile -> file_path, keyin /file/bot<token>/<path> dan o'qish.
+ */
+export async function downloadTelegramFile(
+  fileId: string,
+): Promise<{ ok: true; buffer: Buffer } | { ok: false; error: string }> {
+  const token = botToken();
+  if (!token) return { ok: false, error: "TELEGRAM_BOT_TOKEN yo'q" };
+
+  const meta = await callTelegram<{ file_path?: string; file_size?: number }>("getFile", {
+    file_id: fileId,
+  });
+  if (!meta.ok || !meta.result?.file_path) {
+    return { ok: false, error: meta.error ?? "getFile natijasi bo'sh" };
+  }
+  if ((meta.result.file_size ?? 0) > MAX_DOWNLOAD_BYTES) {
+    return { ok: false, error: "Fayl juda katta (20MB dan oshdi)" };
+  }
+
+  try {
+    const res = await fetch(`${API}/file/bot${token}/${meta.result.file_path}`);
+    if (!res.ok) return { ok: false, error: `Fayl yuklanmadi (HTTP ${res.status})` };
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.length === 0) return { ok: false, error: "Fayl bo'sh" };
+    return { ok: true, buffer };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 /** Hujjat (fayl) yuboradi. */

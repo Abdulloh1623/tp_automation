@@ -2,7 +2,8 @@
 // Long-polling bilan worker (scripts/bot.ts) ichida ishga tushadi.
 
 import { Bot, InlineKeyboard, type Context } from "grammy";
-import { botToken } from "./telegram";
+import { botToken, receiptsGroupId } from "./telegram";
+import { intakeReceiptFile, intakeReceiptText } from "./receipt-intake-service";
 import { userRoleLabel } from "./constants";
 import { buildReport, buildReportAlbum, type ReportKind } from "./reports";
 import { sendToChannel, sendAlbumToChannel, escapeHtml } from "./telegram";
@@ -61,8 +62,59 @@ export async function startBot(): Promise<void> {
 
   const bot = new Bot(token);
 
+  // --- "To'lov cheklari" guruhi: chek qabul qilish ---
+  // Auth middleware'dan OLDIN turadi: guruhdagi xodimlarning ko'pchiligida bot
+  // ruxsati yo'q, middleware esa har xabarga "ruxsat yo'q" deb javob berib
+  // guruhni spamlagan bo'lardi.
+  const receiptsGroup = receiptsGroupId();
+  const inReceiptsGroup = (ctx: Context): boolean =>
+    !!receiptsGroup && String(ctx.chat?.id) === receiptsGroup;
+
+  bot.on(["message:photo", "message:document"], async (ctx, next) => {
+    if (!inReceiptsGroup(ctx)) return next();
+
+    const msg = ctx.message!;
+    // Rasmning eng katta o'lchamini olamiz (oxirgi element)
+    const photo = msg.photo?.at(-1);
+    const doc = msg.document;
+    const fileId = photo?.file_id ?? doc?.file_id;
+    if (!fileId) return;
+    const mime = photo ? "image/jpeg" : (doc?.mime_type ?? "");
+
+    const res = await intakeReceiptFile({
+      chatId: ctx.chat!.id,
+      messageId: msg.message_id,
+      senderId: ctx.from?.id ?? 0,
+      senderName: ctx.from ? [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ") : null,
+      fileId,
+      mime,
+      caption: msg.caption,
+    });
+
+    if (!res.ok) {
+      console.error("[bot:cheklar] chek qabul qilinmadi:", res.error);
+      return;
+    }
+    // Guruhda javob yozmaymiz — xodimlarning ish oqimini buzmaslik uchun.
+    // Chek /tolovlar sahifasidagi "Telegramdan" bo'limida ko'rinadi.
+  });
+
+  bot.on("message:text", async (ctx, next) => {
+    if (!inReceiptsGroup(ctx)) return next();
+    const text = ctx.message.text.trim();
+    if (!text || text.startsWith("/")) return;
+    await intakeReceiptText({
+      chatId: ctx.chat!.id,
+      senderId: ctx.from?.id ?? 0,
+      senderName: ctx.from ? [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ") : null,
+      text,
+    });
+  });
+
   // Kirish nazorati: /start har doim, qolgani faqat ruxsat berilganlarga
   bot.use(async (ctx, next) => {
+    // Guruhlarda menyu ishlamaydi — "ruxsat yo'q" javoblari bilan spamlamaymiz
+    if (ctx.chat && ctx.chat.type !== "private") return;
     const tgId = ctx.from?.id;
     const text = ctx.message?.text ?? "";
     if (text.startsWith("/start")) return next();

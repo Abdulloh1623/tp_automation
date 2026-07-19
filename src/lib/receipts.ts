@@ -10,10 +10,18 @@ const MIME_EXT: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/jpg": "jpg",
   "image/webp": "webp",
+  // Ba'zi banklar (masalan Ipak Yuli) chekni PDF qilib beradi — Telegram
+  // guruhiga ham shu ko'rinishda tashlanadi.
+  "application/pdf": "pdf",
 };
 
 export function isAllowedMime(mime: string): boolean {
   return mime in MIME_EXT;
+}
+
+/** Chek rasmimi (PDF emas)? Telegram'ga sendPhoto bilan yuborish uchun. */
+export function isImageMime(mime: string): boolean {
+  return mime !== "application/pdf" && mime in MIME_EXT;
 }
 
 export type SaveResult =
@@ -27,7 +35,7 @@ export async function saveReceipt(
   id: string,
 ): Promise<SaveResult> {
   if (!isAllowedMime(mime)) {
-    return { ok: false, error: "Faqat PNG/JPEG/WebP rasm qabul qilinadi" };
+    return { ok: false, error: "Faqat PNG/JPEG/WebP rasm yoki PDF qabul qilinadi" };
   }
   if (buffer.length === 0) return { ok: false, error: "Chek rasmi bo'sh" };
   if (buffer.length > MAX_BYTES) {
@@ -64,7 +72,13 @@ export async function readReceipt(
     const buffer = await fs.readFile(full);
     const ext = path.extname(full).slice(1).toLowerCase();
     const mime =
-      ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+      ext === "png"
+        ? "image/png"
+        : ext === "webp"
+          ? "image/webp"
+          : ext === "pdf"
+            ? "application/pdf"
+            : "image/jpeg";
     return { buffer, mime };
   } catch {
     return null;

@@ -39,16 +39,25 @@ git pull --rebase --autostash origin main --quiet || true
 SHA="$(git rev-parse HEAD)"
 TAG="${IMAGE_REPO}:${SHA}"
 
+# Bu ishga tushirish uchun tegni muhitga beramiz (compose shundan o'qiydi).
+# .env ga YOZMAYMIZ — hali image mavjudligiga ishonchimiz yo'q.
+export TP_IMAGE="${TAG}"
+
+# --- Aynan shu SHA image'ni tortamiz (latest EMAS) -------------------------
+sudo -E docker compose pull --quiet
+
 # --- TP_IMAGE ni .env ga upsert (persist) ----------------------------------
+# ATAYLAB pull'DAN KEYIN: agar image hali qurilmagan bo'lsa (CI tugamagan),
+# pull yiqiladi va `set -e` skriptni to'xtatadi. Bu qator yuqorida turganda
+# .env mavjud bo'lmagan tegga ishora qilib qolardi — ishlab turgan konteynerlar
+# zarar ko'rmasdi, lekin qayta yuklashda ilova umuman ko'tarilmasdi.
+# Endi pull muvaffaqiyatli bo'lgandagina yoziladi, ya'ni .env doim
+# mavjud image'ga ishora qiladi.
 if grep -q '^TP_IMAGE=' .env 2>/dev/null; then
   sed -i "s|^TP_IMAGE=.*|TP_IMAGE=${TAG}|" .env
 else
   printf '\nTP_IMAGE=%s\n' "${TAG}" >> .env
 fi
-export TP_IMAGE="${TAG}"
-
-# --- Aynan shu SHA image'ni tortamiz (latest EMAS) -------------------------
-sudo -E docker compose pull --quiet
 
 # up -d: yangi digest bo'lsa qayta yaratadi (migrate migratsiyalarni qo'llaydi)
 sudo -E docker compose up -d

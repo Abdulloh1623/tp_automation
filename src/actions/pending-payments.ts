@@ -67,6 +67,14 @@ export async function confirmPendingPayment(
   }
   if (!pending.receiptPath) return { error: "Chek fayli yo'q" };
 
+  // Tarixiy chek (guruh eksportidan): to'lov o'z sanasi bilan yoziladi va
+  // mijozning keyingi to'lov sanasi SURILMAYDI — u import oxirida bir marta
+  // qayta hisoblanadi. Batafsil: lib/payment-core.ts → PaymentOptions.
+  const isHistorical = pending.source === "HISTORY";
+  if (isHistorical && !fields.paidAt && pending.occurredAt) {
+    fields.paidAt = pending.occurredAt.toISOString();
+  }
+
   const file = await readReceipt(pending.receiptPath);
   if (!file) return { error: "Chek fayli o'qilmadi" };
 
@@ -78,7 +86,9 @@ export async function confirmPendingPayment(
   });
   if (claimed.count === 0) return { error: "Bu chek allaqachon ko'rib chiqilgan" };
 
-  const res = await processPayment(g.session, clientId, fields, file);
+  const res = await processPayment(g.session, clientId, fields, file, {
+    historical: isHistorical,
+  });
   if (!res.ok) {
     // To'lov yozilmasa bandlikni qaytaramiz — chek navbatda qolsin
     await db.pendingPayment.update({

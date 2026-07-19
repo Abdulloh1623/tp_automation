@@ -53,3 +53,7 @@ next-env.d.ts
 # AI/agent uchun ichki kontekst hujjati (lokalda ishlatiladi, GitHub'ga chiqmaydi)
 /AI_CONTEXT.md
 /CLAUDE.md
+
+# Tesseract OCR til fayllari — chek importi skripti ishga tushganda avtomatik
+# yuklab olinadi (~5MB har biri). Repoda saqlanmaydi.
+*.traineddata

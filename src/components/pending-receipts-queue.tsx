@@ -17,6 +17,12 @@ import { confirmDialog } from "@/components/confirm-dialog";
 import { CURRENCY, PAYMENT_METHOD } from "@/lib/constants";
 import { formatPhone } from "@/lib/utils";
 
+export type AmountCandidate = {
+  value: number;
+  label: string | null;
+  currency: "UZS" | "USD" | null;
+};
+
 export type PendingReceiptItem = {
   id: string;
   senderName: string | null;
@@ -29,7 +35,26 @@ export type PendingReceiptItem = {
   suggestedClientId: string | null;
   suggestedClientLabel: string | null;
   receivedAt: string;
+  /** HISTORY — guruh eksportidan import qilingan eski chek. */
+  isHistorical: boolean;
+  /** Tarixiy chekda to'lovning haqiqiy sanasi (ISO). */
+  occurredAt: string | null;
+  /** OCR taxmin qilgan summa (bo'lsa). */
+  suggestedAmount: number | null;
+  suggestedCurrency: string | null;
+  amountConfidence: "high" | "low" | "none" | null;
+  /** Bir chekda bir necha summa bo'lsa — operator tanlaydi. */
+  amountCandidates: AmountCandidate[];
 };
+
+/** ISO sanadan <input type="date"> qiymati (lokal kun). */
+function isoToDateInput(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 
 /** Bugungi sanani <input type="date"> uchun yyyy-MM-dd ko'rinishida. */
 function todayIso(): string {
@@ -71,10 +96,14 @@ function PendingRow({
 
   const [clientId, setClientId] = useState(it.suggestedClientId ?? "");
   const [clientLabel, setClientLabel] = useState(it.suggestedClientLabel ?? "");
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState("UZS");
+  // OCR taxmini oldindan to'ldiriladi — operator baribir chekka qarab tekshiradi
+  const [amount, setAmount] = useState(
+    it.suggestedAmount !== null ? String(it.suggestedAmount) : "",
+  );
+  const [currency, setCurrency] = useState(it.suggestedCurrency ?? "UZS");
   const [days, setDays] = useState("30");
-  const [paidAt, setPaidAt] = useState(todayIso());
+  // Tarixiy chekda to'lov sanasi — chek guruhga tashlangan kun, bugun EMAS
+  const [paidAt, setPaidAt] = useState(isoToDateInput(it.occurredAt) ?? todayIso());
   const [method, setMethod] = useState("CARD");
 
   function confirm() {
@@ -181,7 +210,24 @@ function PendingRow({
           {/* To'lov maydonlari */}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <Label>Summa *</Label>
+              <Label>
+                Summa *
+                {it.amountConfidence === "high" && (
+                  <span className="ml-2 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                    chekdan o&apos;qildi
+                  </span>
+                )}
+                {it.amountConfidence === "low" && (
+                  <span className="ml-2 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                    taxminiy — tekshiring
+                  </span>
+                )}
+                {it.amountConfidence === "none" && it.isHistorical && (
+                  <span className="ml-2 rounded-full bg-slate-500/15 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                    o&apos;qilmadi
+                  </span>
+                )}
+              </Label>
               <MoneyInput value={amount} onValueChange={setAmount} />
             </div>
             <div>
@@ -209,6 +255,38 @@ function PendingRow({
               <Input type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
             </div>
           </div>
+          {/* Chekda bir necha summa bo'lsa (masalan Paynet: "To'lov summasi" va
+              "Mijozdan olinadigan" — komissiya tufayli har xil) operator tanlaydi */}
+          {it.amountCandidates.length > 1 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800/60">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                Chekda topilgan summalar:
+              </span>
+              {it.amountCandidates.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => {
+                    setAmount(String(c.value));
+                    if (c.currency) setCurrency(c.currency);
+                  }}
+                  className={
+                    "rounded-full px-2.5 py-1 text-xs font-medium transition-colors " +
+                    (Number(amount) === c.value
+                      ? "bg-primary-600 text-white"
+                      : "bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700")
+                  }
+                  title={c.label ?? "yorliqsiz"}
+                >
+                  {c.value.toLocaleString("uz-UZ")}
+                  {c.label && (
+                    <span className="ml-1 opacity-70">· {c.label}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="sm:max-w-xs">
             <Label>To&apos;lov usuli</Label>
             <Select value={method} onChange={(e) => setMethod(e.target.value)}>

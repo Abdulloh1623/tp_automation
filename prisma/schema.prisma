@@ -256,6 +256,23 @@ model PendingPayment {
   // Saqlangan chek fayli (uploads/receipts/... — Payment bilan bir xil joy)
   receiptPath    String?
   receiptMime    String?
+  // Manba: TELEGRAM — bot jonli ushlagan; HISTORY — guruh eksportidan bir
+  // martalik import. HISTORY yozuvlari billingni SURMAYDI (pastga qarang).
+  source         String   @default("TELEGRAM")
+  // Chek guruhga tashlangan sana (eksportda xabar sanasi). Tarixiy importda
+  // to'lovning haqiqiy sanasi shu bo'ladi — "bugun" emas.
+  occurredAt     DateTime?
+  // --- OCR natijasi (tesseract, faqat tarixiy import) ---
+  ocrText        String?
+  suggestedAmount   Float?
+  suggestedCurrency String?
+  // high — yorliqli summa topildi; low — taxmin; none — topilmadi.
+  // Operator UI'da past ishonchlilar ajratib ko'rsatiladi.
+  amountConfidence  String?
+  // Bir chekda bir necha summa bo'lishi mumkin (masalan Paynet: "To'lov
+  // summasi" va "Mijozdan olinadigan" — komissiya tufayli har xil).
+  // Operator tanlashi uchun JSON ro'yxat sifatida saqlanadi.
+  amountCandidates  String?
   status         String   @default("PENDING") // PENDING | CONFIRMED | REJECTED
   // Tasdiqlangach yaratilgan to'lov
   paymentId      String?

@@ -10,6 +10,7 @@ import { saveReceipt } from "@/lib/receipts";
 import { sendPaymentToChannel, escapeHtml } from "@/lib/telegram";
 import { formatMoney, formatDate } from "@/lib/utils";
 import { logAudit } from "@/lib/audit";
+import { nextPaymentAfterDelete } from "@/lib/billing";
 import { PAYMENT_METHOD, type PaymentMethod } from "@/lib/constants";
 import type { SessionPayload } from "@/lib/session";
 
@@ -20,6 +21,24 @@ export type PaymentFields = {
   method: string;
   paidAt?: string;
   receiptNote?: string;
+};
+
+export type PaymentOptions = {
+  /**
+   * TARIXIY rejim (guruh eksportidan import qilingan eski cheklar).
+   *
+   * Odatdagi to'lovda qamrov "bugundan" boshlanadi va mijozning
+   * `nextPaymentDate` si oldinga suriladi. Uch oy oldingi chekni shu yo'l
+   * bilan yozsak, mijozning to'lov sanasi noto'g'ri surilib ketadi.
+   *
+   * Shuning uchun tarixiy rejimda:
+   *   - qamrov chekning HAQIQIY sanasidan boshlanadi (paidAt),
+   *   - mijozning `nextPaymentDate`/`status` ga TEGILMAYDI,
+   *   - kanalga xabar yuborilmaydi (eski to'lovlar bilan spam qilmaymiz).
+   * Barcha tarixiy to'lovlar kiritilgach sana bir marta qayta hisoblanadi
+   * (`recalculateNextPayment`).
+   */
+  historical?: boolean;
 };
 
 /** To'lov kanali uchun caption — mijozning to'liq ma'lumoti + summa + sana. */
@@ -68,6 +87,7 @@ export async function processPayment(
   clientId: string,
   fields: PaymentFields,
   receipt: { buffer: Buffer; mime: string },
+  options: PaymentOptions = {},
 ): Promise<{ ok: true; paymentId: string } | { ok: false; error: string }> {
   const client = await db.client.findUnique({
     where: { id: clientId },
@@ -78,8 +98,13 @@ export async function processPayment(
   const { amount, currency, days } = fields;
   const paidAt = fields.paidAt ? new Date(fields.paidAt) : new Date();
   const now = new Date();
-  const base =
-    client.nextPaymentDate && client.nextPaymentDate > now ? client.nextPaymentDate : now;
+  // Tarixiy: qamrov chekning o'z sanasidan. Odatiy: bugundan (yoki mavjud
+  // qamrov tugaydigan sanadan, agar u kelajakda bo'lsa).
+  const base = options.historical
+    ? paidAt
+    : client.nextPaymentDate && client.nextPaymentDate > now
+      ? client.nextPaymentDate
+      : now;
   const nextPaymentDate = addDays(base, days);
 
   const payment = await db.payment.create({
@@ -107,32 +132,126 @@ export async function processPayment(
     data: { receiptPath: saved.relPath },
   });
 
-  await db.client.update({
-    where: { id: clientId },
-    data: { nextPaymentDate, status: "ACTIVE" },
-  });
+  // Tarixiy to'lov mijozning joriy holatiga tegmaydi — sana import oxirida
+  // `recalculateNextPayment` bilan bir marta qayta hisoblanadi.
+  if (!options.historical) {
+    await db.client.update({
+      where: { id: clientId },
+      data: { nextPaymentDate, status: "ACTIVE" },
+    });
+  }
 
-  await logAudit("To'lov qabul qilindi", {
-    entity: "Client",
-    entityId: clientId,
-    detail: `${client.restaurantName}: ${formatMoney(amount, currency)}`,
-  });
+  await logAudit(
+    options.historical ? "Tarixiy to'lov import qilindi" : "To'lov qabul qilindi",
+    {
+      entity: "Client",
+      entityId: clientId,
+      detail: `${client.restaurantName}: ${formatMoney(amount, currency)}`,
+    },
+  );
 
-  const caption = paymentCaption(client, {
-    amount,
-    currency,
-    days,
-    method: fields.method,
-    paidAt,
-    nextPaymentDate,
-    operatorName: session.name,
-    note: fields.receiptNote,
-  });
-  await sendPaymentToChannel(caption, receipt.buffer, receipt.mime);
+  // Eski to'lovlarni kanalga yubormaymiz — jamoani spam qilmaslik uchun
+  if (!options.historical) {
+    const caption = paymentCaption(client, {
+      amount,
+      currency,
+      days,
+      method: fields.method,
+      paidAt,
+      nextPaymentDate,
+      operatorName: session.name,
+      note: fields.receiptNote,
+    });
+    await sendPaymentToChannel(caption, receipt.buffer, receipt.mime);
+  }
 
   revalidatePath(`/mijozlar/${clientId}`);
   revalidatePath("/mijozlar");
   revalidatePath("/tolovlar");
   revalidatePath("/");
   return { ok: true, paymentId: payment.id };
+}
+
+/** Bitta mijoz uchun to'lov sanasini qayta hisoblash rejasi. */
+export type NextPaymentPlanRow = {
+  clientId: string;
+  restaurantName: string;
+  current: Date | null;
+  next: Date;
+  /** forward — sana oldinga suriladi; backward — orqaga; same — o'zgarmaydi. */
+  direction: "forward" | "backward" | "same";
+};
+
+/**
+ * Mijozlarning keyingi to'lov sanasini to'lovlar tarixidan QAYTA HISOBLAYDI,
+ * lekin YOZMAYDI — faqat rejani qaytaradi.
+ *
+ * Mantiq `nextPaymentAfterDelete` bilan bir xil (billing.ts — yagona manba):
+ * eng oxirgi to'lovning `periodEnd`i, to'lov bo'lmasa shartnoma sanasidan.
+ *
+ * DIQQAT — `backward` qatorlarga ehtiyot bo'ling: guruh eksporti mijozning
+ * BUTUN to'lov tarixini qamrab olmaydi (guruh qachondir boshlangan). Shuning
+ * uchun tarixdan hisoblangan sana hozirgisidan oldinroq chiqishi mumkin —
+ * bu to'lovi joyida mijozni qarzdorga aylantiradi. Ko'rib chiqmasdan
+ * qo'llamang.
+ */
+export async function planNextPayment(clientIds: string[]): Promise<NextPaymentPlanRow[]> {
+  const plan: NextPaymentPlanRow[] = [];
+  for (const clientId of clientIds) {
+    const client = await db.client.findUnique({
+      where: { id: clientId },
+      select: {
+        restaurantName: true,
+        contractDate: true,
+        createdAt: true,
+        nextPaymentDate: true,
+      },
+    });
+    if (!client) continue;
+
+    const latest = await db.payment.findFirst({
+      where: { clientId },
+      orderBy: { periodEnd: "desc" },
+      select: { periodEnd: true },
+    });
+
+    const anchor = client.contractDate ?? client.createdAt;
+    const next = nextPaymentAfterDelete(latest?.periodEnd, anchor);
+    const cur = client.nextPaymentDate;
+
+    const direction: NextPaymentPlanRow["direction"] =
+      !cur || cur.getTime() === next.getTime()
+        ? cur
+          ? "same"
+          : "forward"
+        : next > cur
+          ? "forward"
+          : "backward";
+
+    plan.push({
+      clientId,
+      restaurantName: client.restaurantName,
+      current: cur,
+      next,
+      direction,
+    });
+  }
+  return plan;
+}
+
+/**
+ * Rejani qo'llaydi. `same` qatorlar o'tkazib yuboriladi.
+ * @returns yozilgan mijozlar soni
+ */
+export async function applyNextPaymentPlan(plan: NextPaymentPlanRow[]): Promise<number> {
+  let changed = 0;
+  for (const row of plan) {
+    if (row.direction === "same") continue;
+    await db.client.update({
+      where: { id: row.clientId },
+      data: { nextPaymentDate: row.next },
+    });
+    changed++;
+  }
+  return changed;
 }

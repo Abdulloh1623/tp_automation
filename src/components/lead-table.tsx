@@ -422,6 +422,10 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
               ? "Boshqa kalit so'z bilan qidirib ko'ring."
               : "Hammasi joyida — bugungi ish yakunlangan yoki yangi lid yo'q."
           }
+          // Qidiruv natijasiz bo'lganda mijoz qo'shish taklif qilinadi;
+          // navbat bo'sh bo'lganda esa bu taklif o'rinsiz.
+          actionHref={query ? "/mijozlar/yangi" : undefined}
+          actionLabel={query ? "Yangi mijoz qo'shish" : undefined}
         />
       ) : mode === "joriy" ? (
         <JoriyTable

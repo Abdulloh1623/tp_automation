@@ -8,6 +8,7 @@ import { formatPhone } from "@/lib/utils";
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { ClientLink } from "@/components/client-link";
 import { SpecialNoteBell } from "@/components/special-note-bell";
+import { ClientNotFound } from "@/components/add-client-link";
 
 export type PaymentRow = {
   id: string;
@@ -182,8 +183,8 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-slate-400 dark:text-slate-500">
-                  Mijoz topilmadi
+                <td colSpan={7} className="px-4 py-8">
+                  <ClientNotFound />
                 </td>
               </tr>
             )}
@@ -242,9 +243,7 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
       {/* Mobil kartalar — jadval o'rniga kichik ekranда */}
       <div className="space-y-3 md:hidden">
         {filtered.length === 0 && (
-          <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-8 text-center text-sm text-slate-400 dark:text-slate-500">
-            Mijoz topilmadi
-          </div>
+          <ClientNotFound />
         )}
         {filtered.map((r) => (
           <div

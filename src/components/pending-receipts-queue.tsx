@@ -14,6 +14,7 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { confirmDialog } from "@/components/confirm-dialog";
+import { AddClientLink, ClientNotFound } from "@/components/add-client-link";
 import { CURRENCY, PAYMENT_METHOD } from "@/lib/constants";
 import { formatPhone } from "@/lib/utils";
 
@@ -405,25 +406,40 @@ function ClientPicker({
         />
       </div>
       {searching && <p className="text-xs text-slate-400">Qidirilmoqda...</p>}
-      {results.length > 0 && (
-        <ul className="max-h-52 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700">
-          {results.map((r) => (
-            <li key={r.id}>
-              <button
-                type="button"
-                className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
-                onClick={() => {
-                  onPick(r.id, r.label);
-                  setOpen(false);
-                  setQuery("");
-                  setResults([]);
-                }}
-              >
-                {r.label}
-              </button>
-            </li>
-          ))}
-        </ul>
+
+      {/* Natija bor — ro'yxat, oxirida esa "qo'shish" (izlagani ro'yxatda
+          bo'lmasligi mumkin: o'xshash nomli boshqa mijozlar chiqqan bo'lsa) */}
+      {!searching && results.length > 0 && (
+        <>
+          <ul className="max-h-52 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700">
+            {results.map((r) => (
+              <li key={r.id}>
+                <button
+                  type="button"
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+                  onClick={() => {
+                    onPick(r.id, r.label);
+                    setOpen(false);
+                    setQuery("");
+                    setResults([]);
+                  }}
+                >
+                  {r.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="flex items-center justify-between gap-2 text-xs text-slate-400 dark:text-slate-500">
+            <span>Kerakli mijoz ro&apos;yxatda yo&apos;qmi?</span>
+            {/* Yangi tabda — 190 ta chek orasidagi joyni yo'qotmaslik uchun */}
+            <AddClientLink newTab label="Yangi mijoz" />
+          </div>
+        </>
+      )}
+
+      {/* Qidirildi, lekin hech narsa topilmadi */}
+      {!searching && query.trim().length >= 2 && results.length === 0 && (
+        <ClientNotFound query={query.trim()} newTab />
       )}
     </div>
   );

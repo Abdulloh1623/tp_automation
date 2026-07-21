@@ -1,12 +1,13 @@
 "use server";
 
 import { randomUUID } from "crypto";
+import { safeNote } from "@/lib/validation";
 import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { saveHandoutDoc } from "@/lib/handout-docs";
+import { saveHandoutDoc, isHandoutRelPath } from "@/lib/handout-docs";
 import type { HandoutMode } from "@/lib/constants";
 
 export type InvState = { ok: boolean; error?: string };
@@ -170,7 +171,8 @@ export async function transferToUsta(
   const m = await requireManager();
   if (!m.ok) return m;
   if (!quantity || quantity <= 0) return { ok: false, error: "Miqdor noto'g'ri" };
-  if (!note || !note.trim()) return { ok: false, error: "Izoh majburiy" };
+  const noteText = safeNote(note);
+  if (!noteText) return { ok: false, error: "Izoh majburiy" };
 
   const [type, usta] = await Promise.all([
     db.equipmentType.findUnique({ where: { id: equipmentTypeId } }),
@@ -195,7 +197,7 @@ export async function transferToUsta(
       toType: "USTA",
       toId: ustaId,
       reason: "Ustaga taqsimot",
-      note: note.trim(),
+      note: noteText,
       byUserId: m.userId,
     },
   });
@@ -230,11 +232,17 @@ export async function transferBatchToUsta(
   if (!m.ok) return m;
 
   // Hujjatsiz yuborishda izoh majburiy (hujjatli rejimda hujjat isbot bo'ladi).
-  if (handoutMode === "WITHOUT_DOC" && !note.trim()) {
+  const noteText = safeNote(note);
+  if (handoutMode === "WITHOUT_DOC" && !noteText) {
     return { ok: false, error: "Hujjatsiz yuborish uchun izoh kiritish majburiy!" };
   }
   if (!items || items.length === 0) {
     return { ok: false, error: "Kamida bitta texnika kerak" };
+  }
+  // Hujjat manzili berilsa — faqat saveHandoutDoc qaytargan shaklda bo'lsin
+  // (uploadSignedDocument dagi bilan bir xil qoida).
+  if (signedDocUrl && !isHandoutRelPath(signedDocUrl.trim())) {
+    return { ok: false, error: "Hujjat manzili noto'g'ri" };
   }
 
   // Har bir yozuvga yoziladigan hujjat holati.
@@ -266,7 +274,7 @@ export async function transferBatchToUsta(
 
   try {
     await db.$transaction(async (tx) => {
-      const trimmedNote = note.trim();
+      const trimmedNote = noteText ?? "";
       for (const [equipmentTypeId, quantity] of entries) {
         const type = typeById.get(equipmentTypeId);
         if (!type) throw new Error("Texnika turi topilmadi");
@@ -377,7 +385,12 @@ export async function uploadSignedDocument(
 ): Promise<InvState> {
   const m = await requireManager();
   if (!m.ok) return m;
-  if (!fileUrl || !fileUrl.trim()) return { ok: false, error: "Hujjat yo'q" };
+  const docPath = (fileUrl ?? "").trim();
+  if (!docPath) return { ok: false, error: "Hujjat yo'q" };
+  // Faqat saveHandoutDoc qaytargan shakl qabul qilinadi. Busiz bu yerga
+  // ixtiyoriy manzil (jumladan `javascript:...`) yozib yuborish mumkin edi —
+  // u keyin hujjat havolasi sifatida ishlatiladi.
+  if (!isHandoutRelPath(docPath)) return { ok: false, error: "Hujjat manzili noto'g'ri" };
 
   const mv = await db.equipmentMovement.findUnique({ where: { id: movementId } });
   if (!mv) return { ok: false, error: "Harakat topilmadi" };
@@ -387,7 +400,7 @@ export async function uploadSignedDocument(
 
   await db.equipmentMovement.update({
     where: { id: movementId },
-    data: { signedDocUrl: fileUrl.trim(), documentStatus: "UPLOADED" },
+    data: { signedDocUrl: docPath, documentStatus: "UPLOADED" },
   });
   await logAudit("Topshirish hujjati yuklandi", {
     entity: "Equipment",
@@ -479,7 +492,7 @@ export async function updateHandoutMovement(
           toId: data.toId,
           equipmentTypeId: data.equipmentTypeId,
           quantity: newQuantity,
-          note: note || null,
+          note: safeNote(note),
           documentStatus,
         },
       });
@@ -681,7 +694,8 @@ export async function scrapToBrak(
   const m = await requireManager();
   if (!m.ok) return m;
   if (!quantity || quantity <= 0) return { ok: false, error: "Miqdor noto'g'ri" };
-  if (!note || !note.trim()) return { ok: false, error: "Izoh majburiy" };
+  const noteText = safeNote(note);
+  if (!noteText) return { ok: false, error: "Izoh majburiy" };
   if (!["WAREHOUSE", "USTA"].includes(fromType)) {
     return { ok: false, error: "Manba noto'g'ri" };
   }
@@ -711,13 +725,13 @@ export async function scrapToBrak(
       toType: "BRAK",
       toId: "BRAK",
       reason: "Brak",
-      note: note.trim(),
+      note: noteText,
       byUserId: m.userId,
     },
   });
   await logAudit("Brakka chiqarildi", {
     entity: "Equipment",
-    detail: note.trim(),
+    detail: noteText,
   });
   revalidatePath("/ombor");
   return { ok: true };
@@ -765,7 +779,7 @@ export async function returnFromUsta(
       toType: WAREHOUSE,
       toId: WAREHOUSE,
       reason: "Ustadan qaytarish",
-      note: note && note.trim() ? note.trim() : null,
+      note: safeNote(note),
       byUserId: m.userId,
     },
   });
@@ -804,7 +818,7 @@ export async function adjustInventory(
         ? { toType: WAREHOUSE, toId: WAREHOUSE }
         : { fromType: WAREHOUSE, fromId: WAREHOUSE }),
       reason: "Inventarizatsiya",
-      note: `${current} → ${actualQty}${note && note.trim() ? " · " + note.trim() : ""}`,
+      note: `${current} → ${actualQty}${safeNote(note) ? " · " + safeNote(note) : ""}`,
       byUserId: m.userId,
     },
   });

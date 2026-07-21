@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { safeNote } from "@/lib/validation";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
@@ -373,7 +374,8 @@ export async function requestEquipmentReturn(
   if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
-  if (!note || !note.trim()) return { ok: false, error: "Izoh majburiy" };
+  const noteText = safeNote(note);
+  if (!noteText) return { ok: false, error: "Izoh majburiy" };
 
   const client = await db.client.findUnique({
     where: { id: clientId },
@@ -396,7 +398,7 @@ export async function requestEquipmentReturn(
   }
 
   await db.equipmentReturnRequest.create({
-    data: { clientId, byUserId: session.userId, note: note.trim(), status: "PENDING" },
+    data: { clientId, byUserId: session.userId, note: noteText, status: "PENDING" },
   });
   await logAudit("Uskuna qaytarish arizasi", {
     entity: "Client",
@@ -488,7 +490,7 @@ export async function rejectReturnRequest(
     data: {
       status: "REJECTED",
       resolvedAt: new Date(),
-      note: note && note.trim() ? note.trim() : req.note,
+      note: safeNote(note) ?? req.note,
     },
   });
   await logAudit("Qaytarish rad etildi", { entity: "Client", entityId: req.clientId });

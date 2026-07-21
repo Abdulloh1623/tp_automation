@@ -13,12 +13,24 @@ const MIME_EXT: Record<string, string> = {
 };
 
 export function isAllowedHandoutMime(mime: string): boolean {
-  return mime in MIME_EXT;
+  // `in` prototip xossalarini ham o'tkazadi — hasOwn ishlatamiz.
+  return Object.hasOwn(MIME_EXT, mime);
 }
 
 export type SaveResult =
   | { ok: true; relPath: string }
   | { ok: false; error: string };
+
+/**
+ * `saveHandoutDoc` qaytaradigan relPath shaklimi — `handouts/<nom>.<pdf|jpg>`?
+ *
+ * XAVFSIZLIK: bu qiymat DB'ga (`signedDocUrl`) yoziladi va keyin havola
+ * sifatida ishlatiladi. Tekshirilmasa `javascript:...` yoki tashqi manzil
+ * yozib yuborish mumkin — shu bois shaklni qat'iy chegaralaymiz.
+ */
+export function isHandoutRelPath(value: string): boolean {
+  return /^handouts\/[A-Za-z0-9._-]+\.(pdf|jpg)$/.test(value) && !value.includes("..");
+}
 
 /** Hujjat buferini uploads/handouts/ ga saqlaydi. relPath DB'ga yoziladi. */
 export async function saveHandoutDoc(

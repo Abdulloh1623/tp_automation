@@ -371,6 +371,31 @@ export function expectedRentalValue(
 // To'liq ko'rinish (DB)
 // ---------------------------------------------------------------------------
 
+/**
+ * KPI kartochkasi bosilganda ochiladigan batafsil ma'lumot. Har bir blok o'z
+ * kesimida — sonning QAYERDAN kelganini ko'rsatadi.
+ */
+export type EquipmentDetail = {
+  /** Ombor: tur bo'yicha qoldiq va qiymat. */
+  warehouse: { name: string; qty: number; unitPrice: number; value: number; minStock: number; low: boolean }[];
+  /** Ustalar: har usta -> qaysi texnikadan nechta. */
+  usta: { ustaId: string; ustaName: string; total: number; items: { name: string; qty: number }[] }[];
+  /** Mijozlar: tur bo'yicha ijara/sotuv ajratilgan. */
+  client: { name: string; rental: number; sold: number; total: number }[];
+  /** Eng ko'p uskunali mijozlar (batafsil ro'yxat uchun). */
+  topClients: { id: string; name: string; qty: number; rental: number; sold: number }[];
+  /** Ijara daromadi: tur bo'yicha hissa. */
+  rental: { name: string; qty: number; unitPrice: number; monthly: number; clients: number }[];
+  /** Ijara uskunasi bor mijozlar soni. */
+  rentalClientCount: number;
+  /** Brak: tur bo'yicha qoldiq. */
+  brak: { name: string; qty: number }[];
+  /** Oxirgi brak harakatlari (kim, qachon, qayerdan, izoh). */
+  brakRecent: { date: Date; typeName: string; qty: number; from: string; note: string | null; user: string }[];
+  /** Kam zaxira: yetishmayotgan miqdor bilan. */
+  lowStock: { name: string; qty: number; minStock: number; deficit: number; usedLast90: number }[];
+};
+
 export type EquipmentOverview = {
   // Joriy holat
   warehouseUnits: number;
@@ -390,6 +415,8 @@ export type EquipmentOverview = {
   // Ma'lumot sifati
   rule: RuleCheck;
   totalMovements: number;
+  // KPI kartochkalarining batafsil ochilishi
+  detail: EquipmentDetail;
 };
 
 /** Analitika sahifasi uchun barcha ko'rsatkichlar. `months` — oyna (default 12 oy). */
@@ -410,6 +437,7 @@ export async function getEquipmentOverview(months = 12): Promise<EquipmentOvervi
           equipmentTypeId: true,
           clientId: true,
           equipmentType: { select: { rentalPrice: true } },
+          client: { select: { restaurantName: true } },
         },
       }),
       // Usta balansi (`expected`) to'g'ri chiqishi uchun TO'LIQ tarix kerak —
@@ -432,6 +460,26 @@ export async function getEquipmentOverview(months = 12): Promise<EquipmentOvervi
       }),
       db.equipmentMovement.count(),
     ]);
+
+  // Brak batafsili — oxirgi chiqarilganlar (kim, qayerdan, izoh).
+  const [brakMovements, allUsers] = await Promise.all([
+    db.equipmentMovement.findMany({
+      where: { toType: "BRAK" },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: {
+        createdAt: true,
+        quantity: true,
+        equipmentTypeId: true,
+        fromType: true,
+        fromId: true,
+        note: true,
+        byUserId: true,
+      },
+    }),
+    db.user.findMany({ select: { id: true, name: true } }),
+  ]);
+  const userName = new Map(allUsers.map((u) => [u.id, u.name]));
 
   const typeById = new Map(types.map((t) => [t.id, t]));
   const now = new Date();
@@ -509,6 +557,150 @@ export async function getEquipmentOverview(months = 12): Promise<EquipmentOvervi
     })),
   );
 
+  // -------------------------------------------------------------------------
+  // KPI kartochkalarining batafsil ochilishi
+  // -------------------------------------------------------------------------
+
+  const typeName = (id: string) => typeById.get(id)?.name ?? "—";
+
+  const whDetail = types
+    .filter((t) => (wh.get(t.id) ?? 0) > 0 || (t.isActive && t.minStock > 0))
+    .map((t) => {
+      const qty = wh.get(t.id) ?? 0;
+      return {
+        name: t.name,
+        qty,
+        unitPrice: t.salePrice,
+        value: qty * t.salePrice,
+        minStock: t.minStock,
+        low: t.isActive && t.minStock > 0 && qty < t.minStock,
+      };
+    })
+    .sort((a, b) => b.value - a.value);
+
+  // Usta -> tur -> miqdor.
+  const ustaItems = new Map<string, Map<string, number>>();
+  for (const s of stock) {
+    if (s.locationType !== "USTA" || s.quantity <= 0) continue;
+    const m = ustaItems.get(s.locationId) ?? new Map<string, number>();
+    m.set(s.equipmentTypeId, (m.get(s.equipmentTypeId) ?? 0) + s.quantity);
+    ustaItems.set(s.locationId, m);
+  }
+  const ustaDetail = ustalar
+    .map((u) => {
+      const items = [...(ustaItems.get(u.id) ?? new Map<string, number>()).entries()]
+        .map(([id, qty]) => ({ name: typeName(id), qty }))
+        .sort((a, b) => b.qty - a.qty);
+      return {
+        ustaId: u.id,
+        ustaName: u.name,
+        total: items.reduce((s, i) => s + i.qty, 0),
+        items,
+      };
+    })
+    .filter((u) => u.total > 0)
+    .sort((a, b) => b.total - a.total);
+
+  // Mijozlardagi uskuna — tur bo'yicha va mijoz bo'yicha.
+  const clientByType = new Map<string, { rental: number; sold: number }>();
+  const perClient = new Map<string, { name: string; rental: number; sold: number }>();
+  const rentalByType = new Map<string, { qty: number; clients: Set<string> }>();
+  for (const e of clientEquipment) {
+    const t = clientByType.get(e.equipmentTypeId) ?? { rental: 0, sold: 0 };
+    const c = perClient.get(e.clientId) ?? {
+      name: e.client.restaurantName,
+      rental: 0,
+      sold: 0,
+    };
+    if (e.ownership === "RENTAL") {
+      t.rental += e.quantity;
+      c.rental += e.quantity;
+      const r = rentalByType.get(e.equipmentTypeId) ?? { qty: 0, clients: new Set<string>() };
+      r.qty += e.quantity;
+      r.clients.add(e.clientId);
+      rentalByType.set(e.equipmentTypeId, r);
+    } else {
+      t.sold += e.quantity;
+      c.sold += e.quantity;
+    }
+    clientByType.set(e.equipmentTypeId, t);
+    perClient.set(e.clientId, c);
+  }
+
+  const clientDetail = [...clientByType.entries()]
+    .map(([id, v]) => ({
+      name: typeName(id),
+      rental: v.rental,
+      sold: v.sold,
+      total: v.rental + v.sold,
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  const topClients = [...perClient.entries()]
+    .map(([id, v]) => ({ id, name: v.name, qty: v.rental + v.sold, rental: v.rental, sold: v.sold }))
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 25);
+
+  const rentalDetail = [...rentalByType.entries()]
+    .map(([id, v]) => {
+      const price = typeById.get(id)?.rentalPrice ?? 0;
+      return {
+        name: typeName(id),
+        qty: v.qty,
+        unitPrice: price,
+        monthly: v.qty * price,
+        clients: v.clients.size,
+      };
+    })
+    .sort((a, b) => b.monthly - a.monthly);
+
+  const brakDetail = [...brak.entries()]
+    .filter(([, q]) => q > 0)
+    .map(([id, qty]) => ({ name: typeName(id), qty }))
+    .sort((a, b) => b.qty - a.qty);
+
+  const brakRecent = brakMovements.map((m) => ({
+    date: m.createdAt,
+    typeName: typeName(m.equipmentTypeId),
+    qty: m.quantity,
+    from:
+      m.fromType === "USTA"
+        ? (m.fromId ? (userName.get(m.fromId) ?? "Usta") : "Usta")
+        : m.fromType === "WAREHOUSE"
+          ? "Ombor"
+          : m.fromType === "CLIENT"
+            ? "Mijoz"
+            : "—",
+    note: m.note,
+    user: m.byUserId ? (userName.get(m.byUserId) ?? "—") : "—",
+  }));
+
+  // Kam zaxira — yetishmayotgan miqdor va oxirgi 90 kunlik sarf (ombordan
+  // chiqqan: ustaga taqsimot + to'g'ridan-to'g'ri o'rnatish). Qancha buyurtma
+  // qilish kerakligini baholashga yordam beradi.
+  const since90 = new Date(now.getTime() - 90 * 86400000);
+  const used90 = new Map<string, number>();
+  for (const m of movements) {
+    if (m.createdAt < since90) continue;
+    const k = classifyMovement(m);
+    if (k === "TO_USTA" || k === "INSTALL_WAREHOUSE") {
+      used90.set(m.equipmentTypeId, (used90.get(m.equipmentTypeId) ?? 0) + m.quantity);
+    }
+  }
+  const lowStockDetail = types
+    .filter((t) => t.isActive && t.minStock > 0 && (wh.get(t.id) ?? 0) < t.minStock)
+    .map((t) => {
+      const qty = wh.get(t.id) ?? 0;
+      return {
+        name: t.name,
+        qty,
+        minStock: t.minStock,
+        deficit: t.minStock - qty,
+        usedLast90: used90.get(t.id) ?? 0,
+      };
+    })
+    .sort((a, b) => b.deficit - a.deficit);
+
   return {
     warehouseUnits,
     warehouseValue,
@@ -527,5 +719,16 @@ export async function getEquipmentOverview(months = 12): Promise<EquipmentOvervi
     ustaRows: perUstaFlow(movements, ustalar, onHandByUsta),
     rule,
     totalMovements: movementCount,
+    detail: {
+      warehouse: whDetail,
+      usta: ustaDetail,
+      client: clientDetail,
+      topClients,
+      rental: rentalDetail,
+      rentalClientCount: [...perClient.values()].filter((c) => c.rental > 0).length,
+      brak: brakDetail,
+      brakRecent,
+      lowStock: lowStockDetail,
+    },
   };
 }

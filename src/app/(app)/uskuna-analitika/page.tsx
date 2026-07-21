@@ -6,11 +6,17 @@ import {
   Trash2,
   Coins,
   AlertTriangle,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FlowChart, FlowLegend, SourceSplit } from "@/components/equipment-charts";
-import { getEquipmentOverview, type RuleClient } from "@/lib/inventory-stats";
+import {
+  getEquipmentOverview,
+  type EquipmentDetail,
+  type RuleClient,
+} from "@/lib/inventory-stats";
 import { BASE_PROGRAM_USD } from "@/lib/constants";
 import { formatMoney } from "@/lib/utils";
 
@@ -19,41 +25,326 @@ export const metadata = { title: "Uskuna analitikasi" };
 
 const WINDOWS = [6, 12, 24];
 
+/** Batafsil ochiladigan kartochkalar. */
+type CardKey = "ombor" | "ustalar" | "mijozlar" | "ijara" | "brak" | "zaxira";
+
+const toneMap = {
+  blue: "bg-primary-50 text-primary-600 dark:bg-primary-950/40 dark:text-primary-400",
+  emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400",
+  red: "bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400",
+  amber: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400",
+  violet: "bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400",
+  slate: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+};
+
+/**
+ * Bosiladigan KPI kartochkasi. Ochish/yopish URL orqali (`?kart=`) — sahifa
+ * server komponentida qolаdi, orqaga tugmasi ham to'g'ri ishlaydi.
+ */
 function Kpi({
+  cardKey,
+  active,
+  months,
   label,
   value,
   sub,
   icon: Icon,
   tone,
+  count,
 }: {
+  cardKey: CardKey;
+  active: CardKey | null;
+  months: number;
   label: string;
   value: string;
   sub?: string;
   icon: React.ComponentType<{ className?: string }>;
-  tone: "blue" | "emerald" | "red" | "amber" | "violet" | "slate";
+  tone: keyof typeof toneMap;
+  /** Batafsilda nechta qator bor — 0 bo'lsa kartochka bosilmaydi. */
+  count: number;
 }) {
-  const toneMap = {
-    blue: "bg-primary-50 text-primary-600 dark:bg-primary-950/40 dark:text-primary-400",
-    emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400",
-    red: "bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400",
-    amber: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400",
-    violet: "bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-400",
-    slate: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
-  };
-  return (
-    <Card className="p-5">
-      <div className="flex items-center justify-between">
-        <div className="min-w-0">
-          <div className="text-sm text-slate-500 dark:text-slate-400">{label}</div>
-          <div className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
-            {value}
-          </div>
-          {sub && <div className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{sub}</div>}
+  const isOpen = active === cardKey;
+  const href = `/uskuna-analitika?oy=${months}${isOpen ? "" : `&kart=${cardKey}`}`;
+  const body = (
+    <div className="flex items-center justify-between">
+      <div className="min-w-0">
+        <div className="text-sm text-slate-500 dark:text-slate-400">{label}</div>
+        <div className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+          {value}
         </div>
-        <span className={`rounded-lg p-2 ${toneMap[tone]}`}>
-          <Icon className="h-5 w-5" />
-        </span>
+        {sub && <div className="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">{sub}</div>}
       </div>
+      <span className={`shrink-0 rounded-lg p-2 ${toneMap[tone]}`}>
+        <Icon className="h-5 w-5" />
+      </span>
+    </div>
+  );
+
+  if (count === 0) {
+    return (
+      <Card className="p-5">
+        {body}
+        <div className="mt-2 text-xs text-slate-300 dark:text-slate-600">Batafsil ma'lumot yo'q</div>
+      </Card>
+    );
+  }
+
+  return (
+    <Link href={href} scroll={false} className="block">
+      <Card
+        className={
+          "p-5 transition hover:border-primary-300 hover:shadow-sm dark:hover:border-primary-700 " +
+          (isOpen ? "border-primary-400 ring-1 ring-primary-400 dark:border-primary-600" : "")
+        }
+      >
+        {body}
+        <div className="mt-2 flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400">
+          {isOpen ? (
+            <>
+              Yopish <ChevronUp className="h-3.5 w-3.5" />
+            </>
+          ) : (
+            <>
+              Batafsil ({count}) <ChevronDown className="h-3.5 w-3.5" />
+            </>
+          )}
+        </div>
+      </Card>
+    </Link>
+  );
+}
+
+/** Batafsil panel uchun oddiy jadval. */
+function DetailTable({
+  head,
+  children,
+  minWidth = 420,
+}: {
+  head: string[];
+  children: React.ReactNode;
+  minWidth?: number;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm" style={{ minWidth }}>
+        <thead>
+          <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-400 dark:border-slate-800">
+            {head.map((h, i) => (
+              <th key={h} className={"pb-2 font-medium" + (i === 0 ? "" : " text-right")}>
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  );
+}
+
+const Tr = ({ children }: { children: React.ReactNode }) => (
+  <tr className="border-b border-slate-100 last:border-0 dark:border-slate-800">{children}</tr>
+);
+const Td = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
+  <td className={"py-2 text-right tabular-nums " + className}>{children}</td>
+);
+const TdName = ({ children }: { children: React.ReactNode }) => (
+  <td className="py-2 text-slate-800 dark:text-slate-200">{children}</td>
+);
+
+const DETAIL_TITLE: Record<CardKey, string> = {
+  ombor: "Omborda — texnika turlari bo'yicha",
+  ustalar: "Ustalarda — kimda nima bor",
+  mijozlar: "Mijozlarda — turlar va eng ko'p uskunali mijozlar",
+  ijara: "Ijara daromadi — qaysi texnikadan",
+  brak: "Brak — qoldiq va oxirgi chiqarilganlar",
+  zaxira: "Kam zaxira — yetishmayotgan miqdor",
+};
+
+const dateFmt = (d: Date) =>
+  `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+
+/** Bosilgan KPI kartochkasining batafsil ochilishi. */
+function DetailPanel({
+  which,
+  d,
+  months,
+}: {
+  which: CardKey;
+  d: EquipmentDetail;
+  months: number;
+}) {
+  return (
+    <Card className="border-primary-200 dark:border-primary-900">
+      <CardHeader className="flex-row items-start justify-between gap-3">
+        <CardTitle>{DETAIL_TITLE[which]}</CardTitle>
+        <Link
+          href={`/uskuna-analitika?oy=${months}`}
+          scroll={false}
+          className="shrink-0 text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+        >
+          Yopish ✕
+        </Link>
+      </CardHeader>
+      <CardContent>
+        {which === "ombor" && (
+          <DetailTable head={["Texnika", "Qoldiq", "Birlik narxi", "Qiymati", "Min. zaxira"]}>
+            {d.warehouse.map((r) => (
+              <Tr key={r.name}>
+                <TdName>{r.name}</TdName>
+                <Td className={r.low ? "font-semibold text-red-600 dark:text-red-400" : ""}>
+                  {r.qty}
+                </Td>
+                <Td className="text-slate-500">{formatMoney(r.unitPrice, "USD")}</Td>
+                <Td className="font-medium">{formatMoney(r.value, "USD")}</Td>
+                <Td className="text-slate-400">{r.minStock || "—"}</Td>
+              </Tr>
+            ))}
+          </DetailTable>
+        )}
+
+        {which === "ustalar" && (
+          <div className="space-y-4">
+            {d.usta.map((u) => (
+              <div key={u.ustaId}>
+                <div className="flex items-baseline justify-between">
+                  <span className="font-medium text-slate-800 dark:text-slate-200">
+                    {u.ustaName}
+                  </span>
+                  <span className="text-sm text-slate-500 dark:text-slate-400">
+                    {u.total} dona
+                  </span>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {u.items.map((i) => (
+                    <span
+                      key={i.name}
+                      className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                    >
+                      {i.name} × {i.qty}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {which === "mijozlar" && (
+          <div className="space-y-6">
+            <DetailTable head={["Texnika", "Ijarada", "Sotilgan", "Jami"]}>
+              {d.client.map((r) => (
+                <Tr key={r.name}>
+                  <TdName>{r.name}</TdName>
+                  <Td>{r.rental}</Td>
+                  <Td>{r.sold}</Td>
+                  <Td className="font-medium">{r.total}</Td>
+                </Tr>
+              ))}
+            </DetailTable>
+            <div>
+              <h4 className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                Eng ko'p uskunali mijozlar (top {d.topClients.length})
+              </h4>
+              <DetailTable head={["Mijoz", "Ijarada", "Sotilgan", "Jami"]}>
+                {d.topClients.map((c) => (
+                  <Tr key={c.id}>
+                    <td className="py-2">
+                      <Link
+                        href={`/mijozlar/${c.id}`}
+                        className="text-primary-600 hover:underline dark:text-primary-400"
+                      >
+                        {c.name}
+                      </Link>
+                    </td>
+                    <Td>{c.rental}</Td>
+                    <Td>{c.sold}</Td>
+                    <Td className="font-medium">{c.qty}</Td>
+                  </Tr>
+                ))}
+              </DetailTable>
+            </div>
+          </div>
+        )}
+
+        {which === "ijara" && (
+          <>
+            <DetailTable head={["Texnika", "Ijarada (dona)", "Oylik narxi", "Jami ($/oy)", "Mijoz"]}>
+              {d.rental.map((r) => (
+                <Tr key={r.name}>
+                  <TdName>{r.name}</TdName>
+                  <Td>{r.qty}</Td>
+                  <Td className="text-slate-500">{formatMoney(r.unitPrice, "USD")}</Td>
+                  <Td className="font-medium text-emerald-600 dark:text-emerald-400">
+                    {formatMoney(r.monthly, "USD")}
+                  </Td>
+                  <Td className="text-slate-400">{r.clients}</Td>
+                </Tr>
+              ))}
+            </DetailTable>
+            <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
+              Jami {d.rentalClientCount} ta mijozda ijara uskunasi bor. Bu summa mijozning
+              oylik to'lovi ICHIDAGI ulush — MRR ustiga qo'shilmaydi.
+            </p>
+          </>
+        )}
+
+        {which === "brak" && (
+          <div className="space-y-6">
+            <DetailTable head={["Texnika", "Brakdagi qoldiq"]} minWidth={280}>
+              {d.brak.map((r) => (
+                <Tr key={r.name}>
+                  <TdName>{r.name}</TdName>
+                  <Td className="font-medium text-red-600 dark:text-red-400">{r.qty}</Td>
+                </Tr>
+              ))}
+            </DetailTable>
+            {d.brakRecent.length > 0 && (
+              <div>
+                <h4 className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Oxirgi brakka chiqarishlar
+                </h4>
+                <DetailTable head={["Sana", "Texnika", "Soni", "Qayerdan", "Kim", "Izoh"]} minWidth={560}>
+                  {d.brakRecent.map((m, i) => (
+                    <Tr key={i}>
+                      <td className="py-2 whitespace-nowrap text-slate-500 dark:text-slate-400">
+                        {dateFmt(m.date)}
+                      </td>
+                      <Td className="text-left">{m.typeName}</Td>
+                      <Td>{m.qty}</Td>
+                      <Td className="text-left text-slate-500">{m.from}</Td>
+                      <Td className="text-left text-slate-500">{m.user}</Td>
+                      <Td className="text-left text-slate-400">{m.note ?? "—"}</Td>
+                    </Tr>
+                  ))}
+                </DetailTable>
+              </div>
+            )}
+          </div>
+        )}
+
+        {which === "zaxira" && (
+          <>
+            <DetailTable head={["Texnika", "Qoldiq", "Min. zaxira", "Yetishmaydi", "90 kunda sarflandi"]}>
+              {d.lowStock.map((r) => (
+                <Tr key={r.name}>
+                  <TdName>{r.name}</TdName>
+                  <Td className="text-red-600 dark:text-red-400">{r.qty}</Td>
+                  <Td className="text-slate-500">{r.minStock}</Td>
+                  <Td className="font-semibold text-amber-600 dark:text-amber-400">
+                    {r.deficit}
+                  </Td>
+                  <Td className="text-slate-400">{r.usedLast90}</Td>
+                </Tr>
+              ))}
+            </DetailTable>
+            <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
+              &quot;90 kunda sarflandi&quot; — ombordan chiqqan miqdor (ustaga taqsimot +
+              to'g'ridan-to'g'ri o'rnatish). Buyurtma hajmini baholashga yordam beradi.
+            </p>
+          </>
+        )}
+      </CardContent>
     </Card>
   );
 }
@@ -128,12 +419,14 @@ function RuleList({
 export default async function UskunaAnalitikaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ oy?: string }>;
+  searchParams: Promise<{ oy?: string; kart?: string }>;
 }) {
   await requireRole(["ADMIN", "MANAGER"]);
   const sp = await searchParams;
   const parsed = parseInt(sp.oy ?? "12", 10);
   const months = WINDOWS.includes(parsed) ? parsed : 12;
+  const CARD_KEYS: CardKey[] = ["ombor", "ustalar", "mijozlar", "ijara", "brak", "zaxira"];
+  const active = CARD_KEYS.includes(sp.kart as CardKey) ? (sp.kart as CardKey) : null;
 
   const o = await getEquipmentOverview(months);
   const w = o.months[o.months.length - 1];
@@ -156,7 +449,8 @@ export default async function UskunaAnalitikaPage({
           {WINDOWS.map((m) => (
             <Link
               key={m}
-              href={`/uskuna-analitika?oy=${m}`}
+              href={`/uskuna-analitika?oy=${m}${active ? `&kart=${active}` : ""}`}
+              scroll={false}
               className={
                 "rounded-md px-3 py-1.5 text-sm " +
                 (m === months
@@ -170,51 +464,77 @@ export default async function UskunaAnalitikaPage({
         </div>
       </div>
 
-      {/* Joriy holat */}
+      {/* Joriy holat — har bir kartochka bosilganda batafsili ochiladi */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <Kpi
+          cardKey="ombor"
+          active={active}
+          months={months}
           label="Omborda"
           value={`${o.warehouseUnits} dona`}
           sub={`Qiymati ${formatMoney(o.warehouseValue, "USD")}`}
           icon={Warehouse}
           tone="blue"
+          count={o.detail.warehouse.length}
         />
         <Kpi
+          cardKey="ustalar"
+          active={active}
+          months={months}
           label="Ustalarda"
           value={`${o.ustaUnits} dona`}
-          sub={`${o.ustaRows.filter((r) => r.onHand > 0).length} ta ustada`}
+          sub={`${o.detail.usta.length} ta ustada`}
           icon={HardHat}
           tone="violet"
+          count={o.detail.usta.length}
         />
         <Kpi
+          cardKey="mijozlar"
+          active={active}
+          months={months}
           label="Mijozlarda"
           value={`${o.clientUnits} dona`}
           sub={`Ijara ${o.rentalUnits} · Sotuv ${o.soldUnits}`}
           icon={PackageCheck}
           tone="emerald"
+          count={o.detail.client.length}
         />
         <Kpi
+          cardKey="ijara"
+          active={active}
+          months={months}
           label="Ijara daromadi"
           value={`${formatMoney(o.monthlyRentalUsd, "USD")}/oy`}
           sub="Oylik to'lov ICHIDAGI ulush"
           icon={Coins}
           tone="emerald"
+          count={o.detail.rental.length}
         />
         <Kpi
+          cardKey="brak"
+          active={active}
+          months={months}
           label="Brak"
           value={`${o.brakUnits} dona`}
           sub={`${months} oyda ${totalScrap} ta chiqarildi`}
           icon={Trash2}
           tone={o.brakUnits > 0 ? "red" : "slate"}
+          count={o.detail.brak.length + o.detail.brakRecent.length}
         />
         <Kpi
+          cardKey="zaxira"
+          active={active}
+          months={months}
           label="Kam zaxira"
           value={String(o.lowStock.length)}
           sub={o.lowStock.map((l) => l.name).join(", ") || "Hammasi yetarli"}
           icon={AlertTriangle}
           tone={o.lowStock.length > 0 ? "amber" : "slate"}
+          count={o.detail.lowStock.length}
         />
       </div>
+
+      {active && <DetailPanel which={active} d={o.detail} months={months} />}
 
       {/* Oqim + manba */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

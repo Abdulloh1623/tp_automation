@@ -238,6 +238,12 @@ export const TALKED_RESULTS: string[] = [
 // ko'tarilmaganда ishlaydi (kun bo'yicha sanaladi, bir kunда nechta urinish bo'lsa ham 1).
 export const ESCALATION_THRESHOLD = 3;
 
+// Yangi parol uchun eng kam uzunlik. Login'ga ta'sir qilmaydi (mavjud parollar
+// ishlayveradi) — faqat parol o'rnatish/almashtirish joylarida tekshiriladi.
+// Yuqori chegara ham bor: bcrypt juda uzun matn ustida ishlashi CPU'ni yeydi.
+export const MIN_PASSWORD_LENGTH = 8;
+export const MAX_PASSWORD_LENGTH = 128;
+
 // Oy nomlari (o'zbekcha) — moliya va uskuna analitikasi grafiklari uchun.
 export const UZBEK_MONTHS = [
   "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",

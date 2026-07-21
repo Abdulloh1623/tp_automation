@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
+import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH } from "@/lib/constants";
 
 export type ResetActionState = { ok: boolean; error?: string };
 
@@ -25,7 +26,9 @@ export async function requestPasswordReset(input: {
 
   const pw = (input.newPassword ?? "").trim();
   const cf = (input.confirm ?? "").trim();
-  if (pw.length < 4) return { ok: false, error: "Parol kamida 4 belgi bo'lsin" };
+  if (pw.length < MIN_PASSWORD_LENGTH || pw.length > MAX_PASSWORD_LENGTH) {
+    return { ok: false, error: `Parol ${MIN_PASSWORD_LENGTH}–${MAX_PASSWORD_LENGTH} belgi bo'lsin` };
+  }
   if (pw !== cf) return { ok: false, error: "Parollar bir-biriga mos kelmadi" };
 
   const newPasswordHash = await bcrypt.hash(pw, 10);
@@ -69,7 +72,15 @@ export async function approvePasswordReset(id: string): Promise<ResetActionState
   if (!req || req.status !== "PENDING") return { ok: false, error: "So'rov topilmadi yoki allaqachon ko'rib chiqilgan" };
 
   await db.$transaction([
-    db.user.update({ where: { id: req.userId }, data: { passwordHash: req.newPasswordHash } }),
+    // sessionVersion — parol almashgach eski cookie'lar bekor bo'lsin
+    // (o'g'irlangan sessiya parol tiklangandan keyin ham ishlab turmasin).
+    db.user.update({
+      where: { id: req.userId },
+      data: {
+        passwordHash: req.newPasswordHash,
+        sessionVersion: { increment: 1 },
+      },
+    }),
     db.passwordResetRequest.update({
       where: { id },
       data: { status: "APPROVED", resolvedAt: new Date(), resolvedById: admin.session.userId },

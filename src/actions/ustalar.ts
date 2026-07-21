@@ -92,6 +92,13 @@ export async function setUstaActive(
 ): Promise<UstaState> {
   const m = await requireMgr();
   if (!m.ok) return m;
+  // Nishon HAQIQATAN usta ekanini tekshiramiz (updateUsta'dagi kabi). Busiz
+  // menejer bu yerga admin ID'sini berib, adminni faolsizlantira olardi —
+  // qayta yoqish esa ADMIN-only, ya'ni yagona admin bo'lsa tizim yopilib qolardi.
+  const target = await db.user.findUnique({ where: { id }, select: { role: true } });
+  if (!target || target.role !== "INSTALLER") {
+    return { ok: false, error: "Usta topilmadi" };
+  }
   await db.user.update({ where: { id }, data: { isActive: active } });
   await logAudit(active ? "Usta yoqildi" : "Usta faolsizlantirildi", {
     entity: "User",
@@ -105,6 +112,13 @@ export async function setUstaActive(
 export async function deleteUsta(id: string): Promise<UstaState> {
   const m = await requireMgr();
   if (!m.ok) return m;
+
+  // Faqat usta o'chiriladi — aks holda menejer bu yerga admin/operator ID'sini
+  // berib, ularning hisobini butunlay yo'q qila olardi.
+  const target = await db.user.findUnique({ where: { id }, select: { role: true } });
+  if (!target || target.role !== "INSTALLER") {
+    return { ok: false, error: "Usta topilmadi" };
+  }
 
   const [clients, stock, calls] = await Promise.all([
     db.client.count({ where: { assignedUstaId: id } }),

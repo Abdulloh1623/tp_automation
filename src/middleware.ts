@@ -47,6 +47,15 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // statik fayllar va next ichki yo'llaridan tashqari hammasi
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+  // Statik fayllar va Next ichki yo'llaridan tashqari HAMMASI.
+  //
+  // Ilgari bu yerda `.*\..*` bo'lagi turardi — u nomida NUQTA bo'lgan HAR
+  // QANDAY yo'lni chetlab o'tardi (masalan `/mijozlar/abc.def` middleware'siz
+  // ishlardi, ya'ni sessiya va rol tekshiruvisiz). Bugun buni
+  // `(app)/layout.tsx` dagi requireSession qoplab turibdi, lekin faqat
+  // middleware'ga tayangan yangi sahifa jimgina ochiq qolib ketishi mumkin
+  // edi. Endi — statik fayl kengaytmalarining ANIQ ro'yxati.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp|avif|css|js|map|txt|xml|json|woff|woff2|ttf|otf|eot|mp4|webm)$).*)",
+  ],
 };

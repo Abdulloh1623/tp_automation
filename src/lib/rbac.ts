@@ -34,15 +34,26 @@ const ROUTE_ROLES: { prefix: string; roles: Role[] }[] = [
   { prefix: "/import", roles: ["ADMIN"] },
   { prefix: "/profil", roles: ["ADMIN", "MANAGER", "OPERATOR"] },
   { prefix: "/bildirishnomalar", roles: ["ADMIN", "MANAGER", "OPERATOR"] },
+  // Jonli tablo — barcha xodimlar (ustalar login qilmaydi). Sessiya baribir
+  // talab qilinadi (tablo/page.tsx da requireSession).
+  { prefix: "/tablo", roles: ["ADMIN", "MANAGER", "OPERATOR"] },
 ];
 
 /** Foydalanuvchi shu sahifaga kira oladimi. */
 export function canAccess(role: string, pathname: string): boolean {
   // Bosh sahifa (boshqaruv paneli) faqat ADMIN
   if (pathname === "/") return role === "ADMIN";
+  // API yo'llari o'z handler'ida rolni alohida tekshiradi (requireApiSession) —
+  // bu yerda ularni bloklamaymiz, aks holda 401/403 o'rniga redirect ketardi.
+  if (pathname.startsWith("/api/")) return true;
+
   const rule = ROUTE_ROLES.find(
     (r) => pathname === r.prefix || pathname.startsWith(r.prefix + "/"),
   );
-  if (!rule) return true; // qoidasiz yo'llar ochiq (umumiy)
+  // QAT'IY YOPIQ: qoidasi yo'q sahifa RUXSAT ETILMAYDI. Ilgari bu yerda
+  // `return true` turardi — ya'ni jadvalga qo'shishni unutilgan har qanday
+  // yangi sahifa hamma rolga ochilib ketardi (fail-open). Endi yangi bo'lim
+  // qo'shganda ROUTE_ROLES ga yozish MAJBURIY, aks holda u ochilmaydi.
+  if (!rule) return false;
   return rule.roles.includes(role as Role);
 }

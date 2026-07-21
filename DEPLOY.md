@@ -84,6 +84,29 @@ docker compose exec worker ls -lh backups
 ```
 Tavsiya: `backups` hajmini kuniga bir marta **S3**'ga sync qiling (cron + `aws s3 sync`), offsite nusxa uchun.
 
+### Backup shifrlash
+
+Telegramga yuboriladigan nusxa `BACKUP_ENCRYPTION_KEY` berilgan bo'lsa
+AES-256-GCM bilan shifrlanadi (fayl `.enc` bilan tugaydi). Lokal (`backups`
+hajmidagi) nusxa shifrlanmaydi — u serverning o'zida turadi va tiklashda tez
+kerak bo'ladi.
+
+Kalit **serverdagi `.env` da turmasligi kerak**: aks holda serverga kirgan
+hujumchi ham dump'ni, ham kalitni oladi. Uni parol menejerida saqlang.
+Shifrlangan nusxani ochish (istalgan mashinada):
+
+```bash
+BACKUP_ENCRYPTION_KEY='...' npx tsx scripts/decrypt-backup.ts db-2026....sql.gz.enc
+gunzip -c db-2026....sql.gz | psql "$DATABASE_URL"
+```
+
+Kalit qo'yilmasa dump shifrlanmagan ketadi va Telegram caption'ida
+"⚠️ SHIFRLANMAGAN" ogohlantirishi ko'rinadi.
+
+> **Kalitni yo'qotsangiz, Telegramdagi nusxalarni ochib bo'lmaydi.** Lokal
+> `backups` hajmi shifrlanmagan bo'lgani uchun tiklash imkoni saqlanadi, lekin
+> kalitni ishonchli joyda saqlang.
+
 ## 7. Yangilash (deploy) va rollback
 
 Kod **serverda BUILD QILINMAYDI** — `main`'ga push bo'lганда GitHub Actions
@@ -98,6 +121,25 @@ cd tp_automation
 ./scripts/deploy-pull.sh          # pre-deploy pg_dump → git pull → SHA'ga pin → up -d
 docker compose logs -f app worker # loglar
 ```
+
+> ### ⚠️ BIR MARTALIK: konteyner endi `node` (root emas) foydalanuvchisi ostida ishlaydi
+>
+> Xavfsizlik uchun image'ga `USER node` qo'shildi. Mavjud `uploads` va
+> `backups` hajmlari **root egaligida** yaratilgan, shu bois yangi versiya
+> ularga yoza olmaydi (chek yuklash va backup ishlamay qoladi).
+>
+> Yangi image'ga o'tishdan oldin **bir marta** ishga tushiring:
+>
+> ```bash
+> docker compose down
+> docker run --rm -v tp_automation_uploads:/u -v tp_automation_backups:/b \
+>   alpine sh -c 'chown -R 1000:1000 /u /b'
+> ./scripts/deploy-pull.sh
+> ```
+>
+> (Hajm nomlarini `docker volume ls` bilan tekshiring — prefiks papka nomiga
+> qarab farq qilishi mumkin.) Keyin cheklar sahifasiga rasm yuklab va
+> `docker compose exec worker npm run bot -- --backup` bilan tekshiring.
 
 `deploy-pull.sh` har deployда:
 1. **pre-deploy `pg_dump`** oladi (`backups/pre-deploy/`) — rollback uchun mos DB nusxasi;

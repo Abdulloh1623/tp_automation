@@ -7,7 +7,8 @@ export type TicketTab = {
   label: string;
   icon: ReactNode;
   tone: "red" | "amber" | "sky" | "emerald";
-  count: number; // qamrov bo'yicha jami (filtrdan mustaqil)
+  /** Qamrov bo'yicha jami (filtrdan mustaqil). Berilmasa badge ko'rsatilmaydi. */
+  count?: number;
   content: ReactNode;
 };
 
@@ -72,14 +73,16 @@ export function TicketTabs({
             >
               <span className="flex h-4 w-4 items-center justify-center">{t.icon}</span>
               {t.label}
-              <span
-                className={
-                  "inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold " +
-                  BADGE_TONE[t.tone]
-                }
-              >
-                {t.count}
-              </span>
+              {t.count !== undefined && (
+                <span
+                  className={
+                    "inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold " +
+                    BADGE_TONE[t.tone]
+                  }
+                >
+                  {t.count}
+                </span>
+              )}
             </button>
           );
         })}

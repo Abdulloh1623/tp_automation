@@ -19,7 +19,7 @@ import {
   OUTCOME_TO_STAGE,
   type LeadOutcome,
 } from "@/lib/constants";
-import { isLeadOutcome, isLeadStage, noteString } from "@/lib/validation";
+import { isLeadOutcome, isLeadStage, noteString, safeNote } from "@/lib/validation";
 
 function s(v: FormDataEntryValue | null): string | undefined {
   const str = typeof v === "string" ? v.trim() : "";
@@ -580,7 +580,7 @@ export async function setSpecialNote(
   if (!(await canMutateClient(session, clientId))) {
     return { ok: false, error: "Mijoz topilmadi" };
   }
-  const trimmed = (note ?? "").trim();
+  const trimmed = safeNote(note) ?? "";
   const empty = trimmed === "";
 
   const updated = await db.client.update({

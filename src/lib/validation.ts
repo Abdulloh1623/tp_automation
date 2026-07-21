@@ -35,6 +35,46 @@ export const noteString = z
   .trim()
   .max(2000, "Izoh juda uzun (2000 belgidan oshmasin)");
 
+/** `noteString` ning chegarasi — to'g'ridan-to'g'ri argument oladigan joylar uchun. */
+export const NOTE_MAX_LENGTH = 2000;
+
+/**
+ * Erkin matnni xavfsiz uzunlikka keltiradi (trim + kesish).
+ *
+ * FormData orqali kelmaydigan (argument sifatida uzatiladigan) izohlar Zod'dan
+ * o'tmaydi — ular cheklanmasa DB'ni shishirish uchun ishlatilishi mumkin.
+ * Rad etish o'rniga KESAMIZ: izoh yordamchi ma'lumot, uni yo'qotgandan ko'ra
+ * qisqartirgan yaxshi.
+ */
+export function safeNote(value: string | null | undefined): string | null {
+  const t = (value ?? "").trim();
+  if (!t) return null;
+  return t.length > NOTE_MAX_LENGTH ? t.slice(0, NOTE_MAX_LENGTH) : t;
+}
+
+/**
+ * Foydalanuvchi kiritgan havola. FAQAT http/https ga ruxsat beriladi.
+ *
+ * XAVFSIZLIK: bu qiymat `<a href={...}>` ichida render qilinadi. Sxemasi
+ * tekshirilmasa `javascript:...` yozib yuborish mumkin — havolani bosgan
+ * xodimning sessiyasida kod ishlaydi (saqlanadigan XSS). React `javascript:`
+ * uchun ogohlantirish yozadi, lekin atributni baribir render qiladi, va
+ * CSP'dagi script-src ham `javascript:` navigatsiyasini to'smaydi.
+ */
+export const externalUrl = z
+  .string()
+  .trim()
+  .min(1, "Havolani kiriting")
+  .max(1000, "Havola juda uzun")
+  .refine((v) => {
+    try {
+      const u = new URL(v);
+      return u.protocol === "http:" || u.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }, "Havola http:// yoki https:// bilan boshlanishi kerak");
+
 // Predikatlar — FormData bo'lmagan (to'g'ridan-to'g'ri argument) joylar uchun.
 // MUHIM: `key in OBJECT` ishlatmaslik kerak — u prototip xossalarini ham
 // (masalan "toString") true qaytaradi; enum.safeParse faqat haqiqiy kalitni qabul qiladi.

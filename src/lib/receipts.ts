@@ -16,12 +16,14 @@ const MIME_EXT: Record<string, string> = {
 };
 
 export function isAllowedMime(mime: string): boolean {
-  return mime in MIME_EXT;
+  // `in` EMAS: u prototip xossalarini ham ("constructor", "toString") true
+  // qaytaradi. MIME Telegram hujjatidan ham kelishi mumkin — ya'ni tashqi kirish.
+  return Object.hasOwn(MIME_EXT, mime);
 }
 
 /** Chek rasmimi (PDF emas)? Telegram'ga sendPhoto bilan yuborish uchun. */
 export function isImageMime(mime: string): boolean {
-  return mime !== "application/pdf" && mime in MIME_EXT;
+  return mime !== "application/pdf" && Object.hasOwn(MIME_EXT, mime);
 }
 
 export type SaveResult =

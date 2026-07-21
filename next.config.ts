@@ -1,23 +1,9 @@
 import type { NextConfig } from "next";
 
-const isDev = process.env.NODE_ENV !== "production";
-
-// Content-Security-Policy. Dev'da HMR uchun 'unsafe-eval' kerak.
-const csp = [
-  "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self' data:",
-  "connect-src 'self'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-].join("; ");
-
+// DIQQAT: Content-Security-Policy bu yerda EMAS — u `middleware.ts` da,
+// har so'rovga yangi nonce bilan quriladi (lib/csp.ts). Bu yerga ham qo'shilsa
+// brauzer IKKALA siyosatni ham qo'llaydi (kesishma) va nonce ishlamay qoladi.
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: csp },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

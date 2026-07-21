@@ -5,7 +5,7 @@
 
 import { startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { db } from "./db";
-import { NO_CONTACT_STAGES, type LeadStage } from "./constants";
+import { NO_CONTACT_STAGES, UZBEK_MONTHS, type LeadStage } from "./constants";
 
 export type Money = { USD: number; UZS: number };
 export const emptyMoney = (): Money => ({ USD: 0, UZS: 0 });
@@ -58,11 +58,6 @@ export type FinanceOverview = {
   // Oxirgi N oy dinamikasi (eskidan yangiga)
   months: MonthPoint[];
 };
-
-const UZBEK_MONTHS = [
-  "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
-  "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr",
-];
 
 /** Kun boshiga tenglashtirilgan bugungi sana. */
 function startOfToday(): Date {

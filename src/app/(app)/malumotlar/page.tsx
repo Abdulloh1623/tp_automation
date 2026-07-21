@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { getMaintenance } from "@/lib/maintenance";
 import { TicketTabs } from "@/components/ticket-tabs";
 import { CsvImport } from "@/components/csv-import";
+import { BulkUpload } from "@/components/bulk-upload";
 import { BackupRestore } from "@/components/backup-restore";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +45,21 @@ export default async function MalumotlarPage({
             label: "Ommaviy yuklash",
             icon: <Upload className="h-4 w-4" />,
             tone: "sky",
-            content: <CsvImport />,
+            content: (
+              <div className="space-y-8">
+                <BulkUpload />
+                <div className="border-t border-slate-200 pt-6 dark:border-slate-800">
+                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    Boshqa fayldan (ustun moslash)
+                  </h3>
+                  <p className="mb-4 mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Shablon emas, tashqi CSV bilan ishlash uchun — ustunlarni qo&apos;lda
+                    moslaysiz. Faqat mijozlar uchun.
+                  </p>
+                  <CsvImport />
+                </div>
+              </div>
+            ),
           },
           {
             key: "backup",

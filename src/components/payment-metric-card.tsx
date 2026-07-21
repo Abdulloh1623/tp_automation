@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, X, ArrowRight } from "lucide-react";
+import { Search, X, ArrowRight, AlertTriangle, CalendarClock, Banknote } from "lucide-react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { formatPhone } from "@/lib/utils";
@@ -29,6 +29,20 @@ export type MetricDetailRow = {
 
 type Tone = "red" | "amber" | "emerald";
 
+/**
+ * Ikon komponentini prop qilib UZATIB BO'LMAYDI: sahifa server komponent,
+ * bu esa client — funksiya seriyalanmaydi ("Functions cannot be passed
+ * directly to Client Components"). Shuning uchun server faqat nom yuboradi,
+ * komponent shu yerda tanlanadi.
+ */
+export type MetricIconName = "overdue" | "due-today" | "collected";
+
+const ICONS: Record<MetricIconName, React.ComponentType<{ className?: string }>> = {
+  overdue: AlertTriangle,
+  "due-today": CalendarClock,
+  collected: Banknote,
+};
+
 const TONE_ICON: Record<Tone, string> = {
   red: "bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400",
   amber: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400",
@@ -55,7 +69,7 @@ function digits(s: string): string {
 export function PaymentMetricCard({
   label,
   value,
-  icon: Icon,
+  iconName,
   tone,
   rows,
   amountHeader,
@@ -65,7 +79,7 @@ export function PaymentMetricCard({
 }: {
   label: string;
   value: string;
-  icon: React.ComponentType<{ className?: string }>;
+  iconName: MetricIconName;
   tone: Tone;
   rows: MetricDetailRow[];
   /** Jadval sarlavhasi: "Oylik" / "To'langan summa" */
@@ -76,6 +90,7 @@ export function PaymentMetricCard({
   /** Modal pastidagi jami (allaqachon formatlangan) */
   totalFmt?: string;
 }) {
+  const Icon = ICONS[iconName];
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 

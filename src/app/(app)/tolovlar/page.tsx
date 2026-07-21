@@ -1,5 +1,5 @@
 import { startOfMonth } from "date-fns";
-import { AlertTriangle, CalendarClock, Banknote, Users, Receipt } from "lucide-react";
+import { Users, Receipt } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { TicketTabs } from "@/components/ticket-tabs";
@@ -194,7 +194,7 @@ export default async function PaymentsPage() {
         <PaymentMetricCard
           label="Muddati o'tgan"
           value={`${overdue.length} ta · ${formatMoney(overdueUsd, "USD")}`}
-          icon={AlertTriangle}
+          iconName="overdue"
           tone="red"
           rows={overdueDetails}
           amountHeader="Oylik"
@@ -205,7 +205,7 @@ export default async function PaymentsPage() {
         <PaymentMetricCard
           label="Bugun to'lov kuni"
           value={`${dueToday.length} ta`}
-          icon={CalendarClock}
+          iconName="due-today"
           tone="amber"
           rows={dueTodayDetails}
           amountHeader="Oylik"
@@ -216,7 +216,7 @@ export default async function PaymentsPage() {
         <PaymentMetricCard
           label="Bu oy yig'ilgan (USD)"
           value={formatMoney(collectedUsd, "USD")}
-          icon={Banknote}
+          iconName="collected"
           tone="emerald"
           rows={collectedDetails}
           amountHeader="To'langan summa"

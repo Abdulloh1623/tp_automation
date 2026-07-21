@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { requireApiSession } from "@/lib/auth";
 import { buildReportPdf } from "@/lib/report-pdf";
 
 const ALLOWED = ["ADMIN", "MANAGER"];
 
 export async function GET() {
-  const session = await getSession();
-  if (!session) return new NextResponse("Unauthorized", { status: 401 });
-  if (!ALLOWED.includes(session.role)) {
-    return new NextResponse("Forbidden", { status: 403 });
+  const auth = await requireApiSession(ALLOWED);
+  if (!auth.ok) {
+    return new NextResponse(auth.status === 401 ? "Unauthorized" : "Forbidden", {
+      status: auth.status,
+    });
   }
 
   const pdf = await buildReportPdf();

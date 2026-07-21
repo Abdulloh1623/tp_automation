@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { requireApiSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { readHandoutDoc } from "@/lib/handout-docs";
 
@@ -11,10 +11,11 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getSession();
-  if (!session) return new NextResponse("Unauthorized", { status: 401 });
-  if (!MANAGERS.includes(session.role)) {
-    return new NextResponse("Forbidden", { status: 403 });
+  const auth = await requireApiSession(MANAGERS);
+  if (!auth.ok) {
+    return new NextResponse(auth.status === 401 ? "Unauthorized" : "Forbidden", {
+      status: auth.status,
+    });
   }
 
   const { id } = await params;

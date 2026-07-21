@@ -1,15 +1,16 @@
 import type { Prisma } from "@prisma/client";
-import { getSession } from "@/lib/auth";
+import { requireApiSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { buildCsv } from "@/lib/csv-export";
 import { formatDateTime } from "@/lib/utils";
 import { resolveMovements } from "@/lib/movements";
 
 export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) return new Response("Unauthorized", { status: 401 });
-  if (!["ADMIN", "MANAGER"].includes(session.role)) {
-    return new Response("Forbidden", { status: 403 });
+  const auth = await requireApiSession(["ADMIN", "MANAGER"]);
+  if (!auth.ok) {
+    return new Response(auth.status === 401 ? "Unauthorized" : "Forbidden", {
+      status: auth.status,
+    });
   }
 
   const url = new URL(req.url);

@@ -58,7 +58,7 @@ export async function requireSession(): Promise<SessionPayload> {
   if (!session) redirect("/login");
   const u = await db.user.findUnique({
     where: { id: session.userId },
-    select: { isActive: true, sessionVersion: true },
+    select: { isActive: true, sessionVersion: true, role: true },
   });
   // Foydalanuvchi o'chirilgan/faolsiz — cookie'ni route handler tozalaydi
   // (RSC render'da cookie o'zgartirib bo'lmaydi; middleware tsiklini ham oldini oladi).
@@ -66,7 +66,38 @@ export async function requireSession(): Promise<SessionPayload> {
   if (!u || !u.isActive || u.sessionVersion !== session.version) {
     redirect("/api/logout");
   }
-  return session;
+  // Rol HAR DOIM bazadan qaytariladi — cookie'dagi rol eskirgan bo'lishi mumkin
+  // (rol tushirilgan, lekin token hali amal qiladi). Shu bois `session.role` ga
+  // tayangan har bir chaqiruvchi avtomatik yangi rolni oladi.
+  return { ...session, role: u.role };
+}
+
+/**
+ * API route handler'lar uchun sessiya tekshiruvi.
+ *
+ * MUHIM: `getSession()` faqat JWT'ni ochadi va bazaga UMUMAN qaramaydi. Uni
+ * API'da yolg'iz ishlatish deaktivatsiya, "bitta qurilma" siyosati va rol
+ * o'zgarishini e'tiborsiz qoldiradi — ishdan bo'shatilgan xodim token amal
+ * qilgunicha (7 kun) eksport yo'llaridan foydalanaverardi. Shu funksiya
+ * sahifalardagi `requireSession` bilan bir xil tekshiruvni qiladi, lekin
+ * redirect o'rniga status qaytaradi.
+ */
+export async function requireApiSession(
+  roles?: string[],
+): Promise<
+  { ok: true; session: SessionPayload } | { ok: false; status: 401 | 403 }
+> {
+  const session = await getSession();
+  if (!session) return { ok: false, status: 401 };
+  const u = await db.user.findUnique({
+    where: { id: session.userId },
+    select: { isActive: true, sessionVersion: true, role: true },
+  });
+  if (!u || !u.isActive || u.sessionVersion !== session.version) {
+    return { ok: false, status: 401 };
+  }
+  if (roles && !roles.includes(u.role)) return { ok: false, status: 403 };
+  return { ok: true, session: { ...session, role: u.role } };
 }
 
 /** Sahifalar uchun: rolni talab qiladi; mos kelmasa o'z asosiy sahifasiga. */

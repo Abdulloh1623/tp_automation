@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { requireApiSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { readSoliqDoc } from "@/lib/soliq-docs";
 
@@ -11,8 +11,13 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getSession();
-  if (!session) return new NextResponse("Unauthorized", { status: 401 });
+  const auth = await requireApiSession();
+  if (!auth.ok) {
+    return new NextResponse(auth.status === 401 ? "Unauthorized" : "Forbidden", {
+      status: auth.status,
+    });
+  }
+  const session = auth.session;
 
   const { id } = await params;
   const relPath = `soliq/${id}`;

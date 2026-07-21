@@ -4,6 +4,7 @@
 import bcrypt from "bcryptjs";
 import { db } from "./db";
 import { startOfTzDay } from "./reports";
+import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH } from "./constants";
 
 export type Actor = { id: string; name: string; role: string };
 export type Result = { ok: boolean; error?: string; info?: string };
@@ -56,7 +57,9 @@ export async function addEmployee(
   const password = input.password?.trim();
   if (!name) return { ok: false, error: "Ism bo'sh" };
   if (!username || username.length < 3) return { ok: false, error: "Login kamida 3 belgi" };
-  if (!password || password.length < 4) return { ok: false, error: "Parol kamida 4 belgi" };
+  if (!password || password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
+    return { ok: false, error: `Parol ${MIN_PASSWORD_LENGTH}–${MAX_PASSWORD_LENGTH} belgi bo'lsin` };
+  }
   if (await db.user.findUnique({ where: { username } })) {
     return { ok: false, error: "Bu login band" };
   }
@@ -78,10 +81,24 @@ export async function changePassword(
   newPassword: string,
 ): Promise<Result> {
   const pw = newPassword?.trim();
-  if (!pw || pw.length < 4) return { ok: false, error: "Parol kamida 4 belgi" };
+  if (!pw || pw.length < MIN_PASSWORD_LENGTH) {
+    return { ok: false, error: `Parol kamida ${MIN_PASSWORD_LENGTH} belgi` };
+  }
   const u = await db.user.findUnique({ where: { id: userId } });
   if (!u) return { ok: false, error: "Xodim topilmadi" };
-  await db.user.update({ where: { id: userId }, data: { passwordHash: await bcrypt.hash(pw, 10) } });
+  // Webda parol tiklash ADMIN-only (actions/users.ts). Bot shu qoidani
+  // kengaytirib yubormasligi kerak edi: MANAGER bot orqali boshqa MANAGER'ning
+  // parolini almashtirib, uning nomidan ishlay olardi.
+  if (actor.role !== "ADMIN" && u.role !== "OPERATOR") {
+    return { ok: false, error: "Faqat admin boshqa boshliqning parolini almashtira oladi" };
+  }
+  await db.user.update({
+    where: { id: userId },
+    data: {
+      passwordHash: await bcrypt.hash(pw, 10),
+      sessionVersion: { increment: 1 },
+    },
+  });
   await audit(actor, "Parol o'zgartirildi (bot)", u.name);
   return { ok: true, info: `${u.name} paroli yangilandi` };
 }

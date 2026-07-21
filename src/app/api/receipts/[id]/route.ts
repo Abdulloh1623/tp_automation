@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { requireApiSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { readReceipt } from "@/lib/receipts";
 
@@ -10,11 +10,13 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getSession();
-  if (!session) return new NextResponse("Unauthorized", { status: 401 });
-  if (!STAFF.includes(session.role)) {
-    return new NextResponse("Forbidden", { status: 403 });
+  const auth = await requireApiSession(STAFF);
+  if (!auth.ok) {
+    return new NextResponse(auth.status === 401 ? "Unauthorized" : "Forbidden", {
+      status: auth.status,
+    });
   }
+  const session = auth.session;
 
   const { id } = await params;
   const payment = await db.payment.findUnique({

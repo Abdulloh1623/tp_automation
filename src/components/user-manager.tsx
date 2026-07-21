@@ -23,7 +23,13 @@ import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { RegionMultiSelect } from "@/components/region-multi-select";
-import { USER_ROLE, USER_SHIFT, userRoleLabel, parseRegions } from "@/lib/constants";
+import {
+  USER_ROLE,
+  USER_SHIFT,
+  userRoleLabel,
+  parseRegions,
+  MIN_PASSWORD_LENGTH,
+} from "@/lib/constants";
 
 export type ManagedUser = {
   id: string;
@@ -292,7 +298,7 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                     type="text"
                     value={form.password}
                     onChange={(e) => set("password", e.target.value)}
-                    placeholder="kamida 4 belgi"
+                    placeholder={`kamida ${MIN_PASSWORD_LENGTH} belgi`}
                   />
                 </div>
               ) : (

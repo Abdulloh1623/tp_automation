@@ -8,6 +8,7 @@ import {
   cancelMyPasswordReset,
 } from "@/actions/password-reset";
 import { toast } from "@/components/toaster";
+import { MIN_PASSWORD_LENGTH } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,8 +29,8 @@ export function ProfilePasswordForm({
 
   function submit() {
     setError(null);
-    if (newPassword.trim().length < 4) {
-      setError("Parol kamida 4 belgi bo'lsin");
+    if (newPassword.trim().length < MIN_PASSWORD_LENGTH) {
+      setError(`Parol kamida ${MIN_PASSWORD_LENGTH} belgi bo'lsin`);
       return;
     }
     if (newPassword !== confirm) {
@@ -96,7 +97,7 @@ export function ProfilePasswordForm({
           type="password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
-          placeholder="kamida 4 belgi"
+          placeholder={`kamida ${MIN_PASSWORD_LENGTH} belgi`}
           autoComplete="new-password"
         />
       </div>

@@ -30,7 +30,7 @@ export type BackupResult = {
 };
 
 /** Buyruqni ishga tushiradi va stdout'ni Buffer sifatida qaytaradi. */
-function run(cmd: string, args: string[], env?: NodeJS.ProcessEnv): Promise<Buffer> {
+export function run(cmd: string, args: string[], env?: NodeJS.ProcessEnv): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     execFile(
       cmd,
@@ -41,7 +41,7 @@ function run(cmd: string, args: string[], env?: NodeJS.ProcessEnv): Promise<Buff
   });
 }
 
-function parseDbUrl(url: string) {
+export function parseDbUrl(url: string) {
   const u = new URL(url);
   return {
     user: decodeURIComponent(u.username),

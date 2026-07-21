@@ -238,6 +238,19 @@ export const TALKED_RESULTS: string[] = [
 // ko'tarilmaganда ishlaydi (kun bo'yicha sanaladi, bir kunда nechta urinish bo'lsa ham 1).
 export const ESCALATION_THRESHOLD = 3;
 
+// Oy nomlari (o'zbekcha) — moliya va uskuna analitikasi grafiklari uchun.
+export const UZBEK_MONTHS = [
+  "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",
+  "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr",
+];
+
+// Dasturning standart oylik narxi (USD). Biznes qoidasi: shu summani to'layotgan
+// mijoz FAQAT dasturdan foydalanadi — uskuna ijaraga olmagan. Undan ORTIQ
+// to'lasa — farq uskuna ijarasi, ya'ni mijozda ijara uskunasi bo'lishi shart.
+// (Narx kelajakda o'zgarishi mumkin — o'shanda faqat shu qiymat yangilanadi.)
+// Faqat USD uchun amal qiladi; UZS mijozlar bu qoida bo'yicha tekshirilmaydi.
+export const BASE_PROGRAM_USD = 29;
+
 // Operatorning gaplashgan lidlar bo'yicha limiti (6 ish kuni: kunlik 50 → hafta 300, oy ≈1300)
 export const LEAD_LIMITS = {
   daily: 50,

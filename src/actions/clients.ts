@@ -413,7 +413,22 @@ export async function updateClient(
       ? before.assignedToId
       : await resolveAssignee(g.session, parsed.data.assignedToId);
 
-  const after = { ...toData(parsed.data), assignedToId };
+  // Pul maydonlari (qarz va oylik summa) — OPERATOR uchun O'ZGARMAYDI.
+  //
+  // To'lov yozish chek rasmini MAJBURIY qiladi (actions/payments.ts), lekin
+  // operator shu formadan `debtAmount: 0` qo'yib, chek ham, `Payment` yozuvi
+  // ham bo'lmagan holda qarzni o'chirib tashlay olardi — ya'ni "chek majburiy"
+  // nazorati aylanib o'tilardi. Qarz faqat haqiqiy to'lov orqali (chek bilan)
+  // yoki boshliq tomonidan qo'lda tuzatiladi.
+  // `assignedToId` bilan bir xil yondashuv: eski qiymat jimgina saqlanadi.
+  const isOperator = g.session.role === "OPERATOR";
+  const after = {
+    ...toData(parsed.data),
+    assignedToId,
+    ...(isOperator
+      ? { debtAmount: before.debtAmount, monthlyAmount: before.monthlyAmount }
+      : {}),
+  };
 
   // Churn vaqti (deactivatedAt): status ACTIVE/PENDING -> INACTIVE bo'lsa yoziladi,
   // INACTIVE -> faol bo'lsa tozalanadi. O'zgarmasa tegilmaydi (undefined).

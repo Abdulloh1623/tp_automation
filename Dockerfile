@@ -47,5 +47,12 @@ COPY --from=builder /app/tsconfig.json ./tsconfig.json
 # Prisma client (prod node_modules ichida) generatsiya qilinadi
 RUN npx prisma generate
 
+# Root'da ishlamaymiz: konteyner ichidagi biror zaiflik darhol root huquqini
+# bermasin. `uploads` va `backups` — volume mount nuqtalari, shu bois oldindan
+# yaratib, egaligini beramiz (aks holda ilova ularga yoza olmaydi).
+RUN mkdir -p /app/uploads /app/backups \
+  && chown -R node:node /app
+USER node
+
 EXPOSE 3100
 CMD ["npm", "run", "start"]

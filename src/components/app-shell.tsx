@@ -18,7 +18,6 @@ import {
   Activity,
   UserCog,
   ScrollText,
-  Upload,
   LogOut,
   Building2,
   CircleUser,
@@ -28,6 +27,7 @@ import {
   Landmark,
   Wallet,
   PackageSearch,
+  Database,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Toaster } from "@/components/toaster";
@@ -94,7 +94,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/foydalanuvchilar", label: "Foydalanuvchilar", icon: UserCog, roles: ["ADMIN"] },
       { href: "/audit", label: "Audit", icon: ScrollText, roles: ["ADMIN"] },
-      { href: "/import", label: "Import", icon: Upload, roles: ["ADMIN"] },
+      { href: "/malumotlar", label: "Ma'lumotlar", icon: Database, roles: ["ADMIN"] },
     ],
   },
   {

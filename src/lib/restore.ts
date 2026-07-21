@@ -305,3 +305,64 @@ async function countRows(
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
+
+// ---------------------------------------------------------------------------
+// HAQIQIY TIKLASH
+// ---------------------------------------------------------------------------
+
+export type RestoreResult = {
+  ok: boolean;
+  /** Tiklashdan OLDIN olingan xavfsizlik nusxasi (rollback uchun). */
+  safetyBackup?: string;
+  /** Tiklangandan keyin bazadagi sonlar. */
+  actual?: TableCount[];
+  error?: string;
+};
+
+/**
+ * Dump'ni JONLI bazaga qo'llaydi. BU AMAL BUTUN BAZANI ALMASHTIRADI.
+ *
+ * Chaqirishdan oldin (chaqiruvchining mas'uliyati):
+ *  1. fayl `verifyByRestore` dan muvaffaqiyatli o'tgan bo'lsin;
+ *  2. texnik tanaffus yoqilgan bo'lsin — aks holda xodimlar kiritayotgan
+ *     ma'lumot tiklash bilan yo'qoladi.
+ *
+ * Shu yerda esa har doim bajariladi: tiklashdan oldin joriy bazadan
+ * XAVFSIZLIK NUSXASI olinadi (xato tiklashdan qaytish uchun yagona yo'l).
+ */
+export async function restoreToLive(sql: string): Promise<RestoreResult> {
+  // 1) Xavfsizlik nusxasi — bu MUVAFFAQIYATSIZ bo'lsa, tiklash BOSHLANMAYDI.
+  let safetyBackup: string | undefined;
+  try {
+    const { createBackup } = await import("./backup");
+    const res = await createBackup();
+    if (!res.ok || !res.name) {
+      return { ok: false, error: `Xavfsizlik nusxasi olinmadi (${res.error}) — tiklash bekor qilindi` };
+    }
+    safetyBackup = res.name;
+  } catch (e) {
+    return { ok: false, error: `Xavfsizlik nusxasi olinmadi (${msg(e)}) — tiklash bekor qilindi` };
+  }
+
+  // 2) Dump'ni qo'llaymiz. pg_dump --clean --if-exists bilan olingani uchun
+  //    ichida DROP + CREATE bor; alohida tozalash shart emas.
+  const { cfg, env } = adminUrl();
+  try {
+    await psqlExec(cfg, env, cfg.database, sql);
+  } catch (e) {
+    return {
+      ok: false,
+      safetyBackup,
+      error: `Tiklash xatosi: ${msg(e)}. Baza nomuvofiq holatda bo'lishi mumkin — ` +
+        `xavfsizlik nusxasi: backups/${safetyBackup}`,
+    };
+  }
+
+  // 3) Natijani sanaymiz.
+  try {
+    const actual = await countRows(cfg, env, cfg.database);
+    return { ok: true, safetyBackup, actual };
+  } catch (e) {
+    return { ok: true, safetyBackup, error: `Tiklandi, lekin sanoq olinmadi: ${msg(e)}` };
+  }
+}

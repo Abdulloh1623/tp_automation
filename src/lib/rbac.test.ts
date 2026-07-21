@@ -63,6 +63,12 @@ describe("canAccess", () => {
     expect(canAccess("OPERATOR", "/tablo")).toBe(true);
   });
 
+  it("/malumotlar — faqat ADMIN", () => {
+    expect(canAccess("ADMIN", "/malumotlar")).toBe(true);
+    expect(canAccess("MANAGER", "/malumotlar")).toBe(false);
+    expect(canAccess("OPERATOR", "/malumotlar")).toBe(false);
+  });
+
   it("/api/* bu yerda bloklanmaydi — handler o'zi tekshiradi", () => {
     expect(canAccess("OPERATOR", "/api/export/clients")).toBe(true);
     expect(canAccess("OPERATOR", "/api/health")).toBe(true);

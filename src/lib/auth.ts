@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "./db";
 import { roleHome } from "./rbac";
+import { getMaintenance } from "./maintenance";
 import {
   decodeSession,
   encodeSession,
@@ -97,6 +98,11 @@ export async function requireApiSession(
     return { ok: false, status: 401 };
   }
   if (roles && !roles.includes(u.role)) return { ok: false, status: 403 };
+  // Texnik tanaffus — ADMIN'dan boshqa hech kim o'qimasin ham (tiklash paytida
+  // ma'lumot bir necha soniya nomuvofiq bo'ladi).
+  if (u.role !== "ADMIN" && (await getMaintenance()).active) {
+    return { ok: false, status: 403 };
+  }
   return { ok: true, session: { ...session, role: u.role } };
 }
 
@@ -127,6 +133,18 @@ export async function guardRole(
     return { ok: false, error: "Sessiya boshqa qurilmada yangilandi — qayta kiring" };
   }
   if (!roles.includes(u.role)) return { ok: false, error: "Ruxsat yo'q" };
+  // Texnik tanaffus paytida YOZUV amallari to'xtatiladi: aks holda xodim
+  // kiritgan ma'lumot tiklash bilan birga yo'qolib ketardi. ADMIN uchun
+  // ochiq — tiklashni aynan u boshqaradi.
+  if (u.role !== "ADMIN") {
+    const m = await getMaintenance();
+    if (m.active) {
+      return {
+        ok: false,
+        error: `Tizimda texnik ishlar ketmoqda${m.reason ? `: ${m.reason}` : ""}. Biroz kuting.`,
+      };
+    }
+  }
   return { ok: true, session };
 }
 

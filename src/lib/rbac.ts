@@ -31,7 +31,8 @@ const ROUTE_ROLES: { prefix: string; roles: Role[] }[] = [
   { prefix: "/moliya", roles: ["ADMIN", "MANAGER"] },
   { prefix: "/foydalanuvchilar", roles: ["ADMIN"] },
   { prefix: "/audit", roles: ["ADMIN"] },
-  { prefix: "/import", roles: ["ADMIN"] },
+  { prefix: "/import", roles: ["ADMIN"] }, // eski manzil — /malumotlar ga yo'naltiradi
+  { prefix: "/malumotlar", roles: ["ADMIN"] },
   { prefix: "/profil", roles: ["ADMIN", "MANAGER", "OPERATOR"] },
   { prefix: "/bildirishnomalar", roles: ["ADMIN", "MANAGER", "OPERATOR"] },
   // Jonli tablo — barcha xodimlar (ustalar login qilmaydi). Sessiya baribir

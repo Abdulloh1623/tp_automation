@@ -5,6 +5,7 @@ import path from "path";
 import { execFile } from "child_process";
 import { gzipSync } from "zlib";
 import { sendBackupToChannel } from "./telegram";
+import { backupEncryptionEnabled, encryptBackup } from "./backup-crypto";
 
 const ROOT = process.cwd();
 const BACKUPS_DIR = path.join(ROOT, "backups");
@@ -23,6 +24,8 @@ export type BackupResult = {
   receipts?: number;
   sizeKb?: number;
   telegram?: string;
+  /** Telegramga yuborilgan nusxa shifrlanganmi. */
+  encrypted?: boolean;
   error?: string;
 };
 
@@ -74,10 +77,12 @@ async function pgDump(): Promise<Buffer> {
     // 2) Lokal dev: host'da pg_dump yo'q bo'lsa — Docker konteyner orqali.
     const container = process.env.PG_CONTAINER || "tp-postgres";
     try {
+      // PGPASSWORD ni argument sifatida BERMAYMIZ — u `ps` chiqishida
+      // ko'rinadi. `docker exec -e PGPASSWORD` qiymatni jarayon muhitidan oladi.
       return await run("docker", [
         "exec",
         "-e",
-        `PGPASSWORD=${cfg.password}`,
+        "PGPASSWORD",
         container,
         "pg_dump",
         "-U",
@@ -85,7 +90,7 @@ async function pgDump(): Promise<Buffer> {
         "-d",
         cfg.database,
         ...dumpArgs,
-      ]);
+      ], dumpEnv);
     } catch {
       // Fallback ham ishlamadi (prod'da docker yo'q) — birlamchi pg_dump
       // xatosini ko'rsatamiz, chalg'ituvchi "spawn docker ENOENT" o'rniga.
@@ -141,16 +146,29 @@ export async function createBackup(): Promise<BackupResult> {
     // 3) Eski backuplarni tozalash (oxirgi KEEP ta qoladi)
     await prune();
 
-    // 4) Dump'ni Telegram zaxira kanaliga (off-site)
+    // 4) Dump'ni Telegram zaxira kanaliga (off-site).
+    //
+    // MUHIM: off-site nusxa SHIFRLANADI. Lokal nusxa (yuqorida) shifrlanmaydi —
+    // u serverning o'zida turadi va tiklashda tez kerak bo'ladi; Telegramdagi
+    // nusxa esa bizning nazoratimizdan tashqarida saqlanadi va bot tokeni
+    // sizsa o'qib olinishi mumkin.
+    const encrypted = backupEncryptionEnabled();
     let telegram = "skip";
     try {
-      const res = await sendBackupToChannel(gz, dumpName, `🗄 Backup ${name} · ${sizeKb} KB`);
+      const payload = encrypted
+        ? encryptBackup(gz, process.env.BACKUP_ENCRYPTION_KEY as string)
+        : gz;
+      const outName = encrypted ? `${dumpName}.enc` : dumpName;
+      const caption = encrypted
+        ? `🔒 Backup ${name} · ${Math.round(payload.length / 1024)} KB (shifrlangan)`
+        : `⚠️ Backup ${name} · ${sizeKb} KB — SHIFRLANMAGAN (BACKUP_ENCRYPTION_KEY qo'yilmagan)`;
+      const res = await sendBackupToChannel(payload, outName, caption);
       telegram = res.ok ? (res.mode === "log" ? "log" : "yuborildi") : `xato: ${res.error}`;
     } catch (e) {
       telegram = "xato: " + (e instanceof Error ? e.message : String(e));
     }
 
-    return { ok: true, name, receipts, sizeKb, telegram };
+    return { ok: true, name, receipts, sizeKb, telegram, encrypted };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

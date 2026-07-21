@@ -14,9 +14,38 @@ export default async function EditClientPage({
   const { id } = await params;
 
   const [client, operators] = await Promise.all([
+    // ANIQ `select` — `include` bilan butun yozuv olinardi va u pastda
+    // ClientForm ("use client") ga spread qilinardi. Klient komponentga
+    // uzatilgan HAMMA narsa sahifa manbasidagi RSC payload'ga tushadi, ya'ni
+    // ichki ish holati (specialNote, escalationStaffId, missedCallCount,
+    // biznexStatus, slaNotifiedAt...) ham ko'rinib qolardi. TypeScript spread'da
+    // ortiqcha maydonni ushlamaydi — shu bois cheklovni so'rov darajasida
+    // qo'yamiz: formaga faqat forma tahrirlaydigan maydonlar boradi.
     db.client.findUnique({
       where: { id },
-      include: { phones: { orderBy: { createdAt: "asc" } } },
+      select: {
+        id: true,
+        fullName: true,
+        restaurantName: true,
+        region: true,
+        phone: true,
+        contractNumber: true,
+        contractDate: true,
+        installerName: true,
+        monoblokCount: true,
+        equipment: true,
+        status: true,
+        monthlyAmount: true,
+        currency: true,
+        nextPaymentDate: true,
+        debtAmount: true,
+        notes: true,
+        assignedToId: true,
+        phones: {
+          select: { label: true, number: true },
+          orderBy: { createdAt: "asc" },
+        },
+      },
     }),
     db.user.findMany({
       where: { role: { in: ["OPERATOR", "ADMIN"] } },

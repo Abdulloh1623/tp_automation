@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { NONCE_HEADER } from "@/lib/csp";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,13 +11,18 @@ export const metadata: Metadata = {
 // FOUC oldini olish: React gidratsiyasidan oldin .dark klassi qo'yiladi.
 const themeScript = `(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // CSP nonce middleware'da yaratiladi va sarlavha orqali keladi. Inline
+  // skript nonce'siz bo'lsa, CSP uni bloklaydi (aynan shu himoyani xohlaymiz —
+  // hujumchi kiritgan skriptda nonce bo'lmaydi).
+  const nonce = (await headers()).get(NONCE_HEADER) ?? undefined;
+
   return (
     <html lang="uz" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>{children}</body>
     </html>

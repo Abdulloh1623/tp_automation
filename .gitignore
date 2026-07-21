@@ -57,3 +57,4 @@ next-env.d.ts
 # Tesseract OCR til fayllari — chek importi skripti ishga tushganda avtomatik
 # yuklab olinadi (~5MB har biri). Repoda saqlanmaydi.
 *.traineddata
+.env.test

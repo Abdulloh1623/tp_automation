@@ -27,6 +27,7 @@ import {
   Lightbulb,
   Landmark,
   Wallet,
+  PackageSearch,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Toaster } from "@/components/toaster";
@@ -77,6 +78,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/ombor", label: "Ombor", icon: Warehouse, roles: ["ADMIN", "MANAGER"] },
       { href: "/ustalar", label: "Ustalar", icon: HardHat, roles: ["ADMIN", "MANAGER"] },
+      { href: "/uskuna-analitika", label: "Uskuna analitikasi", icon: PackageSearch, roles: ["ADMIN", "MANAGER"] },
     ],
   },
   {

@@ -1,7 +1,7 @@
 // Eskalatsiya bosqichi yordamchilari — `escalatedAt` (3-kunlik SLA soati) va
 // mas'ul (`escalationStaffId`) maydonlarini bosqich o'zgarganda to'g'ri boshqaradi.
 
-import { ESCALATION_THRESHOLD } from "./constants";
+import { BASE_PROGRAM_USD, ESCALATION_THRESHOLD } from "./constants";
 
 /** SLA soatiga kiradigan eskalatsiya bosqichlari (navbat + ustada). */
 export const ESCALATION_STAGES = ["ESCALATED", "FORWARDED"] as const;
@@ -21,7 +21,9 @@ export function isEscalationStage(stage: string | null | undefined): boolean {
 
 // 29$ (USD) oylik to'lovli mijozlar — 3 marta ketma-ket ko'tarilmasa eskalatsiya
 // EMAS, to'g'ridan-to'g'ri otkazga o'tadi (past qiymatli, ustaga chiqarishga arzimaydi).
-export const AUTO_REFUSE_USD_AMOUNT = 29;
+// Bu — dasturning bazaviy narxi (BASE_PROGRAM_USD): uskunasiz, eng past qiymatli
+// mijoz. Narx o'zgarsa constants.ts'dagi bitta joyda yangilanadi.
+export const AUTO_REFUSE_USD_AMOUNT = BASE_PROGRAM_USD;
 
 export type AutoEscalation = { stage: "ESCALATED" | "REFUSED"; note: string };
 

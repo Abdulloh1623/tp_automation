@@ -57,6 +57,56 @@ jobs:
       - name: Production build
         run: npm run build
 
+  integration:
+    name: Integratsion (server action'lar + baza)
+    runs-on: ubuntu-latest
+
+    # Bu testlar HAQIQIY bazaga qarshi ishlaydi — server action'larning pul va
+    # ombor mantiqi (chek majburiyligi, qoldiq balansi, rollback) faqat shu
+    # yerda tekshiriladi.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tp
+          POSTGRES_PASSWORD: tp
+          POSTGRES_DB: tp_automation_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tp"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Baza nomida "test" bo'lishi SHART — integration-setup.ts shuni
+      # tekshiradi va noto'g'ri bazani tozalab yuborishga yo'l qo'ymaydi.
+      DATABASE_URL: postgresql://tp:tp@localhost:5432/tp_automation_test?schema=public
+      SESSION_SECRET: ci-integration-secret-not-used-in-production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Node.js o'rnatish
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Bog'liqliklarni o'rnatish
+        run: npm ci
+
+      - name: Prisma client generatsiya
+        run: npx prisma generate
+
+      - name: Migratsiyalarni qo'llash
+        run: npx prisma migrate deploy
+
+      - name: Integratsion testlar
+        run: npm run test:integration
+
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest

@@ -242,7 +242,9 @@ export async function importClients(payload: {
         installerName: opt(raw.installerName),
         monoblokCount: Math.max(0, Math.round(num(raw.monoblokCount) ?? 1)),
         equipment: opt(raw.equipment),
-        monthlyAmount: num(raw.monthlyAmount) ?? 0,
+        // Manfiy oylik MRR ni buzadi (yonidagi debtAmount allaqachon 0 dan
+        // pastga tushmaydi) — bir xil qoidani qo'llaymiz.
+        monthlyAmount: Math.max(0, num(raw.monthlyAmount) ?? 0),
         currency: normCurrency(raw.currency, fallbackCurrency),
         nextPaymentDate: parseDate(raw.nextPaymentDate),
         debtAmount: Math.max(0, num(raw.debtAmount) ?? 0),

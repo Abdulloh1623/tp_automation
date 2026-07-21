@@ -22,7 +22,8 @@ const EXT_MIME: Record<string, string> = {
 };
 
 export function isAllowedSoliqMime(mime: string): boolean {
-  return mime in MIME_EXT;
+  // `in` prototip xossalarini ham o'tkazadi — hasOwn ishlatamiz.
+  return Object.hasOwn(MIME_EXT, mime);
 }
 
 export type SaveResult =

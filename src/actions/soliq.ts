@@ -2,6 +2,7 @@
 
 import { randomUUID } from "crypto";
 import { z } from "zod";
+import { externalUrl } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { guardRole } from "@/lib/auth";
@@ -22,7 +23,8 @@ const submitSchema = z.object({
   certificateNo: z.string().min(1, "Firma guvohnomasi raqamini kiriting").max(120, "Juda uzun"),
   directorName: z.string().min(1, "Firma rahbarining F.I.Sh kiriting").max(200, "Juda uzun"),
   directorPhone: z.string().min(3, "Rahbar telefon raqamini kiriting").max(40, "Juda uzun"),
-  geoLink: z.string().min(1, "Geolokatsiya linkini kiriting").max(1000, "Juda uzun"),
+  // Faqat http/https — bu qiymat <a href> ichida render qilinadi (XSS).
+  geoLink: externalUrl,
   note: z.string().max(500, "Izoh juda uzun").optional(),
 });
 

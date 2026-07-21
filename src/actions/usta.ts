@@ -72,7 +72,11 @@ export async function updateUstaStatus(
   note?: string,
 ): Promise<UstaUpdateState> {
   const session = await requireSession();
-  if (!(status in USTA_STATUS)) return { ok: false, error: "Noto'g'ri holat" };
+  // `in` EMAS: "constructor"/"toString" kabi prototip kalitlari true qaytarib,
+  // Client.ustaStatus va CallLog.result ga axlat qiymat yozilardi (DB enum yo'q).
+  if (!Object.hasOwn(USTA_STATUS, status)) {
+    return { ok: false, error: "Noto'g'ri holat" };
+  }
 
   const client = await db.client.findUnique({ where: { id: clientId } });
   if (!client) return { ok: false, error: "Vazifa topilmadi" };

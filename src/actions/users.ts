@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { isUserShift } from "@/lib/constants";
+import { isUserShift, MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH } from "@/lib/constants";
 
 export type UserActionState = { ok: boolean; error?: string };
 
@@ -58,7 +58,10 @@ export async function createUser(input: {
 
   const schema = baseSchema.extend({
     username: z.string().min(3, "Login kamida 3 belgi"),
-    password: z.string().min(4, "Parol kamida 4 belgi"),
+    password: z
+      .string()
+      .min(MIN_PASSWORD_LENGTH, `Parol kamida ${MIN_PASSWORD_LENGTH} belgi`)
+      .max(MAX_PASSWORD_LENGTH, "Parol juda uzun"),
   });
   const parsed = schema.safeParse(input);
   if (!parsed.success) {
@@ -120,6 +123,12 @@ export async function updateUser(
     return { ok: false, error: "Rol noto'g'ri" };
   }
 
+  // Rol o'zgarsa — ochiq sessiyalarni bekor qilamiz. Aks holda tushirilgan
+  // xodimning cookie'sidagi eski rol token amal qilgunicha (7 kun) kuchda
+  // qolardi va u admin amallarini bajaraverardi.
+  const before = await db.user.findUnique({ where: { id }, select: { role: true } });
+  const roleChanged = !!before && before.role !== parsed.data.role;
+
   try {
     await db.user.update({
       where: { id },
@@ -131,6 +140,7 @@ export async function updateUser(
         telegramId: clean(parsed.data.telegramId),
         dailyLeadTarget: parsed.data.dailyLeadTarget,
         shift: normShift(parsed.data.shift),
+        ...(roleChanged ? { sessionVersion: { increment: 1 } } : {}),
       },
     });
   } catch {
@@ -152,12 +162,18 @@ export async function resetPassword(
 ): Promise<UserActionState> {
   const admin = await requireAdmin();
   if (!admin.ok) return admin;
-  if (!password || password.length < 4) {
-    return { ok: false, error: "Parol kamida 4 belgi" };
+  if (!password || password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
+    return { ok: false, error: `Parol ${MIN_PASSWORD_LENGTH}–${MAX_PASSWORD_LENGTH} belgi bo'lsin` };
   }
+  // Parol almashsa — barcha ochiq sessiyalar bekor bo'lishi SHART. Aks holda
+  // o'g'irlangan cookie parol yangilangandan keyin ham 7 kun ishlayveradi,
+  // ya'ni parolni almashtirish hech narsani tiklamaydi.
   await db.user.update({
     where: { id },
-    data: { passwordHash: await bcrypt.hash(password, 10) },
+    data: {
+      passwordHash: await bcrypt.hash(password, 10),
+      sessionVersion: { increment: 1 },
+    },
   });
   await logAudit("Parol tiklandi", { entity: "User", entityId: id });
   revalidatePath("/foydalanuvchilar");

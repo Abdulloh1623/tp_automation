@@ -1,14 +1,15 @@
-import { getSession } from "@/lib/auth";
+import { requireApiSession } from "@/lib/auth";
 import { getAnalytics, type Shift } from "@/lib/analytics";
 import { withDbRetry } from "@/lib/db-retry";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) return new Response("Unauthorized", { status: 401 });
-  if (!["ADMIN", "MANAGER"].includes(session.role)) {
-    return new Response("Forbidden", { status: 403 });
+  const auth = await requireApiSession(["ADMIN", "MANAGER"]);
+  if (!auth.ok) {
+    return new Response(auth.status === 401 ? "Unauthorized" : "Forbidden", {
+      status: auth.status,
+    });
   }
 
   const raw = new URL(req.url).searchParams.get("shift");

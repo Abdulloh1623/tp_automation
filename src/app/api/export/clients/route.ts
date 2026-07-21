@@ -1,4 +1,4 @@
-import { getSession } from "@/lib/auth";
+import { requireApiSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { buildCsv } from "@/lib/csv-export";
 import { clientStatusLabel, ownershipLabel } from "@/lib/constants";
@@ -13,11 +13,13 @@ function numStr(n: number): string {
 }
 
 export async function GET() {
-  const session = await getSession();
-  if (!session) return new Response("Unauthorized", { status: 401 });
-  if (!["ADMIN", "OPERATOR"].includes(session.role)) {
-    return new Response("Forbidden", { status: 403 });
+  const auth = await requireApiSession(["ADMIN", "OPERATOR"]);
+  if (!auth.ok) {
+    return new Response(auth.status === 401 ? "Unauthorized" : "Forbidden", {
+      status: auth.status,
+    });
   }
+  const session = auth.session;
 
   // Operator faqat o'ziga biriktirilganlarni eksport qiladi
   const where =

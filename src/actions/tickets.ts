@@ -125,6 +125,39 @@ export async function setTicketStatus(
   }
 }
 
+/**
+ * Muammoni "xato ochilgan" deb rad etish (tez yopish) — faqat boshliq/admin.
+ * Operator lid natijasini xato tanlab (yoki qo'lda) ochib qo'ygan muammoni
+ * boshliq bir bosishda yopadi: RESOLVED holatiga o'tadi, yechim izohida rad
+ * sababi qoladi. Sxemada alohida "rad etilgan" holat yo'q — RESOLVED + izoh.
+ */
+export async function dismissTicket(
+  ticketId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const g = await guardRole(["ADMIN", "MANAGER"]);
+  if (!g.ok) return { ok: false, error: g.error };
+  try {
+    const ticket = await db.ticket.update({
+      where: { id: ticketId },
+      data: {
+        status: "RESOLVED",
+        resolvedAt: new Date(),
+        resolutionNote: "Xato ochilgan (rad etildi)",
+      },
+      select: { clientId: true, title: true },
+    });
+    await logAudit("Muammo rad etildi (xato ochilgan)", {
+      entity: "Ticket",
+      entityId: ticketId,
+      detail: ticket.title,
+    });
+    revalidateTicket(ticket.clientId);
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Muammo topilmadi" };
+  }
+}
+
 // XODIM (ofis xodimi) sifatida mas'ul qilib biriktirilishi mumkin bo'lgan rollar
 const ASSIGNABLE_STAFF_ROLES = ["ADMIN", "MANAGER", "OPERATOR"];
 

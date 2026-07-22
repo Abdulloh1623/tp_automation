@@ -29,6 +29,17 @@ describe("saveLeadCell — xato natijadan o'tish avto-yozuvni tozalaydi", () => 
     expect(await openTickets(client.id)).toBe(1);
   });
 
+  it("HAS_ISSUE izohsiz saqlanmaydi — tavsif majburiy", async () => {
+    const op = await makeUser("OPERATOR");
+    await loginAs(op);
+    const client = await makeClient({ assignedToId: op.id });
+
+    const res = await saveLeadCell(client.id, "HAS_ISSUE", "  ");
+
+    expect(res.error).toBeTruthy();
+    expect(await openTickets(client.id)).toBe(0); // muammo ochilmaydi
+  });
+
   it("HAS_ISSUE → NO_PROBLEM: xato muammo o'chadi (mijoz Muammolarda qolmaydi)", async () => {
     const op = await makeUser("OPERATOR");
     await loginAs(op);

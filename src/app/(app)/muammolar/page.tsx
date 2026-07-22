@@ -19,6 +19,7 @@ import {
   TicketTypeBadge,
 } from "@/components/status-badge";
 import { TicketStatusControl } from "@/components/ticket-status-control";
+import { TicketDismissButton } from "@/components/ticket-dismiss-button";
 import { TicketIntegratorControl } from "@/components/ticket-integrator-control";
 import { TicketForm } from "@/components/ticket-form";
 import { TicketTabs, type TicketTab } from "@/components/ticket-tabs";
@@ -233,8 +234,12 @@ export default async function TicketsPage({
           />
         </div>
 
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <TicketStatusControl ticketId={t.id} status={t.status} />
+          {/* Xato ochilgan muammoni boshliq bir bosishda yopadi */}
+          {canAssign && t.status !== "RESOLVED" && (
+            <TicketDismissButton ticketId={t.id} title={t.title} />
+          )}
         </div>
       </Card>
     );

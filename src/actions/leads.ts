@@ -1,6 +1,5 @@
 "use server";
 
-import { z } from "zod";
 import { addDays, startOfDay, endOfDay } from "date-fns";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -19,22 +18,7 @@ import {
   OUTCOME_TO_STAGE,
   type LeadOutcome,
 } from "@/lib/constants";
-import { isLeadOutcome, isLeadStage, noteString, safeNote } from "@/lib/validation";
-
-function s(v: FormDataEntryValue | null): string | undefined {
-  const str = typeof v === "string" ? v.trim() : "";
-  return str === "" ? undefined : str;
-}
-
-const outcomeSchema = z.object({
-  outcome: z
-    .string()
-    .min(1, "Natijani tanlang")
-    .refine(isLeadOutcome, "Noto'g'ri natija"),
-  note: noteString.optional(),
-});
-
-export type LeadOutcomeState = { error?: string };
+import { isLeadOutcome, isLeadStage, safeNote } from "@/lib/validation";
 
 /**
  * Lid natijasi "Uskuna qaytarish kerak" (RETURN_EQUIPMENT) bo'lsa — boshliqning
@@ -143,106 +127,6 @@ async function clearPristineAutoRecord(
     });
     revalidatePath("/qaytarish");
   }
-}
-
-/**
- * Xodim lid bilan gaplashgach natija + izoh yozadi.
- * CallLog (tarix) yaratiladi va lidning `pendingStage`i belgilanadi —
- * lid kun yakunida (`finishDay`) shu bo'limga ko'chadi.
- */
-export async function recordLeadOutcome(
-  clientId: string,
-  _prev: LeadOutcomeState,
-  formData: FormData,
-): Promise<LeadOutcomeState> {
-  const g = await guardRole(STAFF);
-  if (!g.ok) return { error: g.error };
-  const session = g.session;
-  if (!(await canMutateClient(session, clientId))) {
-    return { error: "Mijoz topilmadi" };
-  }
-
-  const parsed = outcomeSchema.safeParse({
-    outcome: s(formData.get("outcome")),
-    note: s(formData.get("note")),
-  });
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Maʼlumotlar noto'g'ri" };
-  }
-
-  // outcome validligi sxemada (refine isLeadOutcome) kafolatlangan
-  const { outcome } = parsed.data;
-
-  // Otkaz (bekor qilish) — izoh MAJBURIY (sabab tarixda qolishi shart).
-  if (outcome === "REFUSED" && !parsed.data.note) {
-    return { error: "Otkaz uchun izoh (sabab) majburiy" };
-  }
-  // Taklif — matni MAJBURIY (Takliflar bo'limiga tushadi).
-  if (outcome === "SUGGESTION" && !parsed.data.note) {
-    return { error: "Taklif matnini yozing" };
-  }
-
-  const client = await db.client.findUnique({ where: { id: clientId } });
-  if (!client) return { error: "Lid topilmadi" };
-
-  // Ketma-ket ko'tarilmaganlarni hisoblaymiz
-  const isMissed = MISSED_OUTCOMES.includes(outcome as LeadOutcome);
-  const missedCount = isMissed ? client.missedCallCount + 1 : 0;
-
-  // 3 marta ketma-ket ko'tarilmasa — avtomatik eskalatsiyaga (29$ bo'lsa otkazga)
-  const escalate = isMissed && shouldEscalate(missedCount);
-  const auto = escalate
-    ? autoEscalationTarget(missedCount, client.monthlyAmount, client.currency)
-    : null;
-  const targetStage = auto ? auto.stage : OUTCOME_TO_STAGE[outcome as LeadOutcome];
-
-  let note = parsed.data.note ?? null;
-  if (auto) {
-    note = note ? `${note} · ${auto.note}` : auto.note;
-  }
-
-  // Tarix uchun CallLog (mavjud model qayta ishlatiladi). Keyingi sana
-  // operator tomonidan emas, tizim (finishDay) tomonidan belgilanadi.
-  await db.callLog.create({
-    data: {
-      clientId,
-      result: outcome,
-      note,
-      operatorId: session.userId,
-      nextFollowUpDate: null,
-    },
-  });
-
-  // Kun-yakuni maqsad bo'limni belgilab qo'yamiz (hozir ko'chmaydi). Ketma-ket
-  // ko'tarilmaganlar soni saqlanadi — eskalatsiya ro'yxatida ko'rinadi (revertLead nollaydi).
-  await db.client.update({
-    where: { id: clientId },
-    data: {
-      pendingStage: targetStage,
-      lastOutcome: outcome,
-      lastContactedAt: new Date(),
-      missedCallCount: missedCount,
-    },
-  });
-
-  if (outcome === "RETURN_EQUIPMENT") {
-    await autoReturnRequest(clientId, session.userId, parsed.data.note ?? null);
-  }
-  if (outcome === "HAS_ISSUE") {
-    await autoCreateTicket(clientId, parsed.data.note ?? null);
-  }
-  if (outcome === "SUGGESTION") {
-    await autoCreateSuggestion(clientId, session.userId, parsed.data.note ?? "");
-  }
-
-  await logAudit(`Lid natijasi: ${LEAD_OUTCOME[outcome as LeadOutcome] ?? outcome}`, {
-    entity: "Client",
-    entityId: clientId,
-    detail: client.restaurantName,
-  });
-  revalidatePath("/lidlar");
-  revalidatePath(`/mijozlar/${clientId}`);
-  return {};
 }
 
 export type FinishDayState = { moved?: number; error?: string };
@@ -399,6 +283,11 @@ export async function saveLeadCell(
   // Taklif — matni MAJBURIY (Takliflar bo'limiga tushadi).
   if (outcome === "SUGGESTION" && !(note ?? "").trim()) {
     return { error: "Taklif matnini yozing" };
+  }
+  // Muammo bor — tavsif MAJBURIY. Tasodifiy bir bosishda muammo ochilib,
+  // mijoz Muammolar ro'yxatiga tushib qolishining oldini oladi.
+  if (outcome === "HAS_ISSUE" && !(note ?? "").trim()) {
+    return { error: "Muammo tavsifini yozing" };
   }
   if (!(await canMutateClient(session, clientId))) {
     return { error: "Mijoz topilmadi" };

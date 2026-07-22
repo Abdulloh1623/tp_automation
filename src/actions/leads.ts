@@ -110,6 +110,42 @@ async function autoCreateSuggestion(clientId: string, byUserId: string, body: st
 }
 
 /**
+ * Bugun avtomatik yaratilgan, hali ishlov berilmagan (pristine) yon-yozuvni
+ * o'chiradi — natija xato tanlangani uchun. Faqat OPEN/PENDING, biriktirilmagan
+ * va bugun yaratilgan yozuv o'chadi (boshliq/usta ish boshlagan bo'lsa qoladi).
+ * Operator "muammo bor" / "taklif" / "qaytarish"ni xato tanlab, darhol boshqa
+ * holatga o'tsa — mijoz o'sha bo'lim (masalan Muammolar) ro'yxatida qolmaydi.
+ */
+async function clearPristineAutoRecord(
+  outcome: string,
+  clientId: string,
+  todayRange: { gte: Date; lte: Date },
+): Promise<void> {
+  if (outcome === "SUGGESTION") {
+    await db.suggestion.deleteMany({
+      where: { clientId, status: "OPEN", createdAt: todayRange },
+    });
+    revalidatePath("/takliflar");
+  } else if (outcome === "HAS_ISSUE") {
+    await db.ticket.deleteMany({
+      where: {
+        clientId,
+        status: "OPEN",
+        assignedStaffId: null,
+        assignedUstaId: null,
+        createdAt: todayRange,
+      },
+    });
+    revalidatePath("/muammolar");
+  } else if (outcome === "RETURN_EQUIPMENT") {
+    await db.equipmentReturnRequest.deleteMany({
+      where: { clientId, status: "PENDING", createdAt: todayRange },
+    });
+    revalidatePath("/qaytarish");
+  }
+}
+
+/**
  * Xodim lid bilan gaplashgach natija + izoh yozadi.
  * CallLog (tarix) yaratiladi va lidning `pendingStage`i belgilanadi —
  * lid kun yakunida (`finishDay`) shu bo'limga ko'chadi.
@@ -372,10 +408,17 @@ export async function saveLeadCell(
   const dayStart = startOfDay(now);
   const dayEnd = endOfDay(now);
 
+  const todayRange = { gte: dayStart, lte: dayEnd };
   const todayLog = await db.callLog.findFirst({
-    where: { clientId, calledAt: { gte: dayStart, lte: dayEnd } },
+    where: { clientId, calledAt: todayRange },
     orderBy: { calledAt: "desc" },
   });
+  // Bugun boshqa natija tanlangan bo'lsa (masalan xato "muammo bor"), o'sha
+  // natijaning avto-yozuvini (pristine bo'lsa) tozalaymiz — aks holda mijoz
+  // eski bo'lim ro'yxatida (Muammolar/Takliflar/Qaytarish) qolib ketardi.
+  if (todayLog && todayLog.result !== outcome) {
+    await clearPristineAutoRecord(todayLog.result, clientId, todayRange);
+  }
   let logId: string;
   if (todayLog) {
     await db.callLog.update({
@@ -498,30 +541,8 @@ export async function revertLeadCell(clientId: string): Promise<RevertCellState>
   });
   if (!todayLog) return { error: "Bugun uchun qaytariladigan natija yo'q" };
 
-  const outcome = todayLog.result;
   // Bugun avtomatik yaratilgan, hali ishlov berilmagan yon-yozuvlarni tozalash
-  if (outcome === "SUGGESTION") {
-    await db.suggestion.deleteMany({
-      where: { clientId, status: "OPEN", createdAt: todayRange },
-    });
-    revalidatePath("/takliflar");
-  } else if (outcome === "HAS_ISSUE") {
-    await db.ticket.deleteMany({
-      where: {
-        clientId,
-        status: "OPEN",
-        assignedStaffId: null,
-        assignedUstaId: null,
-        createdAt: todayRange,
-      },
-    });
-    revalidatePath("/muammolar");
-  } else if (outcome === "RETURN_EQUIPMENT") {
-    await db.equipmentReturnRequest.deleteMany({
-      where: { clientId, status: "PENDING", createdAt: todayRange },
-    });
-    revalidatePath("/qaytarish");
-  }
+  await clearPristineAutoRecord(todayLog.result, clientId, todayRange);
 
   await db.callLog.delete({ where: { id: todayLog.id } });
 
@@ -553,7 +574,8 @@ export async function revertLeadCell(clientId: string): Promise<RevertCellState>
     },
   });
 
-  await logAudit(`Lid natijasi qaytarildi: ${LEAD_OUTCOME[outcome as LeadOutcome] ?? outcome}`, {
+  const reverted = todayLog.result;
+  await logAudit(`Lid natijasi qaytarildi: ${LEAD_OUTCOME[reverted as LeadOutcome] ?? reverted}`, {
     entity: "Client",
     entityId: clientId,
   });

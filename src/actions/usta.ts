@@ -6,7 +6,7 @@ import { requireSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { createNotification } from "@/lib/notifications";
 import { USTA_STATUS, ustaStatusLabel } from "@/lib/constants";
-import { escalationStagePatch } from "@/lib/escalation";
+import { escalationStagePatch, isEscalationStage } from "@/lib/escalation";
 
 export type AssignState = { ok: boolean; error?: string };
 
@@ -120,6 +120,52 @@ export async function updateUstaStatus(
   revalidatePath("/eskalatsiya");
   revalidatePath(`/mijozlar/${clientId}`);
   return { ok: true, ustaStatus: status };
+}
+
+/**
+ * Eskalatsiyani to'g'ridan-to'g'ri "Hal bo'ldi" deb yopish — mas'ul xodim
+ * (yoki boshliq) usta javobini kutmasdan (masalan telefon orqali hal qilinsa)
+ * navbatdan/ustadan chiqaradi. Yakunlangan bo'limida ko'rinishi uchun
+ * `ustaStatus: DONE` va o'z nomidan `DONE` izohi yoziladi.
+ */
+export async function resolveEscalation(clientId: string): Promise<AssignState> {
+  const session = await requireSession();
+  if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
+    return { ok: false, error: "Ruxsat yo'q" };
+  }
+
+  const client = await db.client.findUnique({ where: { id: clientId } });
+  if (!client) return { ok: false, error: "Mijoz topilmadi" };
+  if (!isEscalationStage(client.stage)) {
+    return { ok: false, error: "Bu mijoz eskalatsiya bosqichida emas" };
+  }
+
+  await db.client.update({
+    where: { id: clientId },
+    data: {
+      stage: "RESOLVED",
+      ustaStatus: "DONE",
+      nextContactDate: client.nextPaymentDate ?? null,
+      ...escalationStagePatch("RESOLVED", client),
+    },
+  });
+  await db.callLog.create({
+    data: {
+      clientId,
+      result: "DONE",
+      note: "Eskalatsiya hal bo'ldi deb belgilandi",
+      operatorId: session.userId,
+    },
+  });
+
+  await logAudit("Eskalatsiya hal bo'ldi", {
+    entity: "Client",
+    entityId: clientId,
+    detail: client.restaurantName,
+  });
+  revalidatePath("/eskalatsiya");
+  revalidatePath(`/mijozlar/${clientId}`);
+  return { ok: true };
 }
 
 // Eskalatsiyaga mas'ul qilib biriktirilishi mumkin bo'lgan TP xodimi rollari

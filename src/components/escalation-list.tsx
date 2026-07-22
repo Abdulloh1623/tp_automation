@@ -20,6 +20,7 @@ import { ClientLink } from "@/components/client-link";
 import { AssignUstaForm } from "@/components/assign-usta-form";
 import { UstaStatusControl } from "@/components/usta-status-control";
 import { LeadRevertButton } from "@/components/lead-revert-button";
+import { ResolveEscalationButton } from "@/components/resolve-escalation-button";
 import {
   AssignEscalationStaff,
   type StaffOption,
@@ -238,6 +239,8 @@ export function EscalationList({
                 Usta biriktirilishi kutilmoqda
               </span>
             )}
+            {/* Usta chaqirmasdan (masalan telefon orqali) hal qilinsa — to'g'ridan-to'g'ri yopish */}
+            <ResolveEscalationButton clientId={c.id} label={c.restaurantName} />
           </div>
         </CardContent>
       </Card>
@@ -304,6 +307,7 @@ export function EscalationList({
             />
             <div className="flex flex-wrap items-center gap-2">
               <UstaStatusControl clientId={c.id} current={c.ustaStatus} />
+              <ResolveEscalationButton clientId={c.id} label={c.restaurantName} />
               {isManager && <LeadRevertButton clientId={c.id} label={c.restaurantName} />}
             </div>
           </div>

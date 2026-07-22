@@ -36,6 +36,7 @@ import {
   TicketTypeBadge,
 } from "@/components/status-badge";
 import { CallLogForm } from "@/components/call-log-form";
+import { CallLogActions } from "@/components/call-log-actions";
 import { SpecialNoteBell } from "@/components/special-note-bell";
 import { ClientRefuseButton } from "@/components/client-refuse-button";
 import { PaymentForm } from "@/components/payment-form";
@@ -127,7 +128,10 @@ export default async function ClientDetailPage({
       payments: { orderBy: { paidAt: "desc" }, include: { recordedBy: { select: { name: true } } } },
       callLogs: {
         orderBy: { calledAt: "desc" },
-        include: { operator: { select: { name: true } } },
+        include: {
+          operator: { select: { name: true } },
+          editedBy: { select: { name: true } },
+        },
       },
       tickets: { orderBy: { createdAt: "desc" } },
       phones: { orderBy: { createdAt: "asc" } },
@@ -379,34 +383,61 @@ export default async function ClientDetailPage({
                     Hali qo'ng'iroq yozuvi yo'q
                   </p>
                 )}
-                {client.callLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="flex gap-3 border-b border-slate-100 dark:border-slate-800 pb-3 last:border-0"
-                  >
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <CallResultBadge result={log.result} />
-                        <span className="text-xs text-slate-400 dark:text-slate-500">
-                          {formatDateTime(log.calledAt)}
-                        </span>
-                        {log.operator && (
-                          <span className="text-xs text-slate-500 dark:text-slate-400">
-                            · {log.operator.name}
+                {client.callLogs.map((log) => {
+                  // Egasi (yozgan operator) — vaqt cheklovisiz tahrirlay oladi;
+                  // o'chirish esa yozilganidan keyin 5 soat ichida (admin doim).
+                  const isOwner = !!log.operatorId && log.operatorId === session.userId;
+                  const withinDeleteWindow =
+                    Date.now() - log.calledAt.getTime() <= 5 * 60 * 60 * 1000;
+                  const canEdit = isAdmin || isOwner;
+                  const canDelete = isAdmin || (isOwner && withinDeleteWindow);
+                  return (
+                    <div
+                      key={log.id}
+                      className="flex gap-3 border-b border-slate-100 dark:border-slate-800 pb-3 last:border-0"
+                    >
+                      <div className="flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <CallResultBadge result={log.result} />
+                          <span className="text-xs text-slate-400 dark:text-slate-500">
+                            {formatDateTime(log.calledAt)}
                           </span>
+                          {log.operator && (
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                              · {log.operator.name}
+                            </span>
+                          )}
+                        </div>
+                        {log.note && (
+                          <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">{log.note}</p>
+                        )}
+                        {log.nextFollowUpDate && (
+                          <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                            Keyingi qo'ng'iroq: {formatDate(log.nextFollowUpDate)}
+                          </p>
+                        )}
+                        {log.editedAt && (
+                          <p className="mt-1 text-xs italic text-slate-400 dark:text-slate-500">
+                            tahrirlangan: {formatDateTime(log.editedAt)}
+                            {log.editedBy ? ` · ${log.editedBy.name}` : ""}
+                          </p>
                         )}
                       </div>
-                      {log.note && (
-                        <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">{log.note}</p>
-                      )}
-                      {log.nextFollowUpDate && (
-                        <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                          Keyingi qo'ng'iroq: {formatDate(log.nextFollowUpDate)}
-                        </p>
-                      )}
+                      <CallLogActions
+                        log={{
+                          id: log.id,
+                          result: log.result,
+                          note: log.note,
+                          nextFollowUpDate: log.nextFollowUpDate
+                            ? log.nextFollowUpDate.toISOString()
+                            : null,
+                        }}
+                        canEdit={canEdit}
+                        canDelete={canDelete}
+                      />
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

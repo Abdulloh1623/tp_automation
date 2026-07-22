@@ -39,7 +39,8 @@ model User {
   assignedClients Client[]         @relation("AssignedOperator")
   ustaClients     Client[]         @relation("AssignedUsta")
   specialNotes    Client[]         @relation("SpecialNoteAuthor")
-  callLogs        CallLog[]
+  callLogs        CallLog[]        @relation("CallLogOperator")
+  editedCallLogs  CallLog[]        @relation("CallLogEditor")
   payments        Payment[]
   tickets         Ticket[]               @relation("TicketOperator")
   ustaTickets     Ticket[]               @relation("TicketUsta")
@@ -295,9 +296,14 @@ model CallLog {
   result           String // NO_ANSWER | PHONE_OFF | BUSY | TALKED | SMS_SENT | TELEGRAM_SENT | RESOLVED
   note             String?
   operatorId       String?
-  operator         User?     @relation(fields: [operatorId], references: [id])
+  operator         User?     @relation("CallLogOperator", fields: [operatorId], references: [id])
   nextFollowUpDate DateTime?
   createdAt        DateTime  @default(now())
+  // Tahrir kuzatuvi — izoh keyin o'zgartirilsa kim va qachon (audit'ga qo'shimcha,
+  // kartada ko'rinadi). Birinchi yozgan = operator/calledAt; tahrirlagan = editedBy/editedAt.
+  editedAt         DateTime?
+  editedById       String?
+  editedBy         User?     @relation("CallLogEditor", fields: [editedById], references: [id])
 
   @@index([clientId])
   @@index([calledAt])

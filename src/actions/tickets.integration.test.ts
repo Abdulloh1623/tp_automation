@@ -1,0 +1,59 @@
+// Muammoni "xato ochilgan" deb rad etish (dismissTicket) — haqiqiy bazaga qarshi.
+// Diqqat: RUXSAT (faqat boshliq/admin) va yakuniy holat (RESOLVED + izoh).
+
+import { describe, it, expect, beforeEach } from "vitest";
+import { db } from "@/lib/db";
+import { dismissTicket } from "./tickets";
+import { resetDb, makeUser, makeClient, loginAs } from "@/test/fixtures";
+
+async function makeTicket(clientId: string) {
+  return db.ticket.create({
+    data: { clientId, title: "Test muammo", type: "TECHNICAL", priority: "MEDIUM", status: "OPEN" },
+  });
+}
+
+describe("dismissTicket", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("boshliq muammoni rad etadi — RESOLVED + izoh", async () => {
+    const manager = await makeUser("MANAGER");
+    const client = await makeClient();
+    const ticket = await makeTicket(client.id);
+
+    await loginAs(manager);
+    const res = await dismissTicket(ticket.id);
+
+    expect(res.ok).toBe(true);
+    const after = await db.ticket.findUnique({ where: { id: ticket.id } });
+    expect(after!.status).toBe("RESOLVED");
+    expect(after!.resolvedAt).not.toBeNull();
+    expect(after!.resolutionNote).toContain("Xato ochilgan");
+  });
+
+  it("operator rad eta OLMAYDI (faqat boshliq/admin)", async () => {
+    const op = await makeUser("OPERATOR");
+    const client = await makeClient();
+    const ticket = await makeTicket(client.id);
+
+    await loginAs(op);
+    const res = await dismissTicket(ticket.id);
+
+    expect(res.ok).toBe(false);
+    const after = await db.ticket.findUnique({ where: { id: ticket.id } });
+    expect(after!.status).toBe("OPEN"); // o'zgarmaydi
+  });
+
+  it("audit jurnaliga yoziladi", async () => {
+    const admin = await makeUser("ADMIN");
+    const client = await makeClient();
+    const ticket = await makeTicket(client.id);
+
+    await loginAs(admin);
+    await dismissTicket(ticket.id);
+
+    const audit = await db.auditLog.findFirst({ where: { action: { contains: "rad etildi" } } });
+    expect(audit).not.toBeNull();
+  });
+});

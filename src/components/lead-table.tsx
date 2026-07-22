@@ -16,6 +16,7 @@ import {
   Ban,
   Lightbulb,
   RotateCcw,
+  AlertTriangle,
 } from "lucide-react";
 import {
   saveLeadCell,
@@ -127,6 +128,9 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
   // Taklif (SUGGESTION) tanlanganda taklif matnini so'rovchi modal
   const [suggestTarget, setSuggestTarget] = useState<LeadRow | null>(null);
   const [suggestText, setSuggestText] = useState("");
+  // Muammo bor (HAS_ISSUE) tanlanganda tavsifni majburiy so'rovchi modal
+  const [issueTarget, setIssueTarget] = useState<LeadRow | null>(null);
+  const [issueText, setIssueText] = useState("");
   const [infoLoadingId, setInfoLoadingId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [finishing, setFinishing] = useState(false);
@@ -213,6 +217,18 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
     save(row, "SUGGESTION", text);
     setSuggestTarget(null);
     setSuggestText("");
+  }
+
+  // Muammo modalidan tasdiqlash — tavsif majburiy.
+  function confirmIssue() {
+    if (!issueTarget) return;
+    const text = issueText.trim();
+    if (!text) return;
+    const row = issueTarget;
+    patchRow(row.id, { todayNote: text });
+    save(row, "HAS_ISSUE", text);
+    setIssueTarget(null);
+    setIssueText("");
   }
 
   // Bugungi natijani qaytarish (undo) — xato yoki sinov uchun tanlangan bo'lsa.
@@ -347,6 +363,12 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
       // "Taklif" — matn majburiy (Takliflar bo'limiga tushadi), modal ochamiz
       setSuggestText(row.todayNote ?? "");
       setSuggestTarget(row);
+      return;
+    }
+    if (value === "HAS_ISSUE") {
+      // "Muammo bor" — tavsif majburiy (tasodifiy muammo ochilishining oldini oladi)
+      setIssueText(row.todayNote ?? "");
+      setIssueTarget(row);
       return;
     }
     save(row, value || null, row.todayNote);
@@ -576,6 +598,44 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
                 variant="ghost"
                 size="sm"
                 onClick={() => setSuggestTarget(null)}
+                disabled={pending}
+              >
+                Bekor
+              </Button>
+            </div>
+          </div>
+        </ModalOverlay>
+      )}
+
+      {issueTarget && (
+        <ModalOverlay onClose={() => setIssueTarget(null)}>
+          <div>
+            <h3 className="mb-2 flex items-center gap-2 text-base font-semibold text-amber-700 dark:text-amber-300">
+              <AlertTriangle className="h-4 w-4" /> Muammo — {issueTarget.restaurantName}
+            </h3>
+            <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
+              Muammo tavsifini yozing — u &ldquo;Muammolar&rdquo; bo'limiga tushadi.
+              Tasodifan tanlagan bo'lsangiz, boshqa natijani tanlang.
+            </p>
+            <Textarea
+              value={issueText}
+              onChange={(e) => setIssueText(e.target.value)}
+              placeholder="masalan: kassa apparati ishlamayapti, chek chiqmayapti…"
+              className="min-h-[90px]"
+              autoFocus
+            />
+            <div className="mt-3 flex gap-2">
+              <Button
+                size="sm"
+                onClick={confirmIssue}
+                disabled={pending || !issueText.trim()}
+              >
+                <AlertTriangle className="h-4 w-4" /> Muammoni saqlash
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIssueTarget(null)}
                 disabled={pending}
               >
                 Bekor

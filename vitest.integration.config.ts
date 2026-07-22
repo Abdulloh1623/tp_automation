@@ -30,6 +30,9 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.integration.test.ts"],
+    // Testlardan oldin bir marta: test bazasiga migratsiyalarni qo'llaydi
+    // (sxema o'zgargach tp_test avtomatik yangilanadi — lokal DX).
+    globalSetup: ["src/test/integration-global-setup.ts"],
     setupFiles: ["src/test/integration-setup.ts"],
     // Bir baza — testlar KETMA-KET ishlashi shart (bir-birining ma'lumotini
     // o'chirib yubormasligi uchun).

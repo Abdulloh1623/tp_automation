@@ -6,7 +6,8 @@ import { db } from "@/lib/db";
 import { guardRole } from "@/lib/auth";
 import { canMutateClient } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
-import { CALL_RESULT, callResultLabel } from "@/lib/constants";
+import { createNotification } from "@/lib/notifications";
+import { CALL_RESULT, MISSED_OUTCOMES, callResultLabel, type LeadOutcome } from "@/lib/constants";
 import { noteString, toFieldErrors } from "@/lib/validation";
 
 const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
@@ -14,6 +15,30 @@ const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
 // Operator o'z izohini yozgandan keyin 5 soat ichida o'chirishi mumkin; keyin
 // faqat tahrirlash qoladi. Admin har doim (vaqtdan qat'i nazar) o'chira/tahrirlay oladi.
 const DELETE_WINDOW_MS = 5 * 60 * 60 * 1000;
+
+/**
+ * Mijozning ketma-ket (kun bo'yicha) ko'tarilmagan qo'ng'iroqlar sonini
+ * tarixdan qayta hisoblaydi. Izoh natijasi tahrirlangach eskalatsiya hisobi
+ * to'g'ri qolishi uchun ishlatiladi (leads.ts dagi bir xil algoritm).
+ */
+async function recomputeMissedCount(clientId: string): Promise<number> {
+  const logs = await db.callLog.findMany({
+    where: { clientId },
+    orderBy: { calledAt: "desc" },
+    take: 90,
+    select: { calledAt: true, result: true },
+  });
+  const seenDays = new Set<string>();
+  let consecutiveMissed = 0;
+  for (const l of logs) {
+    const key = l.calledAt.toISOString().slice(0, 10);
+    if (seenDays.has(key)) continue;
+    seenDays.add(key);
+    if (MISSED_OUTCOMES.includes(l.result as LeadOutcome)) consecutiveMissed += 1;
+    else break;
+  }
+  return consecutiveMissed;
+}
 
 function s(v: FormDataEntryValue | null): string | undefined {
   const str = typeof v === "string" ? v.trim() : "";
@@ -138,6 +163,26 @@ export async function editCallLog(
     },
   });
 
+  // Natija (holat) o'zgargan va bu mijozning ENG SO'NGGI yozuvi bo'lsa —
+  // eskalatsiya hisobini to'g'ri saqlash uchun ketma-ket ko'tarilmaganlar sonini
+  // va oxirgi natijani qayta hisoblaymiz. Bosqich (stage) ATAYIN tegilmaydi —
+  // uni faqat kunlik workflow ko'chiradi (mijozni kutilmaganda bo'lim aro
+  // sakratmaslik uchun).
+  if (newResult !== log.result) {
+    const latest = await db.callLog.findFirst({
+      where: { clientId: log.clientId },
+      orderBy: { calledAt: "desc" },
+      select: { id: true, result: true },
+    });
+    if (latest?.id === logId) {
+      const missedCallCount = await recomputeMissedCount(log.clientId);
+      await db.client.update({
+        where: { id: log.clientId },
+        data: { missedCallCount, lastOutcome: newResult },
+      });
+    }
+  }
+
   await logAudit("Izoh tahrirlandi", {
     entity: "Client",
     entityId: log.clientId,
@@ -146,6 +191,14 @@ export async function editCallLog(
       `[${callResultLabel(log.result)}] "${log.note ?? ""}" → ` +
       `[${callResultLabel(newResult)}] "${newNote ?? ""}"`,
   });
+  // Izohni boshqa xodim (masalan admin) tahrirlasa — asl muallifga xabar.
+  if (log.operatorId && log.operatorId !== session.userId) {
+    await createNotification({
+      title: "Izohingiz tahrirlandi",
+      body: `${log.client.restaurantName}: izohingizni ${session.name} tahrirladi`,
+      userIds: [log.operatorId],
+    });
+  }
   revalidatePath(`/mijozlar/${log.clientId}`);
   return { ok: true };
 }
@@ -184,6 +237,14 @@ export async function deleteCallLog(logId: string): Promise<CallLogActionState> 
     entityId: log.clientId,
     detail: `${log.client.restaurantName}: [${callResultLabel(log.result)}] "${log.note ?? ""}"`,
   });
+  // Izohni boshqa xodim (masalan admin) o'chirsa — asl muallifga xabar.
+  if (log.operatorId && log.operatorId !== session.userId) {
+    await createNotification({
+      title: "Izohingiz o'chirildi",
+      body: `${log.client.restaurantName}: izohingizni ${session.name} o'chirdi`,
+      userIds: [log.operatorId],
+    });
+  }
   revalidatePath(`/mijozlar/${log.clientId}`);
   return { ok: true };
 }

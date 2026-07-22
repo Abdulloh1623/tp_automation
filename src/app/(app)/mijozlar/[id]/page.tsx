@@ -417,7 +417,10 @@ export default async function ClientDetailPage({
                           </p>
                         )}
                         {log.editedAt && (
-                          <p className="mt-1 text-xs italic text-slate-400 dark:text-slate-500">
+                          <p
+                            className="mt-1 text-xs italic text-slate-400 dark:text-slate-500"
+                            title="To'liq o'zgarish (eski → yangi) pastdagi 'Faoliyat jurnali'da ko'rinadi"
+                          >
                             tahrirlangan: {formatDateTime(log.editedAt)}
                             {log.editedBy ? ` · ${log.editedBy.name}` : ""}
                           </p>

@@ -9,6 +9,8 @@ import { db } from "@/lib/db";
 import { editCallLog, deleteCallLog } from "./calllogs";
 import { resetDb, makeUser, makeClient, loginAs, logout, formData } from "@/test/fixtures";
 
+const notifsFor = (userId: string) => db.notificationRecipient.count({ where: { userId } });
+
 /** Berilgan vaqtda yozilgan izoh (qo'ng'iroq yozuvi) yaratadi. */
 async function makeLog(
   clientId: string,
@@ -167,5 +169,86 @@ describe("deleteCallLog", () => {
 
     expect(res.ok).toBe(false);
     expect(await db.callLog.findUnique({ where: { id: log.id } })).not.toBeNull();
+  });
+});
+
+describe("editCallLog — mijoz holatini qayta hisoblash (eskalatsiya)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("eng so'nggi yozuv NO_ANSWER→TALKED bo'lsa missedCallCount qayta hisoblanadi", async () => {
+    const admin = await makeUser("ADMIN");
+    const op = await makeUser("OPERATOR");
+    const client = await makeClient();
+    // 3 kun ketma-ket ko'tarmagan — eskalatsiya hisobida 3
+    await makeLog(client.id, op.id, { result: "NO_ANSWER", hoursAgo: 48 });
+    await makeLog(client.id, op.id, { result: "NO_ANSWER", hoursAgo: 24 });
+    const latest = await makeLog(client.id, op.id, { result: "NO_ANSWER", hoursAgo: 0 });
+    await db.client.update({ where: { id: client.id }, data: { missedCallCount: 3 } });
+
+    await loginAs(admin);
+    await editCallLog(latest.id, formData({ result: "TALKED", note: "aslida gaplashildi" }));
+
+    const after = await db.client.findUnique({ where: { id: client.id } });
+    // Eng so'nggi kun endi TALKED — ketma-ketlik uziladi
+    expect(after!.missedCallCount).toBe(0);
+    expect(after!.lastOutcome).toBe("TALKED");
+  });
+
+  it("eng so'nggi BO'LMAGAN yozuv tahrirlansa holat o'zgarmaydi", async () => {
+    const admin = await makeUser("ADMIN");
+    const op = await makeUser("OPERATOR");
+    const client = await makeClient();
+    const older = await makeLog(client.id, op.id, { result: "NO_ANSWER", hoursAgo: 24 });
+    await makeLog(client.id, op.id, { result: "NO_ANSWER", hoursAgo: 0 });
+    await db.client.update({ where: { id: client.id }, data: { missedCallCount: 2 } });
+
+    await loginAs(admin);
+    await editCallLog(older.id, formData({ result: "TALKED", note: "eski yozuv tuzatildi" }));
+
+    const after = await db.client.findUnique({ where: { id: client.id } });
+    expect(after!.missedCallCount).toBe(2); // o'zgarmaydi — eng so'nggi emas
+  });
+});
+
+describe("izoh tahriri/o'chirilishi — asl muallifga xabar", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("admin operator izohini tahrirlasa — operatorga bildirishnoma", async () => {
+    const admin = await makeUser("ADMIN");
+    const op = await makeUser("OPERATOR");
+    const client = await makeClient();
+    const log = await makeLog(client.id, op.id);
+
+    await loginAs(admin);
+    await editCallLog(log.id, formData({ result: "TALKED", note: "tuzatildi" }));
+
+    expect(await notifsFor(op.id)).toBe(1);
+  });
+
+  it("operator O'Z izohini tahrirlasa — o'ziga xabar yubormaydi", async () => {
+    const op = await makeUser("OPERATOR");
+    const client = await makeClient();
+    const log = await makeLog(client.id, op.id);
+
+    await loginAs(op);
+    await editCallLog(log.id, formData({ result: "TALKED", note: "o'zim tuzatdim" }));
+
+    expect(await notifsFor(op.id)).toBe(0);
+  });
+
+  it("admin operator izohini o'chirsa — operatorga bildirishnoma", async () => {
+    const admin = await makeUser("ADMIN");
+    const op = await makeUser("OPERATOR");
+    const client = await makeClient();
+    const log = await makeLog(client.id, op.id, { hoursAgo: 1 });
+
+    await loginAs(admin);
+    await deleteCallLog(log.id);
+
+    expect(await notifsFor(op.id)).toBe(1);
   });
 });

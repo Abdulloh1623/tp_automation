@@ -17,32 +17,10 @@ import {
   type NamedValue,
 } from "./charts/svg";
 import { escapeHtml, type AlbumItem } from "./telegram";
-
-const TZ_MIN = 5 * 60; // UTC+5 (O'zbekiston)
-
-/** UTC+5 kun boshini (real UTC instant) qaytaradi. daysAgo=0 → bugun. */
-export function startOfTzDay(daysAgo = 0): Date {
-  const s = new Date(Date.now() + TZ_MIN * 60000);
-  s.setUTCDate(s.getUTCDate() - daysAgo);
-  s.setUTCHours(0, 0, 0, 0);
-  return new Date(s.getTime() - TZ_MIN * 60000);
-}
-
-/** UTC+5 oy boshini qaytaradi. */
-export function startOfTzMonth(): Date {
-  const s = new Date(Date.now() + TZ_MIN * 60000);
-  s.setUTCDate(1);
-  s.setUTCHours(0, 0, 0, 0);
-  return new Date(s.getTime() - TZ_MIN * 60000);
-}
-
-/** UTC+5 bo'yicha "DD.MM.YYYY". */
-export function tzDateLabel(d = new Date()): string {
-  const s = new Date(d.getTime() + TZ_MIN * 60000);
-  const dd = String(s.getUTCDate()).padStart(2, "0");
-  const mm = String(s.getUTCMonth() + 1).padStart(2, "0");
-  return `${dd}.${mm}.${s.getUTCFullYear()}`;
-}
+// Vaqt mintaqasi yordamchilari yagona manbada (lib/tz.ts) — server+klient uchun.
+// Tashqi importlar (bot.ts va h.k.) buzilmasin uchun shu yerdан re-eksport qilamiz.
+import { TZ_MIN, startOfTzDay, startOfTzMonth, tzDateLabel } from "./tz";
+export { startOfTzDay, startOfTzMonth, tzDateLabel };
 
 type Money = { USD: number; UZS: number };
 function add(m: Money, currency: string, amount: number) {

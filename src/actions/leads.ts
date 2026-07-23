@@ -7,6 +7,7 @@ import { guardRole } from "@/lib/auth";
 import { canMutateClient } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { computeNextPaymentDate } from "@/lib/billing";
+import { tzDayKey } from "@/lib/tz";
 import { autoEscalationTarget, escalationStagePatch, shouldEscalate } from "@/lib/escalation";
 
 const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
@@ -344,7 +345,7 @@ export async function saveLeadCell(
   const seenDays = new Set<string>();
   let consecutiveMissed = 0;
   for (const l of logs) {
-    const key = l.calledAt.toISOString().slice(0, 10);
+    const key = tzDayKey(l.calledAt);
     if (seenDays.has(key)) continue;
     seenDays.add(key);
     if (MISSED_OUTCOMES.includes(l.result as LeadOutcome)) consecutiveMissed += 1;
@@ -445,7 +446,7 @@ export async function revertLeadCell(clientId: string): Promise<RevertCellState>
   const seenDays = new Set<string>();
   let consecutiveMissed = 0;
   for (const l of logs) {
-    const key = l.calledAt.toISOString().slice(0, 10);
+    const key = tzDayKey(l.calledAt);
     if (seenDays.has(key)) continue;
     seenDays.add(key);
     if (MISSED_OUTCOMES.includes(l.result as LeadOutcome)) consecutiveMissed += 1;

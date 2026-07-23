@@ -7,6 +7,7 @@ import { guardRole } from "@/lib/auth";
 import { canMutateClient } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { createNotification } from "@/lib/notifications";
+import { tzDayKey } from "@/lib/tz";
 import { CALL_RESULT, MISSED_OUTCOMES, callResultLabel, type LeadOutcome } from "@/lib/constants";
 import { noteString, toFieldErrors } from "@/lib/validation";
 
@@ -31,7 +32,7 @@ async function recomputeMissedCount(clientId: string): Promise<number> {
   const seenDays = new Set<string>();
   let consecutiveMissed = 0;
   for (const l of logs) {
-    const key = l.calledAt.toISOString().slice(0, 10);
+    const key = tzDayKey(l.calledAt);
     if (seenDays.has(key)) continue;
     seenDays.add(key);
     if (MISSED_OUTCOMES.includes(l.result as LeadOutcome)) consecutiveMissed += 1;

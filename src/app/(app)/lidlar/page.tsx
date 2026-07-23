@@ -9,10 +9,9 @@ import { OperatorProgress } from "@/components/operator-progress";
 import { getOperatorDailyStats } from "@/lib/analytics";
 import { ACTIVE_STAGES, NO_CONTACT_STAGES } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
+import { tzDayKey } from "@/lib/tz";
 
 type SearchParams = Promise<{ operator?: string }>;
-
-const TODAY = new Date().toISOString().slice(0, 10);
 
 export default async function LeadsPage({
   searchParams,
@@ -25,6 +24,9 @@ export default async function LeadsPage({
   const viewerId = isAdmin && operator ? operator : session.userId;
   const today = endOfDay(new Date());
   const todayStart = startOfDay(new Date());
+  // Bugun — Toshkent (UTC+5) taqvim kuni, so'rov paytida hisoblanadi (modul
+  // darajasida EMAS — aks holda server jarayonida sana "muzlab" qolardi).
+  const todayKey = tzDayKey(new Date());
 
   const [leadsRaw, operators, dailyStats] = await Promise.all([
     db.client.findMany({
@@ -77,7 +79,7 @@ export default async function LeadsPage({
     // Kun bo'yicha eng so'nggi yozuv (bir kun = bir katak)
     const byDay = new Map<string, LeadHistory>();
     for (const l of c.callLogs) {
-      const date = l.calledAt.toISOString().slice(0, 10);
+      const date = tzDayKey(l.calledAt);
       if (!byDay.has(date)) {
         byDay.set(date, {
           date,
@@ -88,7 +90,7 @@ export default async function LeadsPage({
       }
     }
     const history = [...byDay.values()];
-    const todayEntry = byDay.get(TODAY) ?? null;
+    const todayEntry = byDay.get(todayKey) ?? null;
 
     const overdue =
       c.status === "ACTIVE" && !!c.nextPaymentDate && c.nextPaymentDate < todayStart;

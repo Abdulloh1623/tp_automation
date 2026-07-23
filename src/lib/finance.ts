@@ -138,17 +138,25 @@ export async function getFinanceOverview(monthsBack = 12): Promise<FinanceOvervi
     let newCount = 0;
     let lostCount = 0;
     let activeAtStart = 0;
+    // Churn KOHORTI: oy boshida faol bo'lib, shu oyda ketganlar. churnRate faqat
+    // shu populatsiya bo'yicha hisoblanadi — aks holda shu oy kelib-ketgan mijoz
+    // suratni oshirib, nisbatni 100% dan chiqarib yuborardi.
+    let churnedFromStart = 0;
     const monthMrr = emptyMoney();
 
     for (const c of clients) {
       const created = c.createdAt;
       const deact = c.deactivatedAt;
+      const churnedThisMonth = !!deact && deact >= from && deact <= to;
 
       if (created >= from && created <= to) newCount += 1;
-      if (deact && deact >= from && deact <= to) lostCount += 1;
+      if (churnedThisMonth) lostCount += 1;
 
       // Oy boshida faol edimi (churn undan keyin bo'lgan yoki umuman bo'lmagan)
-      if (created < from && (!deact || deact >= from)) activeAtStart += 1;
+      if (created < from && (!deact || deact >= from)) {
+        activeAtStart += 1;
+        if (churnedThisMonth) churnedFromStart += 1;
+      }
 
       // Oy oxiridagi MRR — o'sha vaqtda mavjud (yaratilgan, hali churn bo'lmagan)
       // va oyligi bor mijozlar. Tarixiy summalar saqlanmagani uchun joriy
@@ -158,7 +166,7 @@ export async function getFinanceOverview(monthsBack = 12): Promise<FinanceOvervi
       }
     }
 
-    const churnRate = activeAtStart > 0 ? (lostCount / activeAtStart) * 100 : 0;
+    const churnRate = activeAtStart > 0 ? (churnedFromStart / activeAtStart) * 100 : 0;
     months.push({
       key: `${from.getFullYear()}-${String(from.getMonth() + 1).padStart(2, "0")}`,
       label: UZBEK_MONTHS[from.getMonth()],

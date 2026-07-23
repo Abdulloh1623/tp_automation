@@ -71,7 +71,13 @@ export async function confirmPendingPayment(
   // mijozning keyingi to'lov sanasi SURILMAYDI — u import oxirida bir marta
   // qayta hisoblanadi. Batafsil: lib/payment-core.ts → PaymentOptions.
   const isHistorical = pending.source === "HISTORY";
-  if (isHistorical && !fields.paidAt && pending.occurredAt) {
+  if (isHistorical && !fields.paidAt) {
+    // Tarixiy chek o'z sanasi bilan yozilishi SHART — aks holda `paidAt=bugun`
+    // bo'lib qamrov (periodEnd) noto'g'ri hisoblanadi. `occurredAt` bo'lsa undan,
+    // bo'lmasa operatordan sana talab qilamiz.
+    if (!pending.occurredAt) {
+      return { error: "Tarixiy chek sanasi aniqlanmadi — to'lov sanasini kiriting" };
+    }
     fields.paidAt = pending.occurredAt.toISOString();
   }
 

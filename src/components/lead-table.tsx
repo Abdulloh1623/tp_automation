@@ -517,7 +517,9 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
             <HistoryView lead={modal.lead} day={modal.day} />
           )}
           {modal.type === "fullHistory" && <FullHistoryView lead={modal.lead} />}
-          {modal.type === "clientInfo" && <ClientInfoView info={modal.info} />}
+          {modal.type === "clientInfo" && (
+            <ClientInfoView info={modal.info} onNavigate={() => setModal(null)} />
+          )}
         </ModalOverlay>
       )}
 

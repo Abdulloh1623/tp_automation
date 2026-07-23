@@ -6,8 +6,11 @@ import { MaintenanceScreen } from "@/components/maintenance-screen";
 
 export default async function AppLayout({
   children,
+  modal,
 }: {
   children: React.ReactNode;
+  // `@modal` parallel slot — intercepting route (mijoz profili) overlay sifatida.
+  modal: React.ReactNode;
 }) {
   const session = await requireSession();
 
@@ -25,6 +28,7 @@ export default async function AppLayout({
   return (
     <AppShell user={{ name: session.name, role: session.role }} badges={badges}>
       {children}
+      {modal}
     </AppShell>
   );
 }

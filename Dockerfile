@@ -4,7 +4,11 @@
 # Migrate:  npm run db:deploy
 
 # ---- Builder: to'liq bog'liqliklar bilan quradi ----
-FROM node:20-bookworm-slim AS builder
+# Node 22 LTS (Jod). 22.15+ da Node webstreams'dagi TransformStream race tuzatilgan:
+# streaming SSR (React 19) paytida mijoz ulanishni uzsa "controller[kState].
+# transformAlgorithm is not a function" otilardi. To'liq versiyaga pin (reproducible;
+# Dependabot yangilaydi).
+FROM node:22.23.1-bookworm-slim AS builder
 WORKDIR /app
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
@@ -15,7 +19,7 @@ COPY . .
 RUN npx prisma generate && npm run build
 
 # ---- Runner: faqat prod bog'liqliklar (vitest/playwright/eslint yo'q) ----
-FROM node:20-bookworm-slim AS runner
+FROM node:22.23.1-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV TZ=Asia/Tashkent

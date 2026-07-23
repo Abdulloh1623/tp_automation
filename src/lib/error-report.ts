@@ -15,6 +15,20 @@ const TZ = "Asia/Tashkent";
 const WINDOW_MS = 60_000; // bir xil xato shu oraliqda takror yuborilmaydi
 
 /**
+ * Streaming SSR (React 19) paytida mijoz ulanishni uzganda Node webstreams
+ * qatlamida chiqadigan zararsiz race xatosimi? Javob oqimi allaqachon
+ * uzilgan bo'ladi — foydalanuvchi ta'sirlanmaydi, shuning uchun xato kanaliga
+ * yubormaymiz (Node 22.15+ da tuzatilgan, lekin himoya bo'lib qoladi).
+ */
+export function isBenignStreamAbort(error: unknown): boolean {
+  const e = error as { message?: unknown } | null;
+  const msg = typeof e?.message === "string" ? e.message : "";
+  return /transformAlgorithm is not a function|Invalid state: (Controller|TransformStream|Writable|Readable)/i.test(
+    msg,
+  );
+}
+
+/**
  * Xato kanalini aniqlaydi: maxsus xato kanali → backup kanali → asosiy kanal.
  * Hech biri bo'lmasa null (faqat konsolga yoziladi).
  */
@@ -84,6 +98,9 @@ export async function reportError(error: unknown, ctx: ErrorContext = {}): Promi
   // O'tkinchi DB-ulanish uzilishi (deploy/restart) — bug emas, kanalga
   // yuborilmaydi (konsol izi yetarli). withDbRetry baribir qayta uriladi.
   if (isTransientDbError(error)) return;
+  // Mijoz streaming render'ni yarmida uzganda chiqadigan zararsiz stream race —
+  // kanalga yubormaymiz (soxta signal).
+  if (isBenignStreamAbort(error)) return;
   try {
     // Dev/test xatolari kanalga ketmasin — Telegram faqat prod uchun
     if (process.env.NODE_ENV !== "production") return;

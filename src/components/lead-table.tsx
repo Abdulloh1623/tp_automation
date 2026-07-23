@@ -479,7 +479,11 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
       )}
 
       {modal && (
-        <ModalOverlay onClose={() => setModal(null)}>
+        <ModalOverlay
+          onClose={() => setModal(null)}
+          blur={modal.type === "clientInfo"}
+          size={modal.type === "clientInfo" ? "sm" : "md"}
+        >
           {modal.type === "specialView" && (
             <SpecialView
               lead={modal.lead}
@@ -1115,17 +1119,27 @@ function TarixTable({
 function ModalOverlay({
   children,
   onClose,
+  blur = false,
+  size = "md",
 }: {
   children: React.ReactNode;
   onClose: () => void;
+  /** Orqadagi oynani xiralashtiradi (mijoz profili uchun). */
+  blur?: boolean;
+  /** Panel kengligi: "sm" — kichikroq ko'rinish. */
+  size?: "sm" | "md";
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${
+        blur ? "bg-black/25 backdrop-blur-md" : "bg-black/40"
+      }`}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-lg"
+        className={`w-full ${
+          size === "sm" ? "max-w-sm" : "max-w-md"
+        } rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-lg`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-2 flex justify-end">

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { ChevronUp, ChevronDown, ChevronsUpDown, Phone, UserCheck, X } from "lucide-react";
 import { bulkAssignOperator } from "@/actions/clients";
@@ -14,6 +13,7 @@ import { PhoneCopyButton } from "@/components/phone-copy";
 import { SpecialNoteBell } from "@/components/special-note-bell";
 import { SoliqConnectDialog } from "@/components/soliq-connect-dialog";
 import { ClientNotFound } from "@/components/add-client-link";
+import { ClientQuickView } from "@/components/client-quick-view";
 
 export type ClientRow = {
   id: string;
@@ -206,10 +206,10 @@ export function ClientsTable({
                 )}
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5">
-                    <Link href={`/mijozlar/${c.id}`} className="block min-w-0">
+                    <ClientQuickView id={c.id} className="block min-w-0">
                       <div className="font-medium text-slate-900 dark:text-slate-100">{c.restaurantName || c.fullName || "—"}</div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">{c.fullName}</div>
-                    </Link>
+                    </ClientQuickView>
                     <SpecialNoteBell
                       clientId={c.id}
                       restaurantName={c.restaurantName || c.fullName}
@@ -275,10 +275,10 @@ export function ClientsTable({
               )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <Link href={`/mijozlar/${c.id}`} className="block min-w-0">
+                  <ClientQuickView id={c.id} className="block min-w-0">
                     <div className="font-medium text-slate-900 dark:text-slate-100">{c.restaurantName || c.fullName || "—"}</div>
                     <div className="text-xs text-slate-500 dark:text-slate-400">{c.fullName}</div>
-                  </Link>
+                  </ClientQuickView>
                   <SpecialNoteBell
                     clientId={c.id}
                     restaurantName={c.restaurantName || c.fullName}

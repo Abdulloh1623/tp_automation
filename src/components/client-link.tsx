@@ -1,10 +1,10 @@
-import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { ClientQuickView } from "@/components/client-quick-view";
 
 /**
- * Mijoz nomini profil sahifasiga (`/mijozlar/[id]`) havola qiladi — barcha
- * bo'limlarda (muammolar, eskalatsiya, otkaz, qaytarish, takliflar, to'lovlar…)
- * bir xil ko'rinish va bosiladigan havola bo'lishi uchun umumiy komponent.
+ * Mijoz nomi — barcha bo'limlarda (muammolar, eskalatsiya, otkaz, qaytarish,
+ * takliflar, to'lovlar, soliq…) bir xil ko'rinish. Bosilganda orqa fon
+ * xiralashib (blur), kichik "tez ko'rish" modali ochiladi (profil sahifasiga
+ * o'tmasdan). Ctrl/Cmd/o'rta-tugma bilan bosilsa — profilga oddiy navigatsiya.
  */
 export function ClientLink({
   id,
@@ -15,15 +15,5 @@ export function ClientLink({
   name: string;
   className?: string;
 }) {
-  return (
-    <Link
-      href={`/mijozlar/${id}`}
-      className={cn(
-        "font-medium text-slate-900 hover:text-primary-600 hover:underline dark:text-slate-100 dark:hover:text-primary-400",
-        className,
-      )}
-    >
-      {name}
-    </Link>
-  );
+  return <ClientQuickView id={id} name={name} className={className} />;
 }

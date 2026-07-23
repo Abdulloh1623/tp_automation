@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { ClientQuickView } from "@/components/client-quick-view";
 import {
   Phone,
   Wrench,
@@ -165,12 +165,11 @@ export default async function TicketsPage({
           <div className="min-w-0">
             <div className="font-medium text-slate-900 dark:text-slate-100">{t.title}</div>
             <span className="inline-flex items-center gap-1.5">
-              <Link
-                href={`/mijozlar/${t.client.id}`}
+              <ClientQuickView
+                id={t.client.id}
+                name={t.client.restaurantName}
                 className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700"
-              >
-                {t.client.restaurantName}
-              </Link>
+              />
               <SpecialNoteBell
                 clientId={t.client.id}
                 restaurantName={t.client.restaurantName || t.client.fullName}

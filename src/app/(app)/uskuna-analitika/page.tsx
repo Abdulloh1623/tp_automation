@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ClientQuickView } from "@/components/client-quick-view";
 import {
   Warehouse,
   HardHat,
@@ -250,12 +251,11 @@ function DetailPanel({
                 {d.topClients.map((c) => (
                   <Tr key={c.id}>
                     <td className="py-2">
-                      <Link
-                        href={`/mijozlar/${c.id}`}
+                      <ClientQuickView
+                        id={c.id}
+                        name={c.name}
                         className="text-primary-600 hover:underline dark:text-primary-400"
-                      >
-                        {c.name}
-                      </Link>
+                      />
                     </td>
                     <Td>{c.rental}</Td>
                     <Td>{c.sold}</Td>
@@ -392,12 +392,11 @@ function RuleList({
                     className="border-b border-slate-100 last:border-0 dark:border-slate-800"
                   >
                     <td className="py-1.5 pr-2">
-                      <Link
-                        href={`/mijozlar/${c.id}`}
+                      <ClientQuickView
+                        id={c.id}
+                        name={c.restaurantName}
                         className="text-primary-600 hover:underline dark:text-primary-400"
-                      >
-                        {c.restaurantName}
-                      </Link>
+                      />
                     </td>
                     <td className="py-1.5 pr-2 text-right tabular-nums text-slate-600 dark:text-slate-300">
                       {formatMoney(c.monthlyAmount, c.currency)}

@@ -40,13 +40,11 @@ import {
   LEAD_OUTCOME,
   leadOutcomeLabel,
   leadStageLabel,
-  clientStatusLabel,
-  equipmentModeLabel,
-  ownershipLabel,
 } from "@/lib/constants";
 import { formatMoney, formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 import { tzDayKey } from "@/lib/tz";
 import { PhoneCopyButton } from "@/components/phone-copy";
+import { ClientInfoView } from "@/components/client-quick-view";
 import { buildCsv, downloadCsv } from "@/lib/csv-export";
 import { confirmDialog } from "@/components/confirm-dialog";
 import { toast } from "@/components/toaster";
@@ -1196,121 +1194,7 @@ function HistoryView({ lead, day }: { lead: LeadRow; day: LeadHistory }) {
   );
 }
 
-/* Mijoz ma'lumotlari — lid jadvalida nomga bosilganda profilga kirmasdan ko'rish */
-function ClientInfoView({ info }: { info: ClientInfoData }) {
-  const InfoItem = ({ label, value }: { label: string; value: React.ReactNode }) => (
-    <div>
-      <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
-      <div className="text-sm text-slate-800 dark:text-slate-100">{value ?? "—"}</div>
-    </div>
-  );
-
-  return (
-    <div>
-      <h3 className="mb-0.5 text-base font-semibold text-slate-900 dark:text-slate-100">
-        {info.restaurantName}
-      </h3>
-      <p className="text-xs text-slate-500 dark:text-slate-400">
-        {info.fullName} · {clientStatusLabel(info.status)}
-      </p>
-
-      <div className="mt-3 max-h-[65vh] space-y-3 overflow-y-auto pr-1">
-        <div className="grid grid-cols-2 gap-3">
-          <InfoItem
-            label="Asosiy telefon"
-            value={
-              <span className="inline-flex items-center gap-1">
-                <a
-                  href={`tel:${normalizePhone(info.phone)}`}
-                  className="text-primary-600 dark:text-primary-400"
-                >
-                  {formatPhone(info.phone)}
-                </a>
-                <PhoneCopyButton phone={info.phone} />
-              </span>
-            }
-          />
-          {info.phones.map((p, i) => (
-            <InfoItem
-              key={i}
-              label={p.label}
-              value={
-                <span className="inline-flex items-center gap-1">
-                  <a
-                    href={`tel:${normalizePhone(p.number)}`}
-                    className="text-primary-600 dark:text-primary-400"
-                  >
-                    {formatPhone(p.number)}
-                  </a>
-                  <PhoneCopyButton phone={p.number} />
-                </span>
-              }
-            />
-          ))}
-          <InfoItem label="Viloyat" value={info.region} />
-          <InfoItem label="Operator" value={info.operatorName} />
-          <InfoItem label="Shartnoma raqami" value={info.contractNumber} />
-          <InfoItem
-            label="Shartnoma sanasi"
-            value={info.contractDate ? formatDate(info.contractDate) : null}
-          />
-          <InfoItem label="Kim o'rnatgan" value={info.installerName} />
-          <InfoItem label="Texnika" value={equipmentModeLabel(info.equipmentMode)} />
-          <InfoItem label="Apparat" value={info.equipment} />
-          <InfoItem label="Monoblok soni" value={String(info.monoblokCount)} />
-          <InfoItem
-            label="Oylik to'lov"
-            value={formatMoney(info.monthlyAmount, info.currency)}
-          />
-          <InfoItem
-            label="Keyingi to'lov"
-            value={info.nextPaymentDate ? formatDate(info.nextPaymentDate) : null}
-          />
-          <InfoItem
-            label="Oxirgi to'lov"
-            value={
-              info.lastPayment
-                ? `${formatMoney(info.lastPayment.amount, info.lastPayment.currency)} · ${formatDate(info.lastPayment.paidAt)}`
-                : null
-            }
-          />
-        </div>
-
-        {info.equipmentItems.length > 0 && (
-          <div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">Uskunalar</div>
-            <ul className="mt-1 space-y-0.5 text-sm text-slate-800 dark:text-slate-100">
-              {info.equipmentItems.map((e, i) => (
-                <li key={i}>
-                  {e.name} × {e.quantity}{" "}
-                  <span className="text-xs text-slate-400 dark:text-slate-500">
-                    ({ownershipLabel(e.ownership)})
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {info.notes && (
-          <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 p-3">
-            <div className="text-xs text-slate-500 dark:text-slate-400">Izoh</div>
-            <p className="mt-0.5 text-sm text-slate-700 dark:text-slate-200">{info.notes}</p>
-          </div>
-        )}
-      </div>
-
-      <div className="mt-3">
-        <a
-          href={`/mijozlar/${info.id}`}
-          className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700"
-        >
-          To'liq profil <ArrowUpRight className="h-3.5 w-3.5" />
-        </a>
-      </div>
-    </div>
-  );
-}
+/* ClientInfoView endi @/components/client-quick-view da (barcha bo'limlar uchun umumiy). */
 
 /* Mijozning to'liq aloqa tarixi — oldingi kunlarni izohlari bilan scroll qilib ko'rish */
 function FullHistoryView({ lead }: { lead: LeadRow }) {

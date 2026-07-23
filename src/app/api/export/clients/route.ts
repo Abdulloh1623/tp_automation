@@ -13,7 +13,7 @@ function numStr(n: number): string {
 }
 
 export async function GET() {
-  const auth = await requireApiSession(["ADMIN", "OPERATOR"]);
+  const auth = await requireApiSession(["ADMIN", "MANAGER", "OPERATOR"]);
   if (!auth.ok) {
     return new Response(auth.status === 401 ? "Unauthorized" : "Forbidden", {
       status: auth.status,

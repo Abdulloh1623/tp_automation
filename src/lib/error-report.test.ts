@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatErrorReport, shouldSend } from "./error-report";
+import { formatErrorReport, shouldSend, isBenignStreamAbort } from "./error-report";
 
 const now = new Date("2026-06-26T09:30:00Z");
 
@@ -57,5 +57,24 @@ describe("shouldSend — spam himoyasi (throttle)", () => {
   it("har xil signature mustaqil", () => {
     expect(shouldSend("sig-C", 1_000, 60_000)).toBe(true);
     expect(shouldSend("sig-D", 1_000, 60_000)).toBe(true);
+  });
+});
+
+describe("isBenignStreamAbort — streaming uzilish shovqinini filtrlash", () => {
+  it("Node webstreams transformAlgorithm race'ni zararsiz deb biladi", () => {
+    const err = new TypeError(
+      "controller[kState].transformAlgorithm is not a function",
+    );
+    expect(isBenignStreamAbort(err)).toBe(true);
+  });
+
+  it("stream 'Invalid state' xatolarini ham filtrlaydi", () => {
+    expect(isBenignStreamAbort(new TypeError("Invalid state: Controller is already closed"))).toBe(true);
+  });
+
+  it("oddiy (haqiqiy) xatoni filtrlamaydi", () => {
+    expect(isBenignStreamAbort(new Error("baza yiqildi"))).toBe(false);
+    expect(isBenignStreamAbort(null)).toBe(false);
+    expect(isBenignStreamAbort("satr")).toBe(false);
   });
 });

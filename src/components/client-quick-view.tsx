@@ -16,7 +16,15 @@ import { PhoneCopyButton } from "@/components/phone-copy";
 import { getClientInfo, type ClientInfoData } from "@/actions/leads";
 
 /** Mijoz ma'lumotlari (faqat o'qish) — tez ko'rish modalining tarkibi. */
-export function ClientInfoView({ info }: { info: ClientInfoData }) {
+export function ClientInfoView({
+  info,
+  onNavigate,
+}: {
+  info: ClientInfoData;
+  /** "To'liq profil" bosilganda chaqiriladi — tez-ko'rish modalini yopish uchun
+   *  (profil modali ustma-ust chiqmasin). */
+  onNavigate?: () => void;
+}) {
   const InfoItem = ({ label, value }: { label: string; value: React.ReactNode }) => (
     <div>
       <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
@@ -122,6 +130,7 @@ export function ClientInfoView({ info }: { info: ClientInfoData }) {
       <div className="mt-3">
         <Link
           href={`/mijozlar/${info.id}`}
+          onClick={() => onNavigate?.()}
           className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700"
         >
           To'liq profil <ArrowUpRight className="h-3.5 w-3.5" />
@@ -238,7 +247,7 @@ export function ClientQuickView({
       {open && (
         <QuickViewModal onClose={() => setOpen(false)}>
           {info ? (
-            <ClientInfoView info={info} />
+            <ClientInfoView info={info} onNavigate={() => setOpen(false)} />
           ) : error ? (
             <p className="py-8 text-center text-sm text-rose-600 dark:text-rose-400">{error}</p>
           ) : (

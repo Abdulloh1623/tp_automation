@@ -19,8 +19,9 @@ const nextConfig: NextConfig = {
     // MVP bosqichida buildni to'xtatmaslik uchun; keyin yoqiladi.
     ignoreBuildErrors: false,
   },
-  // Native modul (resvg) server bundle'ga kirmasin
-  serverExternalPackages: ["@resvg/resvg-js"],
+  // Native/runtime modullar server bundle'ga kirmasin (resvg = native binar;
+  // pino = runtime'da require qilinsin, aks holda bundling dinamik require'larni buzadi).
+  serverExternalPackages: ["@resvg/resvg-js", "pino"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

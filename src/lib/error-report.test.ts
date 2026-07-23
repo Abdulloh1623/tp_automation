@@ -23,6 +23,11 @@ describe("formatErrorReport", () => {
     expect(msg).toContain("POST");
   });
 
+  it("so'rov-ID (requestId) berilsa xabarga qo'shadi", () => {
+    const msg = formatErrorReport(new Error("x"), { requestId: "abc-123" }, now);
+    expect(msg).toContain("abc-123");
+  });
+
   it("HTML maxsus belgilarni ekranlaydi (injection himoyasi)", () => {
     const msg = formatErrorReport(new Error("<script>alert(1)</script>"), {}, now);
     expect(msg).not.toContain("<script>");

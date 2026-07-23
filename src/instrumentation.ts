@@ -2,7 +2,11 @@
 // route handler (route), server action (action) va middleware.
 // https://nextjs.org/docs/app/api-reference/file-conventions/instrumentation
 
-type RequestInfo = { path?: string; method?: string };
+type RequestInfo = {
+  path?: string;
+  method?: string;
+  headers?: Record<string, string | string[] | undefined>;
+};
 type ErrorCtx = { routerKind?: string; routePath?: string; routeType?: string };
 
 export async function onRequestError(
@@ -12,10 +16,12 @@ export async function onRequestError(
 ): Promise<void> {
   // Dinamik import — bu modul edge'da ham yuklanishi mumkin, og'ir bog'liqliklarni lazy qilamiz.
   const { reportError } = await import("@/lib/error-report");
+  const rid = request?.headers?.["x-request-id"];
   await reportError(error, {
     source: "server",
     path: context?.routePath || request?.path,
     method: request?.method,
     routeType: context?.routeType,
+    requestId: typeof rid === "string" ? rid : undefined,
   });
 }

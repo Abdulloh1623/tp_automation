@@ -45,6 +45,7 @@ import {
   ownershipLabel,
 } from "@/lib/constants";
 import { formatMoney, formatDate, formatPhone, normalizePhone } from "@/lib/utils";
+import { tzDayKey } from "@/lib/tz";
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { buildCsv, downloadCsv } from "@/lib/csv-export";
 import { confirmDialog } from "@/components/confirm-dialog";
@@ -98,8 +99,6 @@ const OUTCOME_CELL: Record<string, string> = {
   REFUSED: "text-rose-600 dark:text-rose-400",
   DEACTIVATED: "text-slate-500 dark:text-slate-400",
 };
-
-const TODAY = new Date().toISOString().slice(0, 10);
 
 // Restoran nomi bo'sh (to'ldirilmagan) mijozlar uchun bosiladigan yorliq
 function leadName(r: LeadRow): string {
@@ -163,8 +162,9 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
 
   // Tarix rejimi uchun kun ustunlari (bugundan tashqari, o'sib boruvchi)
   const dayColumns = useMemo(() => {
+    const today = tzDayKey(new Date());
     const set = new Set<string>();
-    for (const r of rows) for (const h of r.history) if (h.date !== TODAY) set.add(h.date);
+    for (const r of rows) for (const h of r.history) if (h.date !== today) set.add(h.date);
     return [...set].sort();
   }, [rows]);
 
@@ -251,7 +251,7 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
           todayNote: null,
           pendingStage: null,
           missedCallCount: res.missedCallCount ?? 0,
-          history: row.history.filter((h) => h.date !== TODAY),
+          history: row.history.filter((h) => h.date !== tzDayKey(new Date())),
         });
         toast("Bugungi natija qaytarildi", "success");
       } else {

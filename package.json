@@ -19,6 +19,7 @@
     "create-admin": "tsx scripts/create-admin.ts",
     "fix-payment-dates": "tsx scripts/fix-payment-dates.ts",
     "reset-board-stats": "tsx scripts/reset-board-stats.ts",
+    "clear-inventory-history": "tsx scripts/clear-inventory-history.ts",
     "sync-biznex": "tsx scripts/sync-biznex.ts",
     "test:import": "tsx scripts/test-import-logic.ts",
     "bot": "tsx scripts/bot.ts",

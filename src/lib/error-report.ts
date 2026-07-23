@@ -2,12 +2,14 @@
 // onRequestError (instrumentation), worker (cron) va boshqa joylardan chaqiriladi.
 import { botToken, sendMessage, escapeHtml, backupChannelId, channelId } from "./telegram";
 import { isTransientDbError } from "./db-errors";
+import { logger } from "./logger";
 
 export type ErrorContext = {
   source?: string; // "server" | "worker" | "client" ...
   path?: string; // URL yo'li yoki job nomi
   method?: string;
   routeType?: string; // render | route | action | middleware
+  requestId?: string; // so'rov-ID (x-request-id) — loglarni bog'lash uchun
   extra?: string;
 };
 
@@ -62,6 +64,7 @@ export function formatErrorReport(error: unknown, ctx: ErrorContext, now: Date):
     "🔴 <b>Xatolik</b> — TP Automation",
     `🕒 ${escapeHtml(tashkentTime(now))}`,
     where ? `📍 ${escapeHtml(where)}` : null,
+    ctx.requestId ? `🔗 ${escapeHtml(ctx.requestId)}` : null,
     `❗ <b>${escapeHtml(e.name)}</b>: ${escapeHtml(e.message.slice(0, 500))}`,
     ctx.extra ? `ℹ️ ${escapeHtml(ctx.extra.slice(0, 300))}` : null,
     stack ? `<pre>${escapeHtml(stack.slice(0, 1500))}</pre>` : null,
@@ -94,7 +97,19 @@ function signatureOf(error: unknown, ctx: ErrorContext): string {
  */
 export async function reportError(error: unknown, ctx: ErrorContext = {}): Promise<void> {
   const e = error instanceof Error ? error : new Error(String(error));
-  console.error(`[error-report] ${ctx.source ?? ""} ${ctx.path ?? ""}:`, e);
+  // Strukturalangan JSON log — har doim (Telegram yuborilmasa ham). requestId
+  // orqali bu yozuvni o'sha so'rovning boshqa loglariga bog'lash mumkin.
+  logger.error(
+    {
+      err: e,
+      source: ctx.source,
+      path: ctx.path,
+      method: ctx.method,
+      routeType: ctx.routeType,
+      requestId: ctx.requestId,
+    },
+    "so'rov xatosi",
+  );
   // O'tkinchi DB-ulanish uzilishi (deploy/restart) — bug emas, kanalga
   // yuborilmaydi (konsol izi yetarli). withDbRetry baribir qayta uriladi.
   if (isTransientDbError(error)) return;
@@ -111,6 +126,6 @@ export async function reportError(error: unknown, ctx: ErrorContext = {}): Promi
     if (!chat) return;
     await sendMessage(chat, formatErrorReport(error, ctx, new Date(now)));
   } catch (sendErr) {
-    console.error("[error-report] Telegram'ga yuborib bo'lmadi:", sendErr);
+    logger.warn({ err: sendErr }, "xatoni Telegram'ga yuborib bo'lmadi");
   }
 }

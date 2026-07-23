@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { decodeSession, SESSION_COOKIE_NAME } from "@/lib/session";
 import { canAccess, roleHome } from "@/lib/rbac";
 import { buildCsp, generateNonce, NONCE_HEADER } from "@/lib/csp";
+import { REQUEST_ID_HEADER } from "@/lib/request-id";
 
 const PUBLIC_PATHS = ["/login", "/api/health"];
 
@@ -13,13 +14,19 @@ export async function middleware(req: NextRequest) {
   const nonce = generateNonce();
   const csp = buildCsp(nonce, process.env.NODE_ENV !== "production");
 
+  // So'rov-ID — log/xatolarni bir so'rov bo'yicha bog'lash uchun. Yuqori oqimdan
+  // (proxy) kelgan bo'lsa saqlanadi, bo'lmasa yangi yaratiladi.
+  const requestId = req.headers.get(REQUEST_ID_HEADER) || crypto.randomUUID();
+
   const reqHeaders = new Headers(req.headers);
   reqHeaders.set(NONCE_HEADER, nonce);
   reqHeaders.set("content-security-policy", csp);
+  reqHeaders.set(REQUEST_ID_HEADER, requestId);
 
-  /** Redirect/next javobiga CSP qo'shadi. */
+  /** Redirect/next javobiga CSP va so'rov-ID qo'shadi. */
   const withCsp = (res: NextResponse) => {
     res.headers.set("content-security-policy", csp);
+    res.headers.set(REQUEST_ID_HEADER, requestId);
     return res;
   };
   const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;

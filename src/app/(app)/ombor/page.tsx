@@ -16,7 +16,8 @@ export default async function OmborPage({
 }: {
   searchParams: SearchParams;
 }) {
-  await requireRole(["ADMIN", "MANAGER"]);
+  const session = await requireRole(["ADMIN", "MANAGER"]);
+  const isAdmin = session.role === "ADMIN";
   const sp = await searchParams;
   const movType = sp.movType ?? "";
   const movReason = sp.movReason ?? "";
@@ -166,6 +167,7 @@ export default async function OmborPage({
         types={types.map((t) => ({ id: t.id, name: t.name }))}
         ustalar={ustalar}
         filter={{ type: movType, reason: movReason, days: String(movDays) }}
+        isAdmin={isAdmin}
       />
     </div>
   );

@@ -36,6 +36,7 @@ export type MovementRow = {
 export const MOVEMENT_REASONS = [
   "Kirim",
   "Ustaga taqsimot",
+  "Ustaga qo'lda qo'shildi",
   "Ustadan qaytarish",
   "Inventarizatsiya",
   "Brak",

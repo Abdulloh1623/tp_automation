@@ -59,24 +59,33 @@ export default async function TicketsPage({
   // muammolarni ko'radi; ADMIN/MANAGER esa barchasini (va biriktiradi).
   const scope = assignedStaffScope(session.role, session.userId, "assignedStaffId");
 
-  const where: Prisma.TicketWhereInput = { ...scope };
-  if (type) where.type = type;
-  if (priority) where.priority = priority;
+  // Filtr shartlari (turi/ustuvorlik/mas'ul) — ham ro'yxatga, ham tab sonlariga
+  // BIR XIL qo'llanadi. AND massivida saqlanadi: mas'ul filtri OR ishlatgani
+  // uchun bo'lim scope'laridagi (Yangi/Biriktirilgan) OR bilan to'qnashmasin.
+  const filterAnd: Prisma.TicketWhereInput[] = [];
+  if (type) filterAnd.push({ type });
+  if (priority) filterAnd.push({ priority });
   // Mas'ul (xodim yoki usta) bo'yicha filtr — faqat boshqaruv rollari uchun.
   if (assignee && canAssign) {
-    where.OR = [{ assignedStaffId: assignee }, { assignedUstaId: assignee }];
+    filterAnd.push({
+      OR: [{ assignedStaffId: assignee }, { assignedUstaId: assignee }],
+    });
   }
 
-  // Bo'lim (Yangi/Biriktirilgan/Hal) sanog'i — QAMROV bo'yicha (filtrdan mustaqil),
-  // tab'lardagi sonlar doim barqaror ko'rinsin.
+  const where: Prisma.TicketWhereInput = { ...scope, AND: filterAnd };
+
+  // Bo'lim (Yangi/Biriktirilgan/Hal) sanog'i — endi filtrga MOS (turi/ustuvorlik/
+  // mas'ul tanlanganda tab sonlari ham shunga qarab o'zgaradi).
   const unassignedScope: Prisma.TicketWhereInput = {
     ...scope,
+    AND: filterAnd,
     status: { not: "RESOLVED" },
     assignedStaffId: null,
     assignedUstaId: null,
   };
   const assignedScope: Prisma.TicketWhereInput = {
     ...scope,
+    AND: filterAnd,
     status: { not: "RESOLVED" },
     OR: [{ assignedStaffId: { not: null } }, { assignedUstaId: { not: null } }],
   };
@@ -137,9 +146,14 @@ export default async function TicketsPage({
     }),
     db.ticket.count({ where: unassignedScope }),
     db.ticket.count({ where: assignedScope }),
-    db.ticket.count({ where: { ...scope, status: "RESOLVED" } }),
+    db.ticket.count({ where: { ...scope, AND: filterAnd, status: "RESOLVED" } }),
     db.ticket.count({
-      where: { ...scope, status: { not: "RESOLVED" }, createdAt: { lt: slaThreshold() } },
+      where: {
+        ...scope,
+        AND: filterAnd,
+        status: { not: "RESOLVED" },
+        createdAt: { lt: slaThreshold() },
+      },
     }),
   ]);
 

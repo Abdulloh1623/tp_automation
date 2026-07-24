@@ -50,6 +50,24 @@ model User {
   passwordResets  PasswordResetRequest[]
   notifications   NotificationRecipient[]
   pendingPayments PendingPayment[]       @relation("PendingPaymentResolver")
+  faqEntries      FaqEntry[]             @relation("FaqAuthor")
+}
+
+// FAQ — bilim bazasi. Istalgan xodim (OPERATOR/MANAGER/ADMIN) yangi savol/muammo
+// va yechim qo'sha oladi; TAHRIRLASH va O'CHIRISH faqat ADMIN qo'lida (RBAC
+// server action'da tekshiriladi). `details` va `solution` — cheklangan markdown
+// (qalin, kursiv, havola, rasm/skrinshot); xavfsiz render lib/markdown.tsx da.
+model FaqEntry {
+  id         String   @id @default(cuid())
+  question   String // savol/muammo sarlavhasi (oddiy matn — qidiriladi, akkordeon boshi)
+  details    String? // ixtiyoriy muammo tafsiloti (markdown — skrinshot/havola)
+  solution   String // yechim (markdown — skrinshot/havola/qalin/kursiv)
+  createdById String?
+  createdBy   User?   @relation("FaqAuthor", fields: [createdById], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([createdAt])
 }
 
 // Bildirishnoma — admin yozadi, xodimlarga yuboradi.

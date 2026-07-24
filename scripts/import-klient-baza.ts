@@ -94,10 +94,13 @@ async function main() {
   const dbPhones = new Set(clients.map((c) => c.phone));
   const dbNames = new Set(clients.map((c) => c.fullName.trim().toLowerCase()));
   const dbContracts = new Set(clients.map((c) => c.contractNumber).filter(Boolean) as string[]);
-  const users = await db.user.findMany({ select: { id: true, name: true } });
-  const findUser = (n?: string) => {
+  const users = await db.user.findMany({ select: { id: true, name: true, role: true } });
+  // "operator" ustunidagi ismlar amalda USTALAR (INSTALLER). Shu bois faqat
+  // assignedUstaId (o'rnatgan usta) ga biriktiramiz; assignedToId (qo'ng'iroq
+  // operatori) NULL qoladi — yangi lid kunlik taqsimotga tushib operator oladi.
+  const findUsta = (n?: string) => {
     const t = (n ?? "").trim().toLowerCase(); if (!t) return null;
-    return users.find((u) => u.name.toLowerCase() === t)?.id ?? null;
+    return users.find((u) => u.name.toLowerCase() === t && u.role === "INSTALLER")?.id ?? null;
   };
 
   const toCreate: any[] = [];
@@ -140,7 +143,8 @@ async function main() {
       status: "ACTIVE",
       stage: "NEW",
       installerName: col(r, 6) || null,
-      assignedToId: findUser(col(r, 6)),
+      assignedUstaId: findUsta(col(r, 6)),
+      // assignedToId ATAYLAB null — yangi lid kunlik taqsimotga tushadi.
       nextPaymentDate: computeNextPaymentDate(contractDate),
       notes: desc || null,
       _extra: extraPhones(col(r, 7)),
@@ -158,7 +162,7 @@ async function main() {
   console.log(`Bazada mavjud (o'tkazildi): ${existing.length}`);
   console.log(`Yaroqsiz telefon (o'tkazildi): ${invalid.length}`);
 
-  const fmt = (c: any) => `  ${c.fullName}${c.restaurantName ? ` — ${c.restaurantName}` : ""} | ${c.phone}${c._extra.length ? ` (+${c._extra.length})` : ""} | ${c.monthlyAmount}$ | ${c.equipmentMode} | shartnoma=${c.contractNumber ?? "—"} (${c.contractDate.toISOString().slice(0, 10)}) | operator=${c.installerName ?? "—"}${c.assignedToId ? "✓" : ""} | keyingi=${c.nextPaymentDate.toISOString().slice(0, 10)}`;
+  const fmt = (c: any) => `  ${c.fullName}${c.restaurantName ? ` — ${c.restaurantName}` : ""} | ${c.phone}${c._extra.length ? ` (+${c._extra.length})` : ""} | ${c.monthlyAmount}$ | ${c.equipmentMode} | shartnoma=${c.contractNumber ?? "—"} (${c.contractDate.toISOString().slice(0, 10)}) | usta=${c.installerName ?? "—"}${c.assignedUstaId ? "✓" : ""} | keyingi=${c.nextPaymentDate.toISOString().slice(0, 10)}`;
 
   console.log(`\n--- QO'SHILADI (faol lid, ${active.length}) ---`);
   active.forEach((c) => console.log(fmt(c)));

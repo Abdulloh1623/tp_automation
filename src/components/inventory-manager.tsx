@@ -26,11 +26,13 @@ import {
   createEquipmentType,
   deleteEquipmentType,
   setEquipmentTypeActive,
-  returnFromUsta,
+  returnBatchFromUsta,
+  addUstaStock,
   adjustInventory,
   scrapToBrak,
 } from "@/actions/inventory";
 import { HANDOUT_MODE, type HandoutMode } from "@/lib/constants";
+import { toast } from "@/components/toaster";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,8 +69,6 @@ export function InventoryManager({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [msg, setMsg] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
 
   const active = types.filter((t) => t.isActive);
 
@@ -152,9 +152,30 @@ export function InventoryManager({
     w.print();
   }
 
-  const [rfType, setRfType] = useState(active[0]?.id ?? "");
+  // Ustadan omborga qaytarish — bir nechta texnika (dinamik qatorlar).
+  type ItemRow = { equipmentTypeId: string; quantity: number };
   const [rfUsta, setRfUsta] = useState(ustalar[0]?.id ?? "");
-  const [rfQty, setRfQty] = useState("1");
+  const [rfNote, setRfNote] = useState("");
+  const [rfRows, setRfRows] = useState<ItemRow[]>([
+    { equipmentTypeId: active[0]?.id ?? "", quantity: 1 },
+  ]);
+  const addRfRow = () =>
+    setRfRows((rows) => [...rows, { equipmentTypeId: active[0]?.id ?? "", quantity: 1 }]);
+  const removeRfRow = (i: number) => setRfRows((rows) => rows.filter((_, idx) => idx !== i));
+  const setRfRow = (i: number, patch: Partial<ItemRow>) =>
+    setRfRows((rows) => rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+
+  // Ustaga qo'lda uskuna qo'shish (oldingi mijozlardan) — bir nechta texnika.
+  const [auUsta, setAuUsta] = useState(ustalar[0]?.id ?? "");
+  const [auNote, setAuNote] = useState("");
+  const [auRows, setAuRows] = useState<ItemRow[]>([
+    { equipmentTypeId: active[0]?.id ?? "", quantity: 1 },
+  ]);
+  const addAuRow = () =>
+    setAuRows((rows) => [...rows, { equipmentTypeId: active[0]?.id ?? "", quantity: 1 }]);
+  const removeAuRow = (i: number) => setAuRows((rows) => rows.filter((_, idx) => idx !== i));
+  const setAuRow = (i: number, patch: Partial<ItemRow>) =>
+    setAuRows((rows) => rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
 
   const [ivType, setIvType] = useState(active[0]?.id ?? "");
   const [ivQty, setIvQty] = useState("");
@@ -165,15 +186,13 @@ export function InventoryManager({
   const [brNote, setBrNote] = useState("");
 
   function run(fn: () => Promise<{ ok: boolean; error?: string }>, okMsg: string) {
-    setErr(null);
-    setMsg(null);
     start(async () => {
       const res = await fn();
       if (res.ok) {
-        setMsg(okMsg);
+        toast(okMsg, "success");
         router.refresh();
       } else {
-        setErr(res.error ?? "Xatolik");
+        toast(res.error ?? "Xatolik", "error");
       }
     });
   }
@@ -182,18 +201,6 @@ export function InventoryManager({
 
   return (
     <div className="space-y-5">
-      {(msg || err) && (
-        <div
-          className={
-            "flex items-center gap-2 rounded-lg px-3 py-2 text-sm " +
-            (err ? "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300" : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300")
-          }
-        >
-          {err ? <AlertCircle className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-          {err ?? msg}
-        </div>
-      )}
-
       {/* Texnika turlari + narx + min qoldiq */}
       <Card className="overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between">
@@ -423,32 +430,133 @@ export function InventoryManager({
           </CardContent>
         </Card>
 
-        {/* Ustadan qaytarish */}
+        {/* Ustadan qaytarish — bir nechta texnika */}
         <Card>
           <CardHeader><CardTitle>Ustadan omborga qaytarish</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Usta</Label>
-                <Select value={rfUsta} onChange={(e) => setRfUsta(e.target.value)}>
-                  {ustalar.length === 0 && <option value="">Usta yo'q</option>}
-                  {ustalar.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                </Select>
-              </div>
-              <div>
-                <Label>Texnika</Label>
-                <Select value={rfType} onChange={(e) => setRfType(e.target.value)}>
-                  {active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </Select>
-              </div>
+            <div>
+              <Label>Usta</Label>
+              <Select value={rfUsta} onChange={(e) => setRfUsta(e.target.value)}>
+                {ustalar.length === 0 && <option value="">Usta yo'q</option>}
+                {ustalar.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Texnikalar</Label>
+              {rfRows.map((row, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Select
+                    value={row.equipmentTypeId}
+                    onChange={(e) => setRfRow(i, { equipmentTypeId: e.target.value })}
+                    className="flex-1"
+                  >
+                    {active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </Select>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={row.quantity}
+                    onChange={(e) => setRfRow(i, { quantity: Number(e.target.value) })}
+                    className="w-24"
+                  />
+                  {rfRows.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeRfRow(i)}
+                      className="text-slate-400 hover:text-red-500"
+                      title="Qatorni o'chirish"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={addRfRow}
+                className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+              >
+                <Plus className="h-4 w-4" /> Texnika qo'shish
+              </button>
             </div>
             <div>
-              <Label>Miqdor</Label>
-              <Input type="number" min={1} value={rfQty} onChange={(e) => setRfQty(e.target.value)} className="w-32" />
+              <Label>Izoh (ixtiyoriy)</Label>
+              <Input value={rfNote} onChange={(e) => setRfNote(e.target.value)} placeholder="Sabab / izoh" />
             </div>
-            <Button variant="outline" disabled={pending || !rfUsta}
-              onClick={() => run(() => returnFromUsta(rfType, rfUsta, Number(rfQty)), "Ombor qaytarildi")}>
+            <Button
+              variant="outline"
+              disabled={pending || !rfUsta}
+              onClick={() =>
+                run(() => returnBatchFromUsta(rfUsta, rfRows, rfNote), "Ombor qaytarildi")
+              }
+            >
               <ArrowLeftRight className="h-4 w-4" /> Qaytarish
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Ustaga qo'lda uskuna qo'shish — oldingi mijozlardan olingan */}
+        <Card>
+          <CardHeader><CardTitle>Ustaga qo'lda uskuna qo'shish</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Usta oldingi mijozlardan uskuna olib qolgan bo'lsa — uni ustaning zaxirasiga
+              kiritish (ombordan ayirilmaydi).
+            </p>
+            <div>
+              <Label>Usta</Label>
+              <Select value={auUsta} onChange={(e) => setAuUsta(e.target.value)}>
+                {ustalar.length === 0 && <option value="">Usta yo'q</option>}
+                {ustalar.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Texnikalar</Label>
+              {auRows.map((row, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Select
+                    value={row.equipmentTypeId}
+                    onChange={(e) => setAuRow(i, { equipmentTypeId: e.target.value })}
+                    className="flex-1"
+                  >
+                    {active.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </Select>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={row.quantity}
+                    onChange={(e) => setAuRow(i, { quantity: Number(e.target.value) })}
+                    className="w-24"
+                  />
+                  {auRows.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeAuRow(i)}
+                      className="text-slate-400 hover:text-red-500"
+                      title="Qatorni o'chirish"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={addAuRow}
+                className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline"
+              >
+                <Plus className="h-4 w-4" /> Texnika qo'shish
+              </button>
+            </div>
+            <div>
+              <Label>Izoh (ixtiyoriy)</Label>
+              <Input value={auNote} onChange={(e) => setAuNote(e.target.value)} placeholder="Masalan: qaysi mijozdan olingani" />
+            </div>
+            <Button
+              disabled={pending || !auUsta}
+              onClick={() => run(() => addUstaStock(auUsta, auRows, auNote), "Usta zaxirasiga qo'shildi")}
+            >
+              <PackagePlus className="h-4 w-4" /> Qo'shish
             </Button>
           </CardContent>
         </Card>
@@ -598,13 +706,7 @@ export function InventoryManager({
                 <div><Label>Min.</Label><Input type="number" min={0} value={ef.m} onChange={(e) => { setEf((p) => ({ ...p, m: e.target.value })); setConfirmEdit(false); }} /></div>
               </div>
             </div>
-            {err && (
-              <div className="mt-3 flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {err}
-              </div>
-            )}
-            {confirmEdit && !err && (
+            {confirmEdit && (
               <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 Haqiqatdan ham ushbu texnikani tahrirlashni xohlaysizmi?

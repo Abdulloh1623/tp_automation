@@ -63,6 +63,13 @@ describe("canAccess", () => {
     expect(canAccess("OPERATOR", "/tablo")).toBe(true);
   });
 
+  it("/faq — barcha xodimga ochiq (tahrir/o'chirish action'da cheklanadi)", () => {
+    expect(canAccess("ADMIN", "/faq")).toBe(true);
+    expect(canAccess("MANAGER", "/faq")).toBe(true);
+    expect(canAccess("OPERATOR", "/faq")).toBe(true);
+    expect(canAccess("HACKER", "/faq")).toBe(false);
+  });
+
   it("/malumotlar — faqat ADMIN", () => {
     expect(canAccess("ADMIN", "/malumotlar")).toBe(true);
     expect(canAccess("MANAGER", "/malumotlar")).toBe(false);

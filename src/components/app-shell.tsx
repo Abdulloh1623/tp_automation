@@ -28,6 +28,7 @@ import {
   Wallet,
   PackageSearch,
   Database,
+  HelpCircle,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Toaster } from "@/components/toaster";
@@ -99,6 +100,7 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     items: [
+      { href: "/faq", label: "FAQ", icon: HelpCircle, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
       { href: "/bildirishnomalar", label: "Bildirishnomalar", icon: Bell, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
       { href: "/profil", label: "Profil", icon: CircleUser, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
     ],

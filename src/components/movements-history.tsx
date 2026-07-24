@@ -4,6 +4,7 @@ import { formatDateTime } from "@/lib/utils";
 import { MOVEMENT_REASONS, type MovementRow } from "@/lib/movements";
 import { HandoutDocCell } from "@/components/handout-doc-cell";
 import { HandoutEditButton } from "@/components/handout-edit-button";
+import { ClearHistoryButton } from "@/components/clear-history-button";
 
 // Ustaga taqsimot yozuvi — faqat shu turdagi qatorlar tahrirlanadi.
 const HANDOUT_REASON = "Ustaga taqsimot";
@@ -13,11 +14,13 @@ export function MovementsHistory({
   types,
   ustalar,
   filter,
+  isAdmin,
 }: {
   rows: MovementRow[];
   types: { id: string; name: string }[];
   ustalar: { id: string; name: string }[];
   filter: { type: string; reason: string; days: string };
+  isAdmin: boolean;
 }) {
   const exportHref =
     "/api/export/movements?" +
@@ -31,12 +34,15 @@ export function MovementsHistory({
     <Card className="overflow-hidden">
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
         <CardTitle>Harakatlar tarixi</CardTitle>
-        <a
-          href={exportHref}
-          className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
-        >
-          <Download className="h-4 w-4" /> Excel
-        </a>
+        <div className="flex flex-wrap items-center gap-2">
+          {isAdmin && <ClearHistoryButton />}
+          <a
+            href={exportHref}
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+          >
+            <Download className="h-4 w-4" /> Excel
+          </a>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3 p-4">
         {/* Filtr (server GET) */}

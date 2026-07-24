@@ -791,6 +791,174 @@ export async function returnFromUsta(
   return { ok: true };
 }
 
+/**
+ * Ustaga QO'LDA uskuna qo'shish — usta oldingi mijozlardan uskuna olib qolgan
+ * bo'lsa, uni ustaning zaxirasiga kiritish. Ombordan AYIRILMAYDI (uskuna tizimga
+ * mijozdan qayta kiradi) — faqat usta hujayrasiga qo'shiladi. Bir nechta tur
+ * birdaniga (dinamik qatorlar).
+ */
+export async function addUstaStock(
+  ustaId: string,
+  items: { equipmentTypeId: string; quantity: number }[],
+  note?: string,
+): Promise<InvState> {
+  const m = await requireManager();
+  if (!m.ok) return m;
+  if (!items || items.length === 0) return { ok: false, error: "Kamida bitta texnika kerak" };
+
+  const merged = new Map<string, number>();
+  for (const it of items) {
+    const qty = Number(it.quantity);
+    if (!it.equipmentTypeId) return { ok: false, error: "Texnika tanlanmagan" };
+    if (!qty || qty <= 0) return { ok: false, error: "Miqdor noto'g'ri" };
+    merged.set(it.equipmentTypeId, (merged.get(it.equipmentTypeId) ?? 0) + qty);
+  }
+  const entries = [...merged.entries()];
+
+  const usta = await db.user.findUnique({ where: { id: ustaId } });
+  if (!usta || usta.role !== "INSTALLER") return { ok: false, error: "Usta topilmadi" };
+
+  const types = await db.equipmentType.findMany({
+    where: { id: { in: entries.map(([id]) => id) } },
+  });
+  const typeById = new Map(types.map((t) => [t.id, t]));
+  for (const [id] of entries) {
+    if (!typeById.has(id)) return { ok: false, error: "Texnika turi topilmadi" };
+  }
+
+  const noteText = safeNote(note);
+  try {
+    await db.$transaction(async (tx) => {
+      await applyStockDeltas(
+        tx,
+        entries.map(([equipmentTypeId, quantity]) => ({
+          locationType: USTA,
+          locationId: ustaId,
+          equipmentTypeId,
+          delta: quantity,
+        })),
+      );
+      for (const [equipmentTypeId, quantity] of entries) {
+        await tx.equipmentMovement.create({
+          data: {
+            equipmentTypeId,
+            quantity,
+            fromType: "CLIENT", // oldingi mijozdan olingan
+            toType: USTA,
+            toId: ustaId,
+            reason: "Ustaga qo'lda qo'shildi",
+            note: noteText,
+            byUserId: m.userId,
+          },
+        });
+      }
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Xatolik" };
+  }
+
+  await logAudit("Ustaga qo'lda uskuna qo'shildi", {
+    entity: "Equipment",
+    detail:
+      `${usta.name} ← ` +
+      entries.map(([id, q]) => `${typeById.get(id)?.name ?? id} ${q}`).join(", "),
+  });
+  revalidatePath("/ombor");
+  return { ok: true };
+}
+
+/**
+ * Ustadan omborga QAYTARISH — bir nechta texnikani birdaniga (dinamik qatorlar).
+ * Tranzaksiya: ustadan ayiradi, omborga qo'shadi; ustada yetarli bo'lmasa
+ * butun amal bekor bo'ladi (rollback).
+ */
+export async function returnBatchFromUsta(
+  ustaId: string,
+  items: { equipmentTypeId: string; quantity: number }[],
+  note?: string,
+): Promise<InvState> {
+  const m = await requireManager();
+  if (!m.ok) return m;
+  if (!items || items.length === 0) return { ok: false, error: "Kamida bitta texnika kerak" };
+
+  const merged = new Map<string, number>();
+  for (const it of items) {
+    const qty = Number(it.quantity);
+    if (!it.equipmentTypeId) return { ok: false, error: "Texnika tanlanmagan" };
+    if (!qty || qty <= 0) return { ok: false, error: "Miqdor noto'g'ri" };
+    merged.set(it.equipmentTypeId, (merged.get(it.equipmentTypeId) ?? 0) + qty);
+  }
+  const entries = [...merged.entries()];
+
+  const usta = await db.user.findUnique({ where: { id: ustaId } });
+  if (!usta) return { ok: false, error: "Usta topilmadi" };
+
+  const types = await db.equipmentType.findMany({
+    where: { id: { in: entries.map(([id]) => id) } },
+  });
+  const typeById = new Map(types.map((t) => [t.id, t]));
+  for (const [id] of entries) {
+    if (!typeById.has(id)) return { ok: false, error: "Texnika turi topilmadi" };
+  }
+
+  const noteText = safeNote(note);
+  try {
+    await db.$transaction(async (tx) => {
+      const deltas: StockDelta[] = [];
+      for (const [equipmentTypeId, quantity] of entries) {
+        deltas.push({ locationType: USTA, locationId: ustaId, equipmentTypeId, delta: -quantity });
+        deltas.push({ locationType: WAREHOUSE, locationId: WAREHOUSE, equipmentTypeId, delta: quantity });
+      }
+      // Ustada yetarli bo'lmasa applyStockDeltas throw qiladi → butun tranzaksiya bekor.
+      await applyStockDeltas(tx, deltas);
+      for (const [equipmentTypeId, quantity] of entries) {
+        await tx.equipmentMovement.create({
+          data: {
+            equipmentTypeId,
+            quantity,
+            fromType: USTA,
+            fromId: ustaId,
+            toType: WAREHOUSE,
+            toId: WAREHOUSE,
+            reason: "Ustadan qaytarish",
+            note: noteText,
+            byUserId: m.userId,
+          },
+        });
+      }
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Xatolik" };
+  }
+
+  await logAudit("Ustadan ombor qaytarildi", {
+    entity: "Equipment",
+    detail:
+      entries.map(([id, q]) => `${typeById.get(id)?.name ?? id} ${q}`).join(", ") +
+      ` ← ${usta.name}`,
+  });
+  revalidatePath("/ombor");
+  return { ok: true };
+}
+
+/**
+ * Ombor HARAKATLAR TARIXINI o'chirish (faqat ADMIN). Joriy qoldiqlar
+ * (InventoryStock) SAQLANADI — faqat EquipmentMovement jurnali tozalanadi.
+ */
+export async function clearInventoryHistory(): Promise<InvState> {
+  const session = await requireSession();
+  if (session.role !== "ADMIN") {
+    return { ok: false, error: "Faqat admin ombor tarixini o'chira oladi" };
+  }
+  const res = await db.equipmentMovement.deleteMany({});
+  await logAudit("Ombor tarixi o'chirildi", {
+    entity: "Equipment",
+    detail: `${res.count} ta harakat yozuvi o'chirildi`,
+  });
+  revalidatePath("/ombor");
+  return { ok: true };
+}
+
 /** Inventarizatsiya: ombordagi haqiqiy sanoqni kiritish; farq jurnalga yoziladi. */
 export async function adjustInventory(
   equipmentTypeId: string,

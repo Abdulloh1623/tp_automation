@@ -14,6 +14,9 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
+# patches/ postinstall'dan (patch-package) OLDIN kerak — Next parallel-route
+# flight crash tuzatmasi (walk-tree undefined slot; Next #73362) shu yerdan qo'llanadi.
+COPY patches ./patches
 RUN npm ci
 COPY . .
 RUN npx prisma generate && npm run build
@@ -37,6 +40,10 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
+# Runner node_modules'i `next start` runtime'da yuklanadi — patch AYNAN shu yerda
+# qo'llanishi shart (builder'niki emas). patch-package prod dependency, --omit=dev
+# bilan ham mavjud; postinstall patches/ ni qo'llaydi.
+COPY patches ./patches
 RUN npm ci --omit=dev
 
 # Build natijasi va runtime uchun zarur fayllar

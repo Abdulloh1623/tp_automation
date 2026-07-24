@@ -1,3 +1,7 @@
 # Shell skriptlari LINUX serverda ishlaydi — har doim LF bo'lsin.
 # CRLF shebang (#!/bin/bash\r) serverda "bad interpreter" xatosini beradi.
 *.sh text eol=lf
+
+# patch-package patch'lari LF bo'lishi SHART — CRLF bo'lsa patch qo'llanmaydi
+# (postinstall yiqiladi). Windows'da ham LF saqlanadi.
+patches/**/*.patch text eol=lf

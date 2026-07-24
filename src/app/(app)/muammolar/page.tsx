@@ -11,13 +11,12 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
 import {
   TicketStatusBadge,
   TicketPriorityBadge,
   TicketTypeBadge,
 } from "@/components/status-badge";
+import { TicketFilter } from "@/components/ticket-filter";
 import { TicketStatusControl } from "@/components/ticket-status-control";
 import { TicketDismissButton } from "@/components/ticket-dismiss-button";
 import { TicketIntegratorControl } from "@/components/ticket-integrator-control";
@@ -318,61 +317,16 @@ export default async function TicketsPage({
       <div className="grid gap-6 lg:grid-cols-3">
         <div className={`space-y-5 ${canAssign ? "lg:col-span-2" : "lg:col-span-3"}`}>
           <Card className="p-4">
-            <form className="flex flex-wrap items-end gap-3" method="get">
-              <div className="w-40">
-                <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Turi
-                </label>
-                <Select name="type" defaultValue={type ?? ""}>
-                  <option value="">Barchasi</option>
-                  {Object.entries(TICKET_TYPE).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="w-40">
-                <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Ustuvorlik
-                </label>
-                <Select name="priority" defaultValue={priority ?? ""}>
-                  <option value="">Barchasi</option>
-                  {Object.entries(TICKET_PRIORITY).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              {canAssign && (
-                <div className="w-52">
-                  <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
-                    Mas'ul (xodim/usta)
-                  </label>
-                  <Select name="assignee" defaultValue={assignee ?? ""}>
-                    <option value="">Barchasi</option>
-                    <optgroup label="Xodimlar">
-                      {xodimlar.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Ustalar">
-                      {ustalar.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  </Select>
-                </div>
-              )}
-              <Button type="submit" variant="outline">
-                Filtrlash
-              </Button>
-            </form>
+            <TicketFilter
+              type={type ?? ""}
+              priority={priority ?? ""}
+              assignee={assignee ?? ""}
+              types={Object.entries(TICKET_TYPE)}
+              priorities={Object.entries(TICKET_PRIORITY)}
+              xodimlar={xodimlar}
+              ustalar={ustalar}
+              canAssign={canAssign}
+            />
           </Card>
 
           {ticketsRaw.length === 0 && hasFilter ? (

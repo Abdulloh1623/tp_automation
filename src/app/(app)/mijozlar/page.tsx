@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
-import { Plus, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Download, ChevronLeft, ChevronRight, Copy } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { ClientsFilter } from "@/components/clients-filter";
 import { ClientsTable, type ClientRow } from "@/components/clients-table";
 import { CLIENT_STATUS, REGIONS } from "@/lib/constants";
+import { countDuplicateGroups } from "@/lib/duplicates-data";
 
 type SearchParams = Promise<{
   q?: string;
@@ -73,6 +74,7 @@ export default async function ClientsPage({
   });
 
   const total = await db.client.count({ where });
+  const dupGroups = await countDuplicateGroups();
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const current = Math.min(page, pageCount);
 
@@ -134,6 +136,20 @@ export default async function ClientsPage({
           </p>
         </div>
         <div className="flex gap-2">
+          {dupGroups > 0 && (
+            <Link href="/mijozlar/dublikatlar">
+              <Button
+                variant="outline"
+                className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/40"
+              >
+                <Copy className="h-4 w-4" />
+                Dublikatlar
+                <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-white">
+                  {dupGroups}
+                </span>
+              </Button>
+            </Link>
+          )}
           <a
             href="/api/export/clients"
             className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"

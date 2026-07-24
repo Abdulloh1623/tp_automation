@@ -35,6 +35,9 @@ const ROUTE_ROLES: { prefix: string; roles: Role[] }[] = [
   { prefix: "/malumotlar", roles: ["ADMIN"] },
   { prefix: "/profil", roles: ["ADMIN", "MANAGER", "OPERATOR"] },
   { prefix: "/bildirishnomalar", roles: ["ADMIN", "MANAGER", "OPERATOR"] },
+  // FAQ — barcha xodim o'qiydi va qo'sha oladi; tahrir/o'chirish faqat ADMIN
+  // (action guardRole bilan). O'qish/qo'shish uchun uch rol ham ochiq.
+  { prefix: "/faq", roles: ["ADMIN", "MANAGER", "OPERATOR"] },
   // Jonli tablo — barcha xodimlar (ustalar login qilmaydi). Sessiya baribir
   // talab qilinadi (tablo/page.tsx da requireSession).
   { prefix: "/tablo", roles: ["ADMIN", "MANAGER", "OPERATOR"] },

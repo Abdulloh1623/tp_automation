@@ -18,14 +18,13 @@ import {
   RotateCcw,
   AlertTriangle,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   saveLeadCell,
   revertLeadCell,
   setSpecialNote,
   escalateLead,
   finishDay,
-  getClientInfo,
-  type ClientInfoData,
 } from "@/actions/leads";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -44,7 +43,6 @@ import {
 import { formatMoney, formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 import { tzDayKey } from "@/lib/tz";
 import { PhoneCopyButton } from "@/components/phone-copy";
-import { ClientInfoView } from "@/components/client-quick-view";
 import { buildCsv, downloadCsv } from "@/lib/csv-export";
 import { confirmDialog } from "@/components/confirm-dialog";
 import { toast } from "@/components/toaster";
@@ -108,7 +106,6 @@ type Modal =
   | { type: "specialEdit"; lead: LeadRow }
   | { type: "history"; lead: LeadRow; day: LeadHistory }
   | { type: "fullHistory"; lead: LeadRow }
-  | { type: "clientInfo"; info: ClientInfoData }
   | null;
 
 export function LeadTable({ leads }: { leads: LeadRow[] }) {
@@ -128,8 +125,8 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
   // Muammo bor (HAS_ISSUE) tanlanganda tavsifni majburiy so'rovchi modal
   const [issueTarget, setIssueTarget] = useState<LeadRow | null>(null);
   const [issueText, setIssueText] = useState("");
-  const [infoLoadingId, setInfoLoadingId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
   const [finishing, setFinishing] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -272,14 +269,10 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
     });
   }
 
-  // Mijoz nomiga bosilganda — to'liq ma'lumot modali
+  // Mijoz nomiga bosilganda — to'liq profil (intercepting @modal orqali katta
+  // blur-modalda ochiladi, navbat sahifasi ostida qoladi).
   function openClientInfo(row: LeadRow) {
-    setInfoLoadingId(row.id);
-    startTransition(async () => {
-      const res = await getClientInfo(row.id);
-      setInfoLoadingId(null);
-      if (res.ok) setModal({ type: "clientInfo", info: res.info });
-    });
+    router.push(`/mijozlar/${row.id}`);
   }
 
   function openSpecialEdit(lead: LeadRow) {
@@ -451,7 +444,6 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
         <JoriyTable
           rows={filtered}
           saved={saved}
-          infoLoadingId={infoLoadingId}
           OutcomeSelect={OutcomeSelect}
           onNoteSave={(row, note) => {
             patchRow(row.id, { todayNote: note });
@@ -477,11 +469,7 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
       )}
 
       {modal && (
-        <ModalOverlay
-          onClose={() => setModal(null)}
-          blur={modal.type === "clientInfo"}
-          size={modal.type === "clientInfo" ? "sm" : "md"}
-        >
+        <ModalOverlay onClose={() => setModal(null)} size="md">
           {modal.type === "specialView" && (
             <SpecialView
               lead={modal.lead}
@@ -517,9 +505,6 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
             <HistoryView lead={modal.lead} day={modal.day} />
           )}
           {modal.type === "fullHistory" && <FullHistoryView lead={modal.lead} />}
-          {modal.type === "clientInfo" && (
-            <ClientInfoView info={modal.info} onNavigate={() => setModal(null)} />
-          )}
         </ModalOverlay>
       )}
 
@@ -656,7 +641,6 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
 function JoriyTable({
   rows,
   saved,
-  infoLoadingId,
   OutcomeSelect,
   onNoteSave,
   onRevert,
@@ -668,7 +652,6 @@ function JoriyTable({
 }: {
   rows: LeadRow[];
   saved: Record<string, boolean>;
-  infoLoadingId: string | null;
   OutcomeSelect: (p: { row: LeadRow }) => React.ReactElement;
   onNoteSave: (row: LeadRow, note: string) => void;
   onRevert: (lead: LeadRow) => void;
@@ -720,12 +703,9 @@ function JoriyTable({
                   </span>
                   <button
                     type="button"
-                    title="Mijoz ma'lumotlarini ko'rish"
+                    title="Mijoz profilini ochish"
                     onClick={() => onInfo(r)}
-                    className={
-                      "text-left font-medium text-slate-900 dark:text-slate-100 hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 " +
-                      (infoLoadingId === r.id ? "opacity-50" : "")
-                    }
+                    className="text-left font-medium text-slate-900 dark:text-slate-100 hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2"
                   >
                     {leadName(r)}
                   </button>
@@ -879,11 +859,9 @@ function JoriyTable({
                 </span>
                 <button
                   type="button"
+                  title="Mijoz profilini ochish"
                   onClick={() => onInfo(r)}
-                  className={
-                    "text-left font-medium text-slate-900 dark:text-slate-100 hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2 " +
-                    (infoLoadingId === r.id ? "opacity-50" : "")
-                  }
+                  className="text-left font-medium text-slate-900 dark:text-slate-100 hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2"
                 >
                   {leadName(r)}
                 </button>
@@ -1052,7 +1030,7 @@ function TarixTable({
                     </span>
                     <button
                       type="button"
-                      title="Mijoz ma'lumotlarini ko'rish"
+                      title="Mijoz profilini ochish"
                       onClick={() => onInfo(r)}
                       className="text-left font-medium text-slate-900 dark:text-slate-100 hover:text-primary-600 dark:hover:text-primary-400 hover:underline underline-offset-2"
                     >
@@ -1195,8 +1173,6 @@ function HistoryView({ lead, day }: { lead: LeadRow; day: LeadHistory }) {
     </div>
   );
 }
-
-/* ClientInfoView endi @/components/client-quick-view da (barcha bo'limlar uchun umumiy). */
 
 /* Mijozning to'liq aloqa tarixi — oldingi kunlarni izohlari bilan scroll qilib ko'rish */
 function FullHistoryView({ lead }: { lead: LeadRow }) {

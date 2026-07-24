@@ -21,7 +21,6 @@ export function TicketFilter({
   types,
   priorities,
   xodimlar,
-  ustalar,
   canAssign,
 }: {
   type: string;
@@ -30,7 +29,6 @@ export function TicketFilter({
   types: [string, string][];
   priorities: [string, string][];
   xodimlar: Opt[];
-  ustalar: Opt[];
   canAssign: boolean;
 }) {
   const router = useRouter();
@@ -97,23 +95,14 @@ export function TicketFilter({
 
       {canAssign && (
         <div className="w-52">
-          <label className={labelCls}>Mas'ul (xodim/usta)</label>
+          <label className={labelCls}>Mas'ul xodim</label>
           <Select value={a} onChange={(e) => apply({ t, p, a: e.target.value })}>
             <option value="">Barchasi</option>
-            <optgroup label="Xodimlar">
-              {xodimlar.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label="Ustalar">
-              {ustalar.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </optgroup>
+            {xodimlar.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+              </option>
+            ))}
           </Select>
         </div>
       )}

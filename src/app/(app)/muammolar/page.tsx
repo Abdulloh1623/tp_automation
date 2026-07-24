@@ -65,11 +65,9 @@ export default async function TicketsPage({
   const filterAnd: Prisma.TicketWhereInput[] = [];
   if (type) filterAnd.push({ type });
   if (priority) filterAnd.push({ priority });
-  // Mas'ul (xodim yoki usta) bo'yicha filtr — faqat boshqaruv rollari uchun.
+  // Mas'ul xodim bo'yicha filtr — faqat boshqaruv rollari uchun.
   if (assignee && canAssign) {
-    filterAnd.push({
-      OR: [{ assignedStaffId: assignee }, { assignedUstaId: assignee }],
-    });
+    filterAnd.push({ assignedStaffId: assignee });
   }
 
   const where: Prisma.TicketWhereInput = { ...scope, AND: filterAnd };
@@ -93,7 +91,6 @@ export default async function TicketsPage({
   const [
     ticketsRaw,
     clients,
-    ustalar,
     xodimlar,
     yangiTotal,
     biriktirilganTotal,
@@ -133,11 +130,6 @@ export default async function TicketsPage({
     db.client.findMany({
       select: { id: true, restaurantName: true, fullName: true },
       orderBy: { restaurantName: "asc" },
-    }),
-    db.user.findMany({
-      where: { role: "INSTALLER", isActive: true },
-      select: { id: true, name: true, phone: true },
-      orderBy: { name: "asc" },
     }),
     db.user.findMany({
       where: { role: { in: ["ADMIN", "MANAGER", "OPERATOR"] }, isActive: true },
@@ -238,10 +230,7 @@ export default async function TicketsPage({
             ticketId={t.id}
             canAssign={canAssign}
             staff={t.assignedStaff ?? null}
-            usta={t.assignedUsta ?? null}
             staffNote={t.staffNote}
-            ustaNote={t.ustaNote}
-            ustalar={ustalar}
             xodimlar={xodimlar}
           />
         </div>
@@ -338,7 +327,6 @@ export default async function TicketsPage({
               types={Object.entries(TICKET_TYPE)}
               priorities={Object.entries(TICKET_PRIORITY)}
               xodimlar={xodimlar}
-              ustalar={ustalar}
               canAssign={canAssign}
             />
           </Card>

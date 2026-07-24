@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Wrench, Monitor, Check, X } from "lucide-react";
-import { assignTicketStaff, assignTicketUsta } from "@/actions/tickets";
+import { assignTicketStaff } from "@/actions/tickets";
 import { toast } from "@/components/toaster";
 import { Button } from "@/components/ui/button";
 import { PhoneCopyButton } from "@/components/phone-copy";
@@ -142,46 +142,31 @@ function AssignRow({
 }
 
 /**
- * Muammoga mas'ul xodim VA usta biriktirish (ikkalasi birga bo'lishi mumkin).
- * Mas'ul xodim jarayonni nazorat qilib yakunlaydi; usta joyida hal etadi.
+ * Muammoga mas'ul xodim biriktirish. Mas'ul xodim jarayonni nazorat qilib
+ * yakunlaydi. (Usta biriktirish muammolar bo'limidan olib tashlangan — usta
+ * yuborish eskalatsiya/qaytarish oqami orqali boshqariladi.)
  */
 export function TicketIntegratorControl({
   ticketId,
   canAssign,
   staff,
-  usta,
   staffNote,
-  ustaNote,
-  ustalar,
   xodimlar,
 }: {
   ticketId: string;
   canAssign: boolean;
   staff: Assigned;
-  usta: Assigned;
   staffNote: string | null;
-  ustaNote: string | null;
-  ustalar: IntegratorOpt[];
   xodimlar: IntegratorOpt[];
 }) {
   return (
-    <div className="space-y-2">
-      <AssignRow
-        kind="XODIM"
-        assigned={staff}
-        note={staffNote}
-        options={xodimlar}
-        canAssign={canAssign}
-        action={(id, note) => assignTicketStaff(ticketId, id, note)}
-      />
-      <AssignRow
-        kind="USTA"
-        assigned={usta}
-        note={ustaNote}
-        options={ustalar}
-        canAssign={canAssign}
-        action={(id, note) => assignTicketUsta(ticketId, id, note)}
-      />
-    </div>
+    <AssignRow
+      kind="XODIM"
+      assigned={staff}
+      note={staffNote}
+      options={xodimlar}
+      canAssign={canAssign}
+      action={(id, note) => assignTicketStaff(ticketId, id, note)}
+    />
   );
 }

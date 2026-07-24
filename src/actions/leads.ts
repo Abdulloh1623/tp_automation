@@ -559,7 +559,10 @@ export async function revertLead(
   return { ok: true };
 }
 
-// Lid jadvalidagi modal uchun mijozning to'liq ma'lumoti (faqat o'qish)
+// Mijozning to'liq ma'lumoti (faqat o'qish). ESLATMA: quick-view olib
+// tashlangach hozircha ishlatilmayapti — endi mijoz nomiga bosilganda hamma
+// joyda to'liq profil intercepting @modal orqali ochiladi. Kelajakda kerak
+// bo'lishi mumkinligi uchun saqlanadi.
 export type ClientInfoData = {
   id: string;
   restaurantName: string;

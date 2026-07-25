@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { endOfDay, format, startOfDay, startOfMonth, subDays } from "date-fns";
+import { endOfDay, endOfMonth, format, startOfDay, startOfMonth, subDays, subMonths } from "date-fns";
 import { Phone, ArrowRight, ChevronRight } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BarList } from "@/components/bar-list";
+import { Collapsible } from "@/components/collapsible";
 import { CallResultBadge } from "@/components/status-badge";
 import {
   DashboardStatCard,
@@ -13,7 +14,7 @@ import {
 } from "@/components/dashboard-stat-card";
 import { formatMoney, formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 import { PhoneCopyButton } from "@/components/phone-copy";
-import { callResultLabel } from "@/lib/constants";
+import { callResultLabel, UZBEK_MONTHS } from "@/lib/constants";
 import { paymentState, paymentUrgency } from "@/lib/payment-status";
 import { getOperatorActivity } from "@/lib/analytics";
 import { slaThreshold } from "@/lib/sla";
@@ -220,6 +221,51 @@ export default async function DashboardPage() {
     if (p.paidAt >= todayStart) addMoney(todayPay, p.currency, p.amount);
   }
 
+  // ——— Daromad batafsil analitikasi (Boshqaruv paneli kengaytmasi) ———
+  // Dastur (obuna) ulushi = MRR − uskuna ijarasi (valyuta bo'yicha, manfiy emas).
+  const programRev: Money = {
+    USD: Math.max(0, mrr.USD - rentalRev.USD),
+    UZS: Math.max(0, mrr.UZS - rentalRev.UZS),
+  };
+  // Grafiklarda asosiy valyuta (ko'proq MRR qaysida bo'lsa) — bar balandligi shu
+  // valyuta bo'yicha, ikkinchisi izoh sifatida. Valyutalar HECH QACHON birlashmaydi.
+  const primaryCur: "USD" | "UZS" = mrr.USD >= mrr.UZS ? "USD" : "UZS";
+  const otherCur: "USD" | "UZS" = primaryCur === "USD" ? "UZS" : "USD";
+
+  // Qarzdorlik yoshi (muddati o'tgan faol mijozlar) — 30/60/90/90+ kun.
+  const aging = [
+    { label: "1–30 kun", count: 0, sum: { USD: 0, UZS: 0 } as Money },
+    { label: "31–60 kun", count: 0, sum: { USD: 0, UZS: 0 } as Money },
+    { label: "61–90 kun", count: 0, sum: { USD: 0, UZS: 0 } as Money },
+    { label: "90+ kun", count: 0, sum: { USD: 0, UZS: 0 } as Money },
+  ];
+  for (const c of clients) {
+    if (!c.nextPaymentDate) continue;
+    const due = startOfDay(c.nextPaymentDate);
+    const days = Math.floor((todayStart.getTime() - due.getTime()) / 86_400_000);
+    if (days <= 0) continue;
+    const b = days <= 30 ? aging[0] : days <= 60 ? aging[1] : days <= 90 ? aging[2] : aging[3];
+    b.count += 1;
+    addMoney(b.sum, c.currency, c.monthlyAmount);
+  }
+
+  // Oxirgi 6 oy — yig'ilgan to'lovlar (valyuta bo'yicha, oy kesimida).
+  const halfYearStart = startOfMonth(subMonths(now, 5));
+  const halfYearPayments = await db.payment.findMany({
+    where: { paidAt: { gte: halfYearStart } },
+    select: { amount: true, currency: true, paidAt: true },
+  });
+  const monthlyCollected = Array.from({ length: 6 }, (_, idx) => {
+    const d = subMonths(now, 5 - idx);
+    const from = startOfMonth(d);
+    const to = endOfMonth(d);
+    const m: Money = { USD: 0, UZS: 0 };
+    for (const p of halfYearPayments) {
+      if (p.paidAt >= from && p.paidAt <= to) addMoney(m, p.currency, p.amount);
+    }
+    return { label: UZBEK_MONTHS[from.getMonth()], sum: m };
+  });
+
   const whQty = new Map(whStockRows.map((s) => [s.equipmentTypeId, s.quantity]));
   const lowStockCount = lowStockTypes.filter((t) => (whQty.get(t.id) ?? 0) < t.minStock).length;
 
@@ -390,23 +436,131 @@ export default async function DashboardPage() {
       {/* Daromad xulosasi */}
       <Card>
         <CardHeader><CardTitle>Daromad xulosasi</CardTitle></CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/60">
-            <div className="text-xs text-slate-500 dark:text-slate-400">Oylik daromad (MRR)</div>
-            <div className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{money2(mrr)}</div>
+        <CardContent className="space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/60">
+              <div className="text-xs text-slate-500 dark:text-slate-400">Oylik daromad (MRR)</div>
+              <div className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{money2(mrr)}</div>
+            </div>
+            <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-950 dark:bg-blue-950/40">
+              <div className="text-xs text-blue-700 dark:text-blue-300">Shundan uskuna ijarasi</div>
+              <div className="mt-1 text-xl font-semibold text-blue-700 dark:text-blue-300">{money2(rentalRev)}</div>
+              <div className="text-[11px] text-blue-600/70 dark:text-blue-300/60">MRR ichida · ma'lumot</div>
+            </div>
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 dark:border-emerald-950 dark:bg-emerald-950/40">
+              <div className="text-xs text-emerald-700 dark:text-emerald-300">Bu oy yig'ilgan</div>
+              <div className="mt-1 text-xl font-semibold text-emerald-700 dark:text-emerald-300">{money2(collected)}</div>
+            </div>
+            <div className="rounded-xl border border-red-100 bg-red-50 p-4 dark:border-red-950 dark:bg-red-950/40">
+              <div className="text-xs text-red-700 dark:text-red-300">Qarzdorlik ({overdueCount} mijoz)</div>
+              <div className="mt-1 text-xl font-semibold text-red-700 dark:text-red-300">{money2(debt)}</div>
+            </div>
           </div>
-          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-950 dark:bg-blue-950/40">
-            <div className="text-xs text-blue-700 dark:text-blue-300">Shundan uskuna ijarasi</div>
-            <div className="mt-1 text-xl font-semibold text-blue-700 dark:text-blue-300">{money2(rentalRev)}</div>
-            <div className="text-[11px] text-blue-600/70 dark:text-blue-300/60">MRR ichida · ma'lumot</div>
-          </div>
-          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 dark:border-emerald-950 dark:bg-emerald-950/40">
-            <div className="text-xs text-emerald-700 dark:text-emerald-300">Bu oy yig'ilgan</div>
-            <div className="mt-1 text-xl font-semibold text-emerald-700 dark:text-emerald-300">{money2(collected)}</div>
-          </div>
-          <div className="rounded-xl border border-red-100 bg-red-50 p-4 dark:border-red-950 dark:bg-red-950/40">
-            <div className="text-xs text-red-700 dark:text-red-300">Qarzdorlik ({overdueCount} mijoz)</div>
-            <div className="mt-1 text-xl font-semibold text-red-700 dark:text-red-300">{money2(debt)}</div>
+
+          <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
+            <Collapsible closedLabel="Batafsil analitika" openLabel="Batafsil analitikani yopish">
+              <div className="grid gap-x-8 gap-y-6 lg:grid-cols-2">
+                {/* Valyuta bo'yicha taqsimot */}
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    Valyuta bo'yicha
+                  </h3>
+                  <div className="overflow-hidden rounded-xl border border-slate-100 dark:border-slate-800">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-slate-50 text-xs text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
+                          <th className="px-3 py-2 text-left font-medium">Ko'rsatkich</th>
+                          <th className="px-3 py-2 text-right font-medium">USD</th>
+                          <th className="px-3 py-2 text-right font-medium">UZS</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { label: "Oylik MRR", m: mrr },
+                          { label: "Bu oy yig'ilgan", m: collected },
+                          { label: "Qarzdorlik", m: debt },
+                        ].map((r) => (
+                          <tr key={r.label} className="border-t border-slate-100 dark:border-slate-800">
+                            <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{r.label}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-slate-900 dark:text-slate-100">
+                              {r.m.USD > 0 ? formatMoney(r.m.USD, "USD") : "—"}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums text-slate-900 dark:text-slate-100">
+                              {r.m.UZS > 0 ? formatMoney(r.m.UZS, "UZS") : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* MRR tarkibi: dastur (obuna) vs uskuna ijarasi */}
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    MRR tarkibi ({primaryCur})
+                  </h3>
+                  <BarList
+                    color="blue"
+                    format={(n) => formatMoney(n, primaryCur)}
+                    items={[
+                      { label: "Dastur (obuna)", value: programRev[primaryCur] },
+                      { label: "Uskuna ijarasi", value: rentalRev[primaryCur] },
+                    ]}
+                  />
+                  {mrr[otherCur] > 0 && (
+                    <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+                      {otherCur}: dastur {formatMoney(programRev[otherCur], otherCur)} · ijara{" "}
+                      {formatMoney(rentalRev[otherCur], otherCur)}
+                    </p>
+                  )}
+                </div>
+
+                {/* Qarzdorlik yoshi */}
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    Qarzdorlik yoshi
+                  </h3>
+                  {overdueCount === 0 ? (
+                    <p className="text-sm text-slate-400 dark:text-slate-500">Qarzdor mijoz yo'q</p>
+                  ) : (
+                    <BarList
+                      color="red"
+                      format={(n) => `${n} mijoz`}
+                      items={aging
+                        .filter((a) => a.count > 0)
+                        .map((a) => ({ label: `${a.label} · ${money2(a.sum)}`, value: a.count }))}
+                    />
+                  )}
+                </div>
+
+                {/* Oxirgi 6 oy — yig'ilgan */}
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    Oxirgi 6 oy — yig'ilgan ({primaryCur})
+                  </h3>
+                  <BarList
+                    color="emerald"
+                    format={(n) => formatMoney(n, primaryCur)}
+                    items={monthlyCollected.map((m) => ({ label: m.label, value: m.sum[primaryCur] }))}
+                  />
+                  {monthlyCollected.some((m) => m.sum[otherCur] > 0) && (
+                    <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+                      {otherCur} to'lovlar alohida — to'liq ko'rinish moliya bo'limida.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-5">
+                <Link
+                  href="/moliya"
+                  className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
+                >
+                  To'liq moliyaviy tahlil (churn, MRR dinamikasi) <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </Collapsible>
           </div>
         </CardContent>
       </Card>

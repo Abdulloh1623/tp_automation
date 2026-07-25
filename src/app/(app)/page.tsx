@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BarList } from "@/components/bar-list";
 import { Collapsible } from "@/components/collapsible";
+import { StatDrilldown, type DrilldownItem } from "@/components/stat-drilldown";
 import { CallResultBadge } from "@/components/status-badge";
 import {
   DashboardStatCard,
@@ -266,6 +267,55 @@ export default async function DashboardPage() {
     return { label: UZBEK_MONTHS[from.getMonth()], sum: m };
   });
 
+  // ——— Plitka drill-down'lari: qaysi mijoz qancha ———
+  // MRR: har bir faol mijozning oylik hissasi (valyuta guruhlab, kamayish tartibida).
+  const mrrItems: DrilldownItem[] = clients
+    .filter((c) => c.monthlyAmount > 0)
+    .sort((a, b) =>
+      a.currency === b.currency
+        ? b.monthlyAmount - a.monthlyAmount
+        : a.currency === "UZS"
+          ? 1
+          : -1,
+    )
+    .map((c) => ({
+      id: c.id,
+      name: c.restaurantName || c.fullName || "—",
+      amount: formatMoney(c.monthlyAmount, c.currency),
+      sub: c.region ?? undefined,
+    }));
+
+  // Bu oy yig'ilgan: mijoz kesimida (bir mijoz bir necha marta to'lagan bo'lsa jamlanadi).
+  const collectedByClient = new Map<
+    string,
+    { id: string; name: string; usd: number; uzs: number; count: number }
+  >();
+  for (const p of monthPayments) {
+    const cur =
+      collectedByClient.get(p.clientId) ??
+      { id: p.clientId, name: p.client.restaurantName || "—", usd: 0, uzs: 0, count: 0 };
+    if (p.currency === "UZS") cur.uzs += p.amount;
+    else cur.usd += p.amount;
+    cur.count += 1;
+    collectedByClient.set(p.clientId, cur);
+  }
+  const collectedItems: DrilldownItem[] = [...collectedByClient.values()]
+    .sort((a, b) => b.usd - a.usd || b.uzs - a.uzs)
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      amount: money2({ USD: c.usd, UZS: c.uzs }),
+      sub: `${c.count} ta to'lov`,
+    }));
+
+  // Qarzdorlik: muddati o'tgan faol mijozlar (eng eskisidan) va oylik summasi.
+  const debtItems: DrilldownItem[] = overdueClients.map((c) => ({
+    id: c.id,
+    name: c.restaurantName || c.fullName || "—",
+    amount: formatMoney(c.monthlyAmount, c.currency),
+    sub: c.nextPaymentDate ? `Muddat: ${formatDate(c.nextPaymentDate)}` : undefined,
+  }));
+
   const whQty = new Map(whStockRows.map((s) => [s.equipmentTypeId, s.quantity]));
   const lowStockCount = lowStockTypes.filter((t) => (whQty.get(t.id) ?? 0) < t.minStock).length;
 
@@ -438,23 +488,36 @@ export default async function DashboardPage() {
         <CardHeader><CardTitle>Daromad xulosasi</CardTitle></CardHeader>
         <CardContent className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/60">
-              <div className="text-xs text-slate-500 dark:text-slate-400">Oylik daromad (MRR)</div>
-              <div className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">{money2(mrr)}</div>
-            </div>
+            {/* Ustiga bosilsa — qaysi mijoz qancha (drill-down) */}
+            <StatDrilldown
+              label="Oylik daromad (MRR)"
+              value={money2(mrr)}
+              tone="slate"
+              title="Oylik daromad — mijozlar kesimi"
+              items={mrrItems}
+              emptyText="Oylik to'lovli mijoz yo'q"
+            />
             <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-950 dark:bg-blue-950/40">
               <div className="text-xs text-blue-700 dark:text-blue-300">Shundan uskuna ijarasi</div>
               <div className="mt-1 text-xl font-semibold text-blue-700 dark:text-blue-300">{money2(rentalRev)}</div>
               <div className="text-[11px] text-blue-600/70 dark:text-blue-300/60">MRR ichida · ma'lumot</div>
             </div>
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 dark:border-emerald-950 dark:bg-emerald-950/40">
-              <div className="text-xs text-emerald-700 dark:text-emerald-300">Bu oy yig'ilgan</div>
-              <div className="mt-1 text-xl font-semibold text-emerald-700 dark:text-emerald-300">{money2(collected)}</div>
-            </div>
-            <div className="rounded-xl border border-red-100 bg-red-50 p-4 dark:border-red-950 dark:bg-red-950/40">
-              <div className="text-xs text-red-700 dark:text-red-300">Qarzdorlik ({overdueCount} mijoz)</div>
-              <div className="mt-1 text-xl font-semibold text-red-700 dark:text-red-300">{money2(debt)}</div>
-            </div>
+            <StatDrilldown
+              label="Bu oy yig'ilgan"
+              value={money2(collected)}
+              tone="emerald"
+              title="Bu oy yig'ilgan — mijozlar kesimi"
+              items={collectedItems}
+              emptyText="Bu oy hali to'lov yo'q"
+            />
+            <StatDrilldown
+              label={`Qarzdorlik (${overdueCount} mijoz)`}
+              value={money2(debt)}
+              tone="red"
+              title="Qarzdorlik — mijozlar"
+              items={debtItems}
+              emptyText="Qarzdor mijoz yo'q"
+            />
           </div>
 
           <div className="border-t border-slate-100 pt-4 dark:border-slate-800">

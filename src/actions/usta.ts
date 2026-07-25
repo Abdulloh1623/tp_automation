@@ -10,14 +10,19 @@ import { escalationStagePatch, isEscalationStage } from "@/lib/escalation";
 
 export type AssignState = { ok: boolean; error?: string };
 
-/** Admin/boshliq: eskalatsiya qilingan lidni ustaga biriktiradi. */
+/**
+ * Eskalatsiya qilingan lidni ustaga biriktirish. Boshliq/admin ISTALGANini,
+ * mas'ul TP xodim (OPERATOR) esa faqat O'ZIGA biriktirilgan eskalatsiyani
+ * ustaga biriktira oladi. Lid "Biriktirildi" (ESCALATED, mas'ul bor) dan
+ * "Jarayonda" (FORWARDED) ga o'tadi.
+ */
 export async function assignUsta(
   clientId: string,
   ustaId: string,
   note?: string,
 ): Promise<AssignState> {
   const session = await requireSession();
-  if (!["ADMIN", "MANAGER"].includes(session.role)) {
+  if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
 
@@ -28,9 +33,14 @@ export async function assignUsta(
 
   const current = await db.client.findUnique({
     where: { id: clientId },
-    select: { stage: true, escalatedAt: true },
+    select: { stage: true, escalatedAt: true, assignedToId: true, escalationStaffId: true },
   });
   if (!current) return { ok: false, error: "Mijoz topilmadi" };
+
+  // OPERATOR faqat o'ziga mas'ul biriktirilgan eskalatsiyaga usta biriktiradi.
+  if (session.role === "OPERATOR" && current.escalationStaffId !== session.userId) {
+    return { ok: false, error: "Ruxsat yo'q" };
+  }
 
   await db.client.update({
     where: { id: clientId },

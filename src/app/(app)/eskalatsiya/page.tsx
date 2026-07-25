@@ -143,14 +143,14 @@ export default async function EscalationPage() {
 
   const overdueCount =
     escalated.filter((c) => c.overdue).length + forwarded.filter((c) => c.overdue).length;
-  // FORWARDED ichida: usta endigina biriktirilgan (ASSIGNED) va ish boshlaganlar.
-  const biriktirildiCount = forwarded.filter(
-    (c) => (c.ustaStatus ?? "ASSIGNED") === "ASSIGNED",
-  ).length;
+  // Yangi = mas'ul (operator) hali biriktirilmagan; Biriktirildi = mas'ul bor,
+  // usta kutilmoqda; Jarayonda = usta biriktirilgan (FORWARDED).
+  const yangiCount = escalated.filter((c) => !c.staffId).length;
+  const biriktirildiCount = escalated.filter((c) => c.staffId).length;
   const summary: CountItem[] = [
-    { label: "Yangi (navbatda)", value: escalated.length, tone: "red" },
+    { label: "Yangi", value: yangiCount, tone: "red" },
     { label: "Biriktirildi", value: biriktirildiCount, tone: "amber" },
-    { label: "Jarayonda", value: forwarded.length - biriktirildiCount, tone: "sky" },
+    { label: "Jarayonda", value: forwarded.length, tone: "sky" },
     { label: "Yakunlangan", value: resolved.length, tone: "emerald" },
     { label: "3 kundan oshgan", value: overdueCount, tone: "red" },
   ];
@@ -163,8 +163,8 @@ export default async function EscalationPage() {
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           {isManager
-            ? `${clients.length} ta lid ustaga biriktirishni kutmoqda — keyingi kuzatuvni TP xodimlari olib boradi`
-            : `Sizga biriktirilgan eskalatsiyalar — usta va mijoz bilan bog'lanib yakuniga yetkazing (navbatda: ${clients.length})`}
+            ? `Mas'ul (operator) avtomatik biriktiriladi — mas'ul TP xodim ustani biriktiradi va jarayonni yakuniga yetkazadi (navbatda: ${clients.length})`
+            : `Sizga mas'ul qilib biriktirilgan eskalatsiyalar — ustani biriktiring va mijoz bilan bog'lanib yakuniga yetkazing (navbatda: ${clients.length})`}
         </p>
         <div className="mt-3">
           <CountStrip items={summary} />

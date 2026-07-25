@@ -204,7 +204,12 @@ export async function finishDay(
         nextContactDate,
         ...churnPatch,
         ...(paymentPatch ? { nextPaymentDate: paymentPatch } : {}),
-        ...escalationStagePatch(target, { stage: lead.stage, escalatedAt: lead.escalatedAt }),
+        ...escalationStagePatch(target, {
+          stage: lead.stage,
+          escalatedAt: lead.escalatedAt,
+          assignedToId: lead.assignedToId,
+          escalationStaffId: lead.escalationStaffId,
+        }),
       },
     });
   }
@@ -235,7 +240,7 @@ export async function moveLeadStage(
   try {
     const current = await db.client.findUnique({
       where: { id: clientId },
-      select: { stage: true, escalatedAt: true },
+      select: { stage: true, escalatedAt: true, assignedToId: true, escalationStaffId: true },
     });
     if (!current) return;
     await db.client.update({
@@ -660,7 +665,7 @@ export async function escalateLead(
   try {
     const current = await db.client.findUnique({
       where: { id: clientId },
-      select: { stage: true, escalatedAt: true },
+      select: { stage: true, escalatedAt: true, assignedToId: true, escalationStaffId: true },
     });
     if (!current) return { ok: false };
     await db.client.update({

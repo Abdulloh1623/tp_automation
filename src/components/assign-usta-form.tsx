@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { UserCheck, AlertCircle } from "lucide-react";
 import { assignUsta } from "@/actions/usta";
+import { toast } from "@/components/toaster";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -36,8 +37,13 @@ export function AssignUstaForm({
     setError(null);
     start(async () => {
       const res = await assignUsta(clientId, ustaId, note);
-      if (res.ok) router.refresh();
-      else setError(res.error ?? "Xatolik");
+      if (res.ok) {
+        toast("Usta biriktirildi", "success");
+        router.refresh();
+      } else {
+        setError(res.error ?? "Xatolik");
+        toast(res.error ?? "Xatolik", "error");
+      }
     });
   }
 

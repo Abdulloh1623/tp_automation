@@ -110,10 +110,9 @@ export async function gatherPeriod(start: Date, end: Date): Promise<PeriodStats>
 /** Umumiy holat (snapshot) — davrdan qat'i nazar. */
 async function snapshot() {
   const clients = await db.client.findMany({
-    select: { status: true, stage: true, currency: true, monthlyAmount: true, nextPaymentDate: true },
+    select: { status: true, currency: true, monthlyAmount: true, nextPaymentDate: true },
   });
   const active = clients.filter((c) => c.status === "ACTIVE");
-  const refused = clients.filter((c) => c.stage === "REFUSED").length; // otkaz (bekor qilgan)
   const mrr: Money = { USD: 0, UZS: 0 };
   for (const c of active) add(mrr, c.currency, c.monthlyAmount);
   const overdue = active.filter((c) => paymentState(c.nextPaymentDate) === "OVERDUE");
@@ -123,7 +122,6 @@ async function snapshot() {
   return {
     total: clients.length,
     active: active.length,
-    refused,
     mrr: money2(mrr),
     overdueCount: overdue.length,
     overdueSum: money2(overdueSum),
@@ -156,7 +154,7 @@ function snapshotLines(s: Awaited<ReturnType<typeof snapshot>>): string {
   return [
     "",
     "<b>Umumiy holat:</b>",
-    `👥 Mijozlar: ${s.total} (faol ${s.active} · otkaz ${s.refused})`,
+    `👥 Mijozlar: ${s.total} (faol ${s.active})`,
     `📈 MRR: ${s.mrr}`,
     `⏰ Qarzdorlar: ${s.overdueCount} (${s.overdueSum})`,
     `🎫 Ochiq muammolar: ${s.openTickets}`,
@@ -286,7 +284,6 @@ async function gatherChartData(kind: ReportKind): Promise<ChartBundle> {
     db.client.findMany({
       select: {
         status: true,
-        stage: true,
         region: true,
         currency: true,
         monthlyAmount: true,
@@ -343,8 +340,6 @@ async function gatherChartData(kind: ReportKind): Promise<ChartBundle> {
     .slice(0, 7);
 
   const active = clients.filter((c) => c.status === "ACTIVE");
-  const total = clients.length;
-  const refused = clients.filter((c) => c.stage === "REFUSED").length; // otkaz (bekor qilgan)
   let mrrU = 0, mrrZ = 0;
   for (const c of active) c.currency === "UZS" ? (mrrZ += c.monthlyAmount) : (mrrU += c.monthlyAmount);
   let colU = 0, colZ = 0;
@@ -371,9 +366,7 @@ async function gatherChartData(kind: ReportKind): Promise<ChartBundle> {
     },
     { label: "Gaplashildi", value: `${talkRate}%`, sub: `${talked} / ${pcalls.length}` },
     { label: "Yangi mijoz", value: String(newClients), delta: pctDelta(newClients, prevNew) },
-    { label: "Jami mijozlar", value: String(total) },
     { label: "Faol mijozlar", value: String(active.length), sub: `MRR ${moneyCompact(mrrU, mrrZ)}` },
-    { label: "Otkaz (bekor)", value: String(refused), accent: STATUS.bad },
     {
       label: "Qarzdorlar",
       value: String(overdue.length),
@@ -390,8 +383,7 @@ async function gatherChartData(kind: ReportKind): Promise<ChartBundle> {
     kind === "daily" ? tzDateLabel() : `${tzDateLabel(periodStart)} – ${tzDateLabel()}`;
   const caption =
     `📊 <b>${title}</b> — ${dateLabel}\n` +
-    `💵 Yig'im: <b>${moneyCompact(colU, colZ)}</b> · 📞 ${pcalls.length} · 🟢 ${newClients} yangi · 🔧 ${ustaDone}\n` +
-    `👥 Baza: jami <b>${total}</b> · faol ${active.length} · otkaz ${refused} · qarzdor ${overdue.length}`;
+    `💵 Yig'im: <b>${moneyCompact(colU, colZ)}</b> · 📞 ${pcalls.length} · 🟢 ${newClients} yangi · 🔧 ${ustaDone}`;
 
   return {
     title,

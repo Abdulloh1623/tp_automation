@@ -36,6 +36,18 @@ export default async function LeadsPage({
         // chiqmaydi — qarzdor bo'lsa ham (ular bilan qayta aloqaga chiqilmaydi).
         stage: { notIn: [...NO_CONTACT_STAGES] },
         status: { not: "INACTIVE" },
+        // Bugun "otkaz"/"o'chirildi" deb belgilangan (pendingStage) lidlar ham
+        // darhol taxtadan chiqadi — kun yakunida rasmiy stage'ga o'tadi. Undefined/
+        // null pendingStage'li (odatdagi) lidlar qoladi. (Prisma notIn null'ni
+        // chiqarib yubormasligi uchun aniq OR bilan yozamiz.)
+        AND: [
+          {
+            OR: [
+              { pendingStage: null },
+              { pendingStage: { notIn: [...NO_CONTACT_STAGES] } },
+            ],
+          },
+        ],
         OR: [
           // Kunlik ish ro'yxati (faol bo'limlar, muddati kelgan)
           {

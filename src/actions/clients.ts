@@ -43,7 +43,14 @@ const clientSchema = z.object({
   assignedToId: z.string().optional(),
 }).superRefine(requireActivePaymentDate);
 
-export type ClientFormState = { error?: string; fieldErrors?: Record<string, string> };
+export type ClientFormState = {
+  error?: string;
+  fieldErrors?: Record<string, string>;
+  // Modal ichida tahrirlashda ishlatiladi: server-redirect O'RNIGA muvaffaqiyat
+  // signali qaytariladi, forma esa modalni klient tomonda yopadi (redirect
+  // intercepting-route ichida osilib qolardi — "Saqlanmoqda..." to'xtamasdi).
+  ok?: boolean;
+};
 
 /** Formadagi takrorlanuvchi phoneLabel/phoneNumber juftliklarini o'qiydi. */
 function parsePhones(formData: FormData): { label: string; number: string }[] {
@@ -376,19 +383,21 @@ export async function createClient(
   redirect(`/mijozlar/${createdId}`);
 }
 
-export async function updateClient(
+/**
+ * Mijoz tahririni SAQLAYDIGAN yadro — validatsiya, yozish, audit. Navigatsiya
+ * QILMAYDI: muvaffaqiyatda `{ ok: true }`, xatoda `{ error/fieldErrors }`
+ * qaytaradi. Ikki kirish nuqtasi ishlatadi:
+ *  - `updateClient` (to'liq sahifa) — yakunda server `redirect` qiladi.
+ *  - `saveClientInline` (modal) — `{ ok: true }` ni qaytaradi, forma modalni
+ *    klient tomonda yopadi (server-redirect intercepting-route ichida osilardi).
+ */
+async function applyClientUpdate(
   id: string,
-  _prev: ClientFormState,
   formData: FormData,
 ): Promise<ClientFormState> {
   const g = await guardRole(STAFF);
   if (!g.ok) return { error: g.error };
 
-  // Egalik cheklovi ATAYIN olib tashlandi: ISTALGAN staff roli (ADMIN/MANAGER/
-  // OPERATOR) istalgan mijozni tahrirlashi mumkin (`canMutateClient` bu yerda
-  // qo'llanmaydi). Buning evaziga kim, qaysi mijozda, NIMANI o'zgartirgani
-  // (eski -> yangi) to'liq AuditLog'ga yoziladi (quyida). Mavjudlik baribir
-  // tekshiriladi + eski qiymatlar diff uchun o'qib olinadi.
   const before = await db.client.findUnique({
     where: { id },
     include: { phones: { select: { label: true, number: true } } },
@@ -404,23 +413,11 @@ export async function updateClient(
   }
   const phones = parsePhones(formData);
 
-  // Biriktiruv: ADMIN/MANAGER formadagi qiymatni (validatsiya bilan) o'zgartira
-  // oladi. OPERATOR esa boshqaning mijozini tahrirlaganda uni O'ZIGA "o'g'irlab"
-  // olmasligi uchun mavjud biriktiruv saqlanadi (resolveAssignee OPERATOR uchun
-  // doim o'zini qaytaradi — bu yerda unga tayanmaymiz).
   const assignedToId =
     g.session.role === "OPERATOR"
       ? before.assignedToId
       : await resolveAssignee(g.session, parsed.data.assignedToId);
 
-  // Pul maydonlari (qarz va oylik summa) — OPERATOR uchun O'ZGARMAYDI.
-  //
-  // To'lov yozish chek rasmini MAJBURIY qiladi (actions/payments.ts), lekin
-  // operator shu formadan `debtAmount: 0` qo'yib, chek ham, `Payment` yozuvi
-  // ham bo'lmagan holda qarzni o'chirib tashlay olardi — ya'ni "chek majburiy"
-  // nazorati aylanib o'tilardi. Qarz faqat haqiqiy to'lov orqali (chek bilan)
-  // yoki boshliq tomonidan qo'lda tuzatiladi.
-  // `assignedToId` bilan bir xil yondashuv: eski qiymat jimgina saqlanadi.
   const isOperator = g.session.role === "OPERATOR";
   const after = {
     ...toData(parsed.data),
@@ -430,8 +427,6 @@ export async function updateClient(
       : {}),
   };
 
-  // Churn vaqti (deactivatedAt): status ACTIVE/PENDING -> INACTIVE bo'lsa yoziladi,
-  // INACTIVE -> faol bo'lsa tozalanadi. O'zgarmasa tegilmaydi (undefined).
   const deactivatedAt =
     after.status === "INACTIVE" && before.status !== "INACTIVE"
       ? new Date()
@@ -448,8 +443,6 @@ export async function updateClient(
     },
   });
 
-  // Har bir tahrir AuditLog'ga: kim (userId — logAudit sessiyadan oladi), qaysi
-  // mijoz (entityId), va nima o'zgargani (eski -> yangi JSON) yoziladi.
   const changes = diffClient(before, after, phones);
   await logAudit("CLIENT_UPDATE", {
     entity: "Client",
@@ -464,6 +457,25 @@ export async function updateClient(
 
   revalidatePath("/mijozlar");
   revalidatePath(`/mijozlar/${id}`);
+  return { ok: true };
+}
+
+/** Modal ichida tahrirlash — saqlaydi va `{ ok: true }` qaytaradi (redirect YO'Q). */
+export async function saveClientInline(
+  id: string,
+  _prev: ClientFormState,
+  formData: FormData,
+): Promise<ClientFormState> {
+  return applyClientUpdate(id, formData);
+}
+
+export async function updateClient(
+  id: string,
+  _prev: ClientFormState,
+  formData: FormData,
+): Promise<ClientFormState> {
+  const res = await applyClientUpdate(id, formData);
+  if (!res.ok) return res;
   redirect(`/mijozlar/${id}`);
 }
 

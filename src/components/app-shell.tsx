@@ -120,6 +120,14 @@ const BADGE_COLOR: Record<string, string> = {
 };
 const badgeColorFor = (href: string) => BADGE_COLOR[href] ?? "bg-red-600";
 
+/** Foydalanuvchi ismidan monogramma (bosh harflar) — avatar chipi uchun. */
+function initialsOf(name: string): string {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "—";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
 export function AppShell({
   user,
   badges = {},
@@ -153,27 +161,39 @@ export function AppShell({
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar — viewportga qulflangan (skroll qilinmaydi) */}
-      <aside className="hidden h-full w-60 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 md:flex">
-        <div className="flex items-center justify-between gap-2 px-5 py-5">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 text-white">
+      {/* Sidebar — viewportga qulflangan (skroll qilinmaydi). Hi-Tech: nozik
+          gradient fon, shishasimon aksentlar, faol elementda gradient + chap chiziq. */}
+      <aside className="relative hidden h-full w-64 shrink-0 flex-col border-r border-slate-200 bg-gradient-to-b from-white to-slate-50 dark:border-slate-800/80 dark:from-slate-900 dark:to-slate-950 md:flex">
+        {/* Yuqori nozik yorug'lik dog'i — texnologik urg'u */}
+        <div className="pointer-events-none absolute -left-10 -top-16 h-40 w-40 rounded-full bg-primary-500/10 blur-3xl" />
+
+        <div className="relative flex items-center justify-between gap-2 px-4 py-4">
+          <Link href="/" className="group flex items-center gap-2.5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 text-white shadow-lg shadow-primary-500/25 ring-1 ring-inset ring-white/25 transition-transform group-hover:scale-105">
               <Building2 className="h-5 w-5" />
             </div>
-            <div>
-              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">POS CRM</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">TP Automation</div>
+            <div className="leading-tight">
+              <div className="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100">
+                POS CRM
+              </div>
+              <div className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                TP Automation
+              </div>
             </div>
-          </div>
+          </Link>
           <ThemeToggle />
         </div>
+        <div className="pointer-events-none h-px bg-gradient-to-r from-transparent via-primary-500/40 to-transparent" />
 
-        <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-2">
+        <nav className="relative flex-1 space-y-5 overflow-y-auto px-3 py-4">
           {sections.map((section, si) => (
             <div key={section.title ?? `s${si}`} className="space-y-1">
               {section.title && (
-                <div className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                  {section.title}
+                <div className="flex items-center gap-2 px-2 pb-1.5 pt-1">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
+                    {section.title}
+                  </span>
+                  <span className="h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent dark:from-slate-800" />
                 </div>
               )}
               {section.items.map((item) => {
@@ -186,19 +206,38 @@ export function AppShell({
                   <Link
                     key={item.href}
                     href={item.href}
+                    aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
+                      "group relative flex items-center gap-2.5 rounded-xl py-2 pl-3 pr-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
                       active
-                        ? "bg-primary-50 text-primary-700 dark:bg-primary-950 dark:text-primary-300"
-                        : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+                        ? "bg-gradient-to-r from-primary-500/15 to-primary-500/5 text-primary-700 ring-1 ring-inset ring-primary-500/20 dark:text-primary-300"
+                        : "text-slate-600 hover:bg-slate-100/70 dark:text-slate-300 dark:hover:bg-slate-800/60",
                     )}
                   >
-                    <Icon className="h-4 w-4" />
-                    <span className="flex-1">{item.label}</span>
+                    {/* Chap aksent chizig'i — faqat faol elementda */}
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-primary-400 to-primary-600 transition-opacity",
+                        active ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                    {/* Ikon chipi — profil InfoRow uslubida (faol: primary) */}
+                    <span
+                      className={cn(
+                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors",
+                        active
+                          ? "bg-primary-500/15 text-primary-600 ring-1 ring-inset ring-primary-500/25 dark:text-primary-300"
+                          : "bg-slate-100 text-slate-500 group-hover:text-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:group-hover:text-slate-200",
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="flex-1 truncate">{item.label}</span>
                     {badgeFor(item.href) > 0 && (
                       <span
                         className={cn(
-                          "rounded-full px-1.5 py-0.5 text-xs font-semibold leading-none text-white",
+                          "min-w-[18px] rounded-full px-1.5 py-0.5 text-center text-[11px] font-semibold leading-none text-white ring-1 ring-inset ring-white/20",
                           badgeColorFor(item.href),
                         )}
                         title={`${badgeFor(item.href)} ta hal qilinmagan`}
@@ -213,22 +252,31 @@ export function AppShell({
           ))}
         </nav>
 
-        <div className="border-t border-slate-200 p-3 dark:border-slate-800">
+        <div className="relative border-t border-slate-200 p-3 dark:border-slate-800/80">
           <Link
             href="/profil"
-            className="mb-2 block rounded-lg px-2 py-1 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="mb-2 flex items-center gap-2.5 rounded-xl px-2 py-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800/70"
           >
-            <div className="text-sm font-medium text-slate-900 dark:text-slate-100">{user.name}</div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
-              {userRoleLabel(user.role)}
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-700 to-slate-900 text-xs font-bold text-white ring-1 ring-inset ring-white/10 dark:from-slate-600 dark:to-slate-800">
+              {initialsOf(user.name)}
+            </span>
+            <div className="min-w-0 leading-tight">
+              <div className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {user.name}
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                {userRoleLabel(user.role)}
+              </div>
             </div>
           </Link>
           <button
             type="button"
             onClick={handleLogout}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:text-slate-300 dark:hover:bg-red-950 dark:hover:text-red-400"
+            className="group flex w-full items-center gap-2.5 rounded-xl py-2 pl-3 pr-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:text-slate-300 dark:hover:bg-red-950/60 dark:hover:text-red-400"
           >
-            <LogOut className="h-4 w-4" />
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-colors group-hover:bg-red-100 group-hover:text-red-600 dark:bg-slate-800 dark:text-slate-400 dark:group-hover:bg-red-950">
+              <LogOut className="h-4 w-4" />
+            </span>
             Chiqish
           </button>
         </div>
@@ -237,13 +285,13 @@ export function AppShell({
       {/* Main — mustaqil skroll qilinadigan ustun */}
       <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden">
         {/* Mobile top bar */}
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900 md:hidden">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white">
+        <header className="flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur dark:border-slate-800/80 dark:bg-slate-900/90 md:hidden">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-400 to-primary-600 text-white shadow-sm ring-1 ring-inset ring-white/25">
               <Building2 className="h-4 w-4" />
             </div>
-            <span className="text-sm font-semibold dark:text-slate-100">POS CRM</span>
-          </div>
+            <span className="text-sm font-bold tracking-tight dark:text-slate-100">POS CRM</span>
+          </Link>
           <div className="flex items-center gap-1">
             <ThemeToggle />
             <button
@@ -258,7 +306,7 @@ export function AppShell({
         </header>
 
         {/* Mobile nav — gorizontal skroll (rollar ko'p element ko'rsatadi) */}
-        <nav className="flex gap-1 overflow-x-auto border-b border-slate-200 bg-white px-2 py-2 dark:border-slate-800 dark:bg-slate-900 md:hidden">
+        <nav className="flex gap-1.5 overflow-x-auto border-b border-slate-200 bg-white/90 px-2.5 py-2.5 backdrop-blur dark:border-slate-800/80 dark:bg-slate-900/90 md:hidden">
           {flatNav.map((item) => {
             const active =
               item.href === "/"
@@ -270,19 +318,29 @@ export function AppShell({
                 key={item.href}
                 href={item.href}
                 ref={active ? activeMobileRef : undefined}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex shrink-0 min-w-[60px] flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
+                  "relative flex shrink-0 min-w-[64px] flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
                   active
-                    ? "bg-primary-50 text-primary-700 dark:bg-primary-950 dark:text-primary-300"
-                    : "text-slate-600 dark:text-slate-300",
+                    ? "bg-gradient-to-b from-primary-500/15 to-primary-500/5 text-primary-700 ring-1 ring-inset ring-primary-500/20 dark:text-primary-300"
+                    : "text-slate-500 hover:bg-slate-100/70 dark:text-slate-400 dark:hover:bg-slate-800/60",
                 )}
               >
                 {badgeFor(item.href) > 0 && (
-                  <span className={cn("absolute right-1 top-0.5 min-w-[16px] rounded-full px-1 text-center text-[10px] font-semibold leading-4 text-white", badgeColorFor(item.href))}>
+                  <span className={cn("absolute right-1 top-0.5 min-w-[16px] rounded-full px-1 text-center text-[10px] font-semibold leading-4 text-white ring-1 ring-inset ring-white/20", badgeColorFor(item.href))}>
                     {badgeText(badgeFor(item.href))}
                   </span>
                 )}
-                <Icon className="h-4 w-4" />
+                <span
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
+                    active
+                      ? "bg-primary-500/15 text-primary-600 ring-1 ring-inset ring-primary-500/25 dark:text-primary-300"
+                      : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                </span>
                 {item.label}
               </Link>
             );

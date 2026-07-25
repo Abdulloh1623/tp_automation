@@ -103,7 +103,7 @@ function Section({
   action,
   children,
   className,
-  defaultOpen = true,
+  defaultOpen = false,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
@@ -112,6 +112,7 @@ function Section({
   className?: string;
   defaultOpen?: boolean;
 }) {
+  // Bo'limlar standart holatda YOPIQ — foydalanuvchi kerakligini o'zi ochadi.
   const header = (
     <>
       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500/15 to-primary-500/5 text-primary-600 ring-1 ring-inset ring-primary-500/20 dark:text-primary-400">

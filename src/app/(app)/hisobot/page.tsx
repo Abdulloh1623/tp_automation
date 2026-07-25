@@ -9,13 +9,14 @@ import {
   Wrench,
   FileDown,
   Package,
-  Ban,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarList } from "@/components/bar-list";
 import { SendReportButtons } from "@/components/send-report-buttons";
+import { TextReportCard } from "@/components/text-report-card";
+import { buildManagerTextReport } from "@/lib/report-text";
 import { formatMoney } from "@/lib/utils";
 import { paymentState } from "@/lib/payment-status";
 import { callResultLabel } from "@/lib/constants";
@@ -79,6 +80,9 @@ export default async function ReportsPage() {
   await requireRole(["ADMIN", "MANAGER"]);
   const monthStart = startOfMonth(new Date());
 
+  // Rahbarga topshirish uchun matnli kunlik hisobot (nusxalab olsa bo'ladi).
+  const textReport = await buildManagerTextReport();
+
   const [
     clients,
     operators,
@@ -94,7 +98,6 @@ export default async function ReportsPage() {
           id: true,
           region: true,
           status: true,
-          stage: true,
           currency: true,
           monthlyAmount: true,
           nextPaymentDate: true,
@@ -150,7 +153,6 @@ export default async function ReportsPage() {
   const total = clients.length;
   const activeClients = clients.filter((c) => c.status === "ACTIVE");
   const activeCount = activeClients.length;
-  const refusedCount = clients.filter((c) => c.stage === "REFUSED").length; // otkaz (bekor qilgan)
   const pendingCount = clients.filter((c) => c.status === "PENDING").length;
   const inactiveCount = clients.filter((c) => c.status === "INACTIVE").length;
   const churnRate = total > 0 ? Math.round((inactiveCount / total) * 100) : 0;
@@ -254,6 +256,8 @@ export default async function ReportsPage() {
         </div>
       </div>
 
+      <TextReportCard text={textReport} />
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi
           label="Jami mijozlar"
@@ -266,13 +270,6 @@ export default async function ReportsPage() {
           value={String(activeCount)}
           icon={UserCheck}
           tone="emerald"
-        />
-        <Kpi
-          label="Otkaz (bekor qilgan)"
-          value={String(refusedCount)}
-          sub={total > 0 ? `${Math.round((refusedCount / total) * 100)}% bazadan` : undefined}
-          icon={Ban}
-          tone="red"
         />
         <Kpi
           label="MRR (oylik daromad)"

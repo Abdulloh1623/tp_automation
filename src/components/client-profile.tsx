@@ -56,6 +56,7 @@ import { cn, formatDate, formatDateTime, formatMoney, formatPhone, normalizePhon
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { CollapsibleList } from "@/components/collapsible-list";
 import { ExpandableText } from "@/components/expandable-text";
+import { CollapsibleCard } from "@/components/collapsible-card";
 
 /** Restoran nomidan monogramma (bosh harflar). */
 function initialsOf(name: string): string {
@@ -90,40 +91,47 @@ function InfoRow({
   );
 }
 
-/** Hi-Tech bo'lim — shishasimon karta, sarlavhali (ikon chip + nom). */
+/**
+ * Hi-Tech bo'lim — shishasimon karta, sarlavhali (ikon chip + nom). Sarlavhaga
+ * bosilsa yig'iladi/ochiladi (akkordeon). Ikonli sarlavha SHU YERDA (server)
+ * render qilinadi va tayyor markup CollapsibleCard (klient) ga uzatiladi — lucide
+ * ikon komponenti klient chegarasidan o'tmaydi (RSC ikon-prop tuzog'i).
+ */
 function Section({
   icon: Icon,
   title,
   action,
   children,
   className,
+  defaultOpen = true,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   action?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  defaultOpen?: boolean;
 }) {
+  const header = (
+    <>
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500/15 to-primary-500/5 text-primary-600 ring-1 ring-inset ring-primary-500/20 dark:text-primary-400">
+        <Icon className="h-4 w-4" />
+      </span>
+      <h2 className="text-sm font-semibold tracking-tight text-slate-800 dark:text-slate-100">
+        {title}
+      </h2>
+    </>
+  );
+
   return (
-    <section
-      className={cn(
-        "overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-sm dark:border-slate-800/80 dark:bg-slate-900/60",
-        className,
-      )}
+    <CollapsibleCard
+      header={header}
+      action={action}
+      className={className}
+      defaultOpen={defaultOpen}
     >
-      <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-800/70 sm:px-5">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500/15 to-primary-500/5 text-primary-600 ring-1 ring-inset ring-primary-500/20 dark:text-primary-400">
-            <Icon className="h-4 w-4" />
-          </span>
-          <h2 className="text-sm font-semibold tracking-tight text-slate-800 dark:text-slate-100">
-            {title}
-          </h2>
-        </div>
-        {action}
-      </div>
-      <div className="p-4 sm:p-5">{children}</div>
-    </section>
+      {children}
+    </CollapsibleCard>
   );
 }
 

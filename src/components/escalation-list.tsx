@@ -1,9 +1,10 @@
 "use client";
 
 // Eskalatsiya ro'yxatlari — ichki bo'limlarga (tab) ajratilgan:
-// Yangi (navbatda, usta biriktirilmagan) · Biriktirildi (usta biriktirilgan,
-// hali boshlamagan) · Jarayonda (usta ish boshlagan) · Yakunlangan.
-// Qidiruv + viloyat filtri barcha bo'limlarga ta'sir qiladi.
+// Yangi (mas'ul biriktirilmagan — operatori yo'q) · Biriktirildi (mas'ul/operator
+// bor, usta kutilmoqda) · Jarayonda (usta biriktirilgan — FORWARDED) · Yakunlangan.
+// Mas'ul mijoz operatoriga qarab AVTOMAT biriktiriladi (operatorli lid darhol
+// Biriktirildi'ga tushadi). Qidiruv + viloyat filtri barcha bo'limlarga ta'sir qiladi.
 import { useMemo, useState, type ReactNode } from "react";
 import {
   Phone,
@@ -142,10 +143,12 @@ export function EscalationList({
   const fwdFiltered = useMemo(() => forwarded.filter(match), [forwarded, query, region]); // eslint-disable-line react-hooks/exhaustive-deps
   const resFiltered = useMemo(() => resolved.filter(match), [resolved, query, region]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // FORWARDED ichida: usta endigina biriktirilgan (ASSIGNED) va ish boshlagan (qolganlari).
-  const isJustAssigned = (c: ForwardedItem) => (c.ustaStatus ?? "ASSIGNED") === "ASSIGNED";
-  const biriktirildi = useMemo(() => fwdFiltered.filter(isJustAssigned), [fwdFiltered]);
-  const jarayonda = useMemo(() => fwdFiltered.filter((c) => !isJustAssigned(c)), [fwdFiltered]);
+  // Yangi = mas'ul (operator) biriktirilmagan (ESCALATED, staffId yo'q).
+  // Biriktirildi = mas'ul bor, usta kutilmoqda (ESCALATED, staffId bor).
+  // Jarayonda = usta biriktirilgan (FORWARDED — barchasi).
+  const yangi = useMemo(() => escFiltered.filter((c) => !c.staffId), [escFiltered]);
+  const biriktirildi = useMemo(() => escFiltered.filter((c) => c.staffId), [escFiltered]);
+  const jarayonda = fwdFiltered;
 
   // Yakunlangan — qidiruv/viloyat ustiga sana oralig'i filtri (yakunlangan kun bo'yicha).
   const resDateFiltered = useMemo(
@@ -160,8 +163,10 @@ export function EscalationList({
   const total = escalated.length + forwarded.length + resolved.length;
   const found = escFiltered.length + fwdFiltered.length + resFiltered.length;
 
-  // ESCALATED bosqichidagi mijoz kartasi (usta hali biriktirilmagan).
-  function escalatedCard(c: EscalatedItem) {
+  // ESCALATED bosqichidagi mijoz kartasi. `showUsta` — "Biriktirildi" bo'limida
+  // (mas'ul bor) usta biriktirish formasi ko'rsatiladi; "Yangi"da esa mas'ul
+  // biriktirilishini kutish holati.
+  function escalatedCard(c: EscalatedItem, showUsta = false) {
     return (
       <Card key={c.id}>
         <CardContent className="space-y-3">
@@ -212,7 +217,7 @@ export function EscalationList({
           )}
 
           <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
-            {/* Mas'ul xodim — jarayonni yakuniga yetkazadi (hamma ko'radi) */}
+            {/* Mas'ul xodim (operator) — jarayonni yakuniga yetkazadi (hamma ko'radi) */}
             <AssignEscalationStaff
               clientId={c.id}
               staffId={c.staffId}
@@ -220,24 +225,27 @@ export function EscalationList({
               options={staffOptions}
               canAssign={isManager}
             />
-            {isManager ? (
-              <>
-                <AssignUstaForm
-                  clientId={c.id}
-                  ustalar={ustalar}
-                  suggestedUstaId={c.suggestedUstaId}
-                />
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-slate-400 dark:text-slate-500">
-                    Noto'g'ri yo'naltirilgan bo'lsa:
-                  </span>
-                  <LeadRevertButton clientId={c.id} label={c.restaurantName} />
-                </div>
-              </>
+            {showUsta ? (
+              // Biriktirildi: mas'ul TP xodim (operator) yoki boshliq ustani biriktiradi
+              <AssignUstaForm
+                clientId={c.id}
+                ustalar={ustalar}
+                suggestedUstaId={c.suggestedUstaId}
+              />
             ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
-                Usta biriktirilishi kutilmoqda
-              </span>
+              !isManager && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-950 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                  Mas'ul biriktirilishi kutilmoqda
+                </span>
+              )
+            )}
+            {isManager && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-slate-400 dark:text-slate-500">
+                  Noto'g'ri yo'naltirilgan bo'lsa:
+                </span>
+                <LeadRevertButton clientId={c.id} label={c.restaurantName} />
+              </div>
             )}
             {/* Usta chaqirmasdan (masalan telefon orqali) hal qilinsa — to'g'ridan-to'g'ri yopish */}
             <ResolveEscalationButton clientId={c.id} label={c.restaurantName} />
@@ -441,25 +449,25 @@ export function EscalationList({
       key: "yangi",
       label: "Yangi",
       icon: <Inbox className="h-4 w-4" />,
-      tone: "red", // navbatda — usta biriktirilishi kutilmoqda
-      count: escFiltered.length,
-      content: panel(escFiltered, escalatedCard, "Navbatda (usta kutayotgan) eskalatsiya yo'q."),
+      tone: "red", // mas'ul (operator) biriktirilishi kutilmoqda
+      count: yangi.length,
+      content: panel(yangi, (c) => escalatedCard(c), "Yangi (mas'ul biriktirilmagan) eskalatsiya yo'q."),
     },
     {
       key: "biriktirildi",
       label: "Biriktirildi",
       icon: <UserCheck className="h-4 w-4" />,
-      tone: "amber", // usta biriktirilgan, hali ishga kirishmagan
+      tone: "amber", // mas'ul bor, usta kutilmoqda
       count: biriktirildi.length,
-      content: panel(biriktirildi, forwardedCard, "Usta biriktirilgan (kutayotgan) eskalatsiya yo'q."),
+      content: panel(biriktirildi, (c) => escalatedCard(c, true), "Biriktirilgan (usta kutayotgan) eskalatsiya yo'q."),
     },
     {
       key: "jarayonda",
       label: "Jarayonda",
       icon: <Wrench className="h-4 w-4" />,
-      tone: "sky", // usta ish boshlagan (yo'lda/bordi/...)
+      tone: "sky", // usta biriktirilgan (yo'lda/bordi/...)
       count: jarayonda.length,
-      content: panel(jarayonda, forwardedCard, "Jarayondagi (usta ishlayotgan) eskalatsiya yo'q."),
+      content: panel(jarayonda, forwardedCard, "Jarayondagi (usta biriktirilgan) eskalatsiya yo'q."),
     },
     {
       key: "yakunlangan",
@@ -493,7 +501,7 @@ export function EscalationList({
           />
         </Card>
       ) : (
-        <TicketTabs tabs={tabs} initialKey="yangi" />
+        <TicketTabs tabs={tabs} initialKey="biriktirildi" />
       )}
     </div>
   );

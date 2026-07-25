@@ -62,20 +62,39 @@ type EscalationPatch = {
 /**
  * Mijoz `stage`i `target`ga o'zgarayotganda eskalatsiya vaqt-belgilarini hisoblaydi:
  * - eskalatsiyaga KIRSA — `escalatedAt` qo'yiladi (davom etayotgan bo'lsa saqlanadi),
- *   SLA belgisi nollanadi;
+ *   SLA belgisi nollanadi, VA mas'ul avtomatik mijoz operatoriga (`assignedToId`)
+ *   biriktiriladi (agar hali biriktirilmagan bo'lsa) — operatori bor lid darhol
+ *   "Biriktirildi" bo'limiga tushadi, operatorsizi "Yangi"da qoladi;
  * - eskalatsiyadan CHIQSA (RESOLVED/faol/otkaz) — `escalatedAt`, mas'ul va SLA
  *   belgilari tozalanadi.
  * Boshqa hollarda bo'sh patch (o'zgarish yo'q).
+ *
+ * `assignedToId`/`escalationStaffId` — chaqiruvchi bersa avto-mas'ul ishlaydi;
+ * bermasa (masalan chiqish patchi) e'tiborsiz qoldiriladi.
  */
 export function escalationStagePatch(
   target: string,
-  current: { stage: string; escalatedAt: Date | null },
+  current: {
+    stage: string;
+    escalatedAt: Date | null;
+    assignedToId?: string | null;
+    escalationStaffId?: string | null;
+  },
 ): EscalationPatch {
   const entering = isEscalationStage(target);
   const wasEsc = isEscalationStage(current.stage);
   if (entering) {
-    if (wasEsc && current.escalatedAt) return {}; // davom etyapti — vaqtni saqlaymiz
-    return { escalatedAt: new Date(), slaNotifiedAt: null };
+    const patch: EscalationPatch = {};
+    // Vaqt-belgisi: davom etayotgan bo'lsa saqlanadi, aks holda hozir qo'yiladi.
+    if (!(wasEsc && current.escalatedAt)) {
+      patch.escalatedAt = new Date();
+      patch.slaNotifiedAt = null;
+    }
+    // Avto-mas'ul: mijoz operatori (hali mas'ul biriktirilmagan bo'lsa).
+    if (!current.escalationStaffId && current.assignedToId) {
+      patch.escalationStaffId = current.assignedToId;
+    }
+    return patch;
   }
   if (wasEsc || current.escalatedAt) {
     return { escalatedAt: null, escalationStaffId: null, slaNotifiedAt: null };

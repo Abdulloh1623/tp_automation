@@ -256,7 +256,7 @@ Admin barcha boardlar, ustalar yuklamasi va hisobotlarni kuzatadi.
 ## 13. Telegram integratsiyasi
 
 ### 13.1. Hisobotlar (kanalga avtomatik)
-- **Kunlik** (har kuni **18:30**, Toshkent UTC+5) — bugungi qo'ng'iroqlar soni,
+- **Kunlik** (har kuni **17:30**, Toshkent UTC+5) — bugungi qo'ng'iroqlar soni,
   to'lov yig'imi, ko'tarmadi/eskalatsiya, operatorlar kesimida.
 - **Haftalik** (Dushanba ertalab) — o'tgan hafta xulosasi.
 - **Oylik** (1-sana) — MRR, yig'im, churn, eng faol operator/usta.
@@ -294,7 +294,7 @@ qoladi (erta yakunlash uchun).
   (VPS, always-on). Talab: @BotFather token + kanalga bot admin.
 - **Token keyin ulanadi:** env'da token bo'lmasa, Telegram yuborish o'rniga
   **log (mock) rejim** ishlaydi — kod tayyor bo'ladi, jonli ulanish keyinroq.
-- Rejalashtirilgan ishlar (18:30 hisobot, 00:00 yangilanish) **scheduler**
+- Rejalashtirilgan ishlar (17:30 hisobot, 00:00 yangilanish) **scheduler**
   (node-cron) orqali; doimiy ishlash deploy bilan ta'minlanadi.
 
 ### 13.6. Bosqich

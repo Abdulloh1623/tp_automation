@@ -160,7 +160,7 @@ async function main() {
   log("Telegram:", telegramEnabled() ? "token bor" : "TOKEN YO'Q", "· kanal:", channelId() ?? "yo'q (log rejimi)");
 
   // Rejalashtirilgan hisobotlar (Asia/Tashkent)
-  cron.schedule("30 18 * * *", () => sendReport("daily"), { timezone: TZ });
+  cron.schedule("30 17 * * *", () => sendReport("daily"), { timezone: TZ });
   cron.schedule("0 9 * * 1", () => sendReport("weekly"), { timezone: TZ });
   cron.schedule("0 9 1 * *", () => sendReport("monthly"), { timezone: TZ });
   cron.schedule("0 0 * * *", () => dailyRollover(), { timezone: TZ });
@@ -172,7 +172,7 @@ async function main() {
   cron.schedule("0 8 * * *", () => runDistribute(), { timezone: TZ });
   // 3-kunlik SLA ogohlantirishi — har kuni 10:00
   cron.schedule("0 10 * * *", () => runSla(), { timezone: TZ });
-  log("Cron jadvallari o'rnatildi: taqsimot 08:00, eslatma 09:30 & 15:00, SLA 10:00, kunlik 18:30, haftalik Dush 09:00, oylik 1-kun 09:00, yangilanish 00:00, backup 03:00");
+  log("Cron jadvallari o'rnatildi: taqsimot 08:00, eslatma 09:30 & 15:00, SLA 10:00, kunlik 17:30, haftalik Dush 09:00, oylik 1-kun 09:00, yangilanish 00:00, backup 03:00");
 
   // Liveness heartbeat — Docker healthcheck shu faylning yangiligini tekshiradi.
   // .unref(): heartbeat o'zi o'lik jarayonni tirik ushlab turmasin (soxta-healthy'ni oldini oladi).

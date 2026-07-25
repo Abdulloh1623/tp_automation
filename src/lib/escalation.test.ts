@@ -82,4 +82,36 @@ describe("escalationStagePatch", () => {
     const p = escalationStagePatch("NO_ANSWER", { stage: "NEW", escalatedAt: null });
     expect(p).toEqual({});
   });
+
+  it("eskalatsiyaga kirishда mas'ul avtomatik mijoz operatoriga biriktiriladi", () => {
+    const p = escalationStagePatch("ESCALATED", {
+      stage: "NEW",
+      escalatedAt: null,
+      assignedToId: "op1",
+      escalationStaffId: null,
+    });
+    expect(p.escalationStaffId).toBe("op1");
+    expect(p.escalatedAt).toBeInstanceOf(Date);
+  });
+
+  it("mas'ul allaqachon biriktirilgan bo'lsa — qayta yozilmaydi", () => {
+    const p = escalationStagePatch("ESCALATED", {
+      stage: "NEW",
+      escalatedAt: null,
+      assignedToId: "op1",
+      escalationStaffId: "op2",
+    });
+    expect(p.escalationStaffId).toBeUndefined();
+  });
+
+  it("operatori yo'q (assignedToId null) — mas'ul patchга qo'shilmaydi (Yangi'da qoladi)", () => {
+    const p = escalationStagePatch("ESCALATED", {
+      stage: "NEW",
+      escalatedAt: null,
+      assignedToId: null,
+      escalationStaffId: null,
+    });
+    expect(p.escalationStaffId).toBeUndefined();
+    expect(p.escalatedAt).toBeInstanceOf(Date);
+  });
 });

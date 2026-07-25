@@ -54,6 +54,8 @@ import { SoliqConnectDialog } from "@/components/soliq-connect-dialog";
 import { paymentMethodLabel, TAX_CONNECTION_STATUS } from "@/lib/constants";
 import { cn, formatDate, formatDateTime, formatMoney, formatPhone, normalizePhone } from "@/lib/utils";
 import { PhoneCopyButton } from "@/components/phone-copy";
+import { CollapsibleList } from "@/components/collapsible-list";
+import { ExpandableText } from "@/components/expandable-text";
 
 /** Restoran nomidan monogramma (bosh harflar). */
 function initialsOf(name: string): string {
@@ -552,12 +554,12 @@ export async function ClientProfile({ id }: { id: string }) {
                 <CallLogForm clientId={client.id} />
               </div>
 
-              <div className="space-y-3">
-                {client.callLogs.length === 0 && (
-                  <p className="text-sm text-slate-400 dark:text-slate-500">
-                    Hali qo'ng'iroq yozuvi yo'q
-                  </p>
-                )}
+              {client.callLogs.length === 0 && (
+                <p className="text-sm text-slate-400 dark:text-slate-500">
+                  Hali qo'ng'iroq yozuvi yo'q
+                </p>
+              )}
+              <CollapsibleList className="space-y-3" previewCount={3}>
                 {client.callLogs.map((log) => {
                   // Egasi (yozgan operator) — vaqt cheklovisiz tahrirlay oladi;
                   // o'chirish esa yozilganidan keyin 5 soat ichida (admin doim).
@@ -584,7 +586,10 @@ export async function ClientProfile({ id }: { id: string }) {
                           )}
                         </div>
                         {log.note && (
-                          <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">{log.note}</p>
+                          <ExpandableText
+                            text={log.note}
+                            className="mt-1 text-sm text-slate-700 dark:text-slate-200"
+                          />
                         )}
                         {log.nextFollowUpDate && (
                           <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
@@ -616,7 +621,7 @@ export async function ClientProfile({ id }: { id: string }) {
                     </div>
                   );
                 })}
-              </div>
+              </CollapsibleList>
             </div>
           </Section>
 
@@ -671,7 +676,7 @@ export async function ClientProfile({ id }: { id: string }) {
                   Hali amal yozuvi yo'q
                 </p>
               ) : (
-                <div className="space-y-3">
+                <CollapsibleList className="space-y-3" previewCount={4}>
                   {activity.map((a) => (
                     <div
                       key={a.id}
@@ -683,7 +688,10 @@ export async function ClientProfile({ id }: { id: string }) {
                           {a.action}
                         </div>
                         {a.detail && (
-                          <div className="text-xs text-slate-600 dark:text-slate-300">{a.detail}</div>
+                          <ExpandableText
+                            text={a.detail}
+                            className="text-xs text-slate-600 dark:text-slate-300"
+                          />
                         )}
                         <div className="text-xs text-slate-400 dark:text-slate-500">
                           {formatDateTime(a.createdAt)}
@@ -692,7 +700,7 @@ export async function ClientProfile({ id }: { id: string }) {
                       </div>
                     </div>
                   ))}
-                </div>
+                </CollapsibleList>
               )}
             </div>
           </Section>

@@ -15,6 +15,8 @@ import { requireRole } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarList } from "@/components/bar-list";
 import { SendReportButtons } from "@/components/send-report-buttons";
+import { TextReportCard } from "@/components/text-report-card";
+import { buildManagerTextReport } from "@/lib/report-text";
 import { formatMoney } from "@/lib/utils";
 import { paymentState } from "@/lib/payment-status";
 import { callResultLabel } from "@/lib/constants";
@@ -77,6 +79,9 @@ function Kpi({
 export default async function ReportsPage() {
   await requireRole(["ADMIN", "MANAGER"]);
   const monthStart = startOfMonth(new Date());
+
+  // Rahbarga topshirish uchun matnli kunlik hisobot (nusxalab olsa bo'ladi).
+  const textReport = await buildManagerTextReport();
 
   const [
     clients,
@@ -250,6 +255,8 @@ export default async function ReportsPage() {
           <SendReportButtons />
         </div>
       </div>
+
+      <TextReportCard text={textReport} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi

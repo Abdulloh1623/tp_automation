@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { recordPayment } from "@/actions/payments";
+import { toast } from "@/components/toaster";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
@@ -56,9 +57,11 @@ export function PaymentForm({
       if (res.ok) {
         setDone(true);
         setReceipt(null);
+        toast("To'lov qabul qilindi", "success");
         router.refresh();
       } else {
         setError(res.error ?? "Xatolik");
+        toast(res.error ?? "Xatolik", "error");
       }
     });
   }

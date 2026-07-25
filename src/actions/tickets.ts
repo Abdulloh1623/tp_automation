@@ -29,7 +29,7 @@ const ticketSchema = z.object({
   priority: ticketPriorityEnum.default("MEDIUM"),
 });
 
-export type TicketFormState = { error?: string; fieldErrors?: Record<string, string> };
+export type TicketFormState = { error?: string; fieldErrors?: Record<string, string>; ok?: boolean };
 
 function revalidateTicket(clientId: string) {
   revalidatePath(`/mijozlar/${clientId}`);
@@ -81,7 +81,7 @@ export async function createTicket(
     detail: parsed.data.title,
   });
   revalidateTicket(client.id);
-  return {};
+  return { ok: true };
 }
 
 /** Ticket holatini o'zgartirish. Form action sifatida: bind(null, id, status). */
@@ -89,21 +89,22 @@ export async function setTicketStatus(
   ticketId: string,
   status: string,
   formData: FormData,
-): Promise<void> {
+): Promise<{ ok: boolean; error?: string }> {
   const g = await guardRole(STAFF);
-  if (!g.ok) return; // ruxsatsiz — jimgina
+  if (!g.ok) return { ok: false, error: g.error };
 
   // status faqat ruxsat etilgan qiymatlardan biri bo'lishi shart
   // (`in` prototip kalitlarini ham true qaytaradi — enum predikat ishlatamiz)
-  if (!isTicketStatus(status)) return;
+  if (!isTicketStatus(status)) return { ok: false, error: "Noto'g'ri holat" };
 
   // Egalik: OPERATOR faqat o'z mijozining muammosini o'zgartira oladi
   const owner = await db.ticket.findUnique({
     where: { id: ticketId },
     select: { clientId: true },
   });
-  if (!owner) return;
-  if (!(await canMutateClient(g.session, owner.clientId))) return;
+  if (!owner) return { ok: false, error: "Muammo topilmadi" };
+  if (!(await canMutateClient(g.session, owner.clientId)))
+    return { ok: false, error: "Ruxsat yo'q" };
 
   const resolutionNote = s(formData.get("resolutionNote"));
   const data = {
@@ -120,8 +121,10 @@ export async function setTicketStatus(
       entityId: ticketId,
     });
     revalidateTicket(ticket.clientId);
+    return { ok: true };
   } catch {
-    // mavjud bo'lmagan ticketId — jimgina o'tkazib yuboramiz
+    // mavjud bo'lmagan ticketId
+    return { ok: false, error: "Xatolik" };
   }
 }
 

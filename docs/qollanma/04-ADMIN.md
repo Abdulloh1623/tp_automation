@@ -123,7 +123,7 @@ Bot: **@biznexautobot**.
 - 📈 **Hisobot yuborish** (kunlik/haftalik/oylik).
 
 ### 5.3. Kanallar (avtomatik)
-- **Hisobot kanali** — kunlik 18:30, haftalik (Dushanba 09:00), oylik (1-kun 09:00).
+- **Hisobot kanali** — kunlik 17:30, haftalik (Dushanba 09:00), oylik (1-kun 09:00).
 - **To'lovlar kanali** — har to'lovda mijoz + summa + sana + chek.
 - **Zaxira kanali** — har kuni 03:00 baza nusxasi.
 

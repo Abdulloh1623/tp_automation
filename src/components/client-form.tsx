@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import type { ClientFormState } from "@/actions/clients";
 import { Input } from "@/components/ui/input";
@@ -56,6 +57,7 @@ export function ClientForm({
   showInitialPayment = false,
   equipmentTypes,
   ustaSources,
+  closeOnSuccess = false,
 }: {
   action: (prev: ClientFormState, formData: FormData) => Promise<ClientFormState>;
   operators: Operator[];
@@ -66,11 +68,25 @@ export function ClientForm({
   /** Berilsa (ADMIN/MANAGER + yangi mijoz) — uskuna tanlash bo'limi ko'rsatiladi. */
   equipmentTypes?: EqTypeOpt[];
   ustaSources?: UstaSource[];
+  /**
+   * Modal ichida tahrirlash uchun: server `redirect` qilmaydigan action (`{ ok:
+   * true }` qaytaradi) ishlatilganda — muvaffaqiyatda modal klient tomonda yopiladi
+   * (`router.back`) va ma'lumot yangilanadi (`router.refresh`).
+   */
+  closeOnSuccess?: boolean;
 }) {
+  const router = useRouter();
   const showEquipment = Array.isArray(equipmentTypes);
   const [state, formAction, pending] = useActionState(action, initialState);
   const v = defaultValues;
   const fe = state.fieldErrors ?? {};
+
+  useEffect(() => {
+    if (closeOnSuccess && state.ok) {
+      router.refresh();
+      router.back();
+    }
+  }, [closeOnSuccess, state.ok, router]);
 
   return (
     <form action={formAction} className="space-y-6">

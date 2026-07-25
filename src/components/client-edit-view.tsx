@@ -4,14 +4,25 @@ import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { ClientForm } from "@/components/client-form";
-import { updateClient } from "@/actions/clients";
+import { updateClient, saveClientInline } from "@/actions/clients";
 
 /**
  * Mijozni tahrirlash ko'rinishi — /mijozlar/[id]/tahrir sahifasi VA intercepting
  * modal (@modal) ikkalasi shu YAGONA komponentni ishlatadi (kod takrorlanmaydi,
  * xuddi ClientProfile kabi).
+ *
+ * `inline` (modal) rejimida: server `redirect` QILMAYDIGAN action ishlatiladi va
+ * saqlangach forma modalni klient tomonda yopadi. Sahifa rejimida esa odatdagidek
+ * `updateClient` server-redirect qiladi. (Modal ichidan server-redirect qilinsa,
+ * u qayta intercept bo'lib "Saqlanmoqda..." holatida osilib qolardi.)
  */
-export async function ClientEditView({ id }: { id: string }) {
+export async function ClientEditView({
+  id,
+  inline = false,
+}: {
+  id: string;
+  inline?: boolean;
+}) {
   const [client, operators] = await Promise.all([
     // ANIQ `select` — `include` bilan butun yozuv olinardi va u pastda
     // ClientForm ("use client") ga spread qilinardi. Klient komponentga
@@ -55,7 +66,9 @@ export async function ClientEditView({ id }: { id: string }) {
 
   if (!client) notFound();
 
-  const action = updateClient.bind(null, client.id);
+  const action = inline
+    ? saveClientInline.bind(null, client.id)
+    : updateClient.bind(null, client.id);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -82,6 +95,7 @@ export async function ClientEditView({ id }: { id: string }) {
               phones: client.phones.map((p) => ({ label: p.label, number: p.number })),
             }}
             submitLabel="O'zgarishlarni saqlash"
+            closeOnSuccess={inline}
           />
         </CardContent>
       </Card>

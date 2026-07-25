@@ -17,7 +17,7 @@ export default async function InterceptedClientEdit({
   const { id } = await params;
   return (
     <ProfileModalShell>
-      <ClientEditView id={id} />
+      <ClientEditView id={id} inline />
     </ProfileModalShell>
   );
 }

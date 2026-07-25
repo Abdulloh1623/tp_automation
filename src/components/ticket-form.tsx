@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/field-error";
+import { useActionToast } from "@/components/use-action-toast";
 import { TICKET_PRIORITY, TICKET_TYPE } from "@/lib/constants";
 
 type ClientOption = { id: string; restaurantName: string; fullName: string };
@@ -28,6 +29,7 @@ export function TicketForm({
   const formRef = useRef<HTMLFormElement>(null);
   const fe = state.fieldErrors ?? {};
 
+  useActionToast(state, "Muammo qo'shildi");
   useEffect(() => {
     if (!state.error) formRef.current?.reset();
   }, [state]);

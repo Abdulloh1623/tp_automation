@@ -18,6 +18,7 @@ import {
 import { ClientEquipmentPicker } from "@/components/client-equipment-picker";
 import type { EqTypeOpt, UstaSource } from "@/components/client-equipment-panel";
 import { FieldError } from "@/components/field-error";
+import { useActionToast } from "@/components/use-action-toast";
 import {
   CLIENT_STATUS,
   CURRENCY,
@@ -58,6 +59,8 @@ export function ClientForm({
   equipmentTypes,
   ustaSources,
   closeOnSuccess = false,
+  successRedirect,
+  successToast = "O'zgarishlar saqlandi",
 }: {
   action: (prev: ClientFormState, formData: FormData) => Promise<ClientFormState>;
   operators: Operator[];
@@ -74,6 +77,10 @@ export function ClientForm({
    * (`router.back`) va ma'lumot yangilanadi (`router.refresh`).
    */
   closeOnSuccess?: boolean;
+  /** To'liq sahifada (redirect qilmaydigan action bilan): muvaffaqiyatda shu manzilga o'tadi. */
+  successRedirect?: string;
+  /** Muvaffaqiyat toast matni. */
+  successToast?: string;
 }) {
   const router = useRouter();
   const showEquipment = Array.isArray(equipmentTypes);
@@ -81,12 +88,17 @@ export function ClientForm({
   const v = defaultValues;
   const fe = state.fieldErrors ?? {};
 
+  // Har qanday natijada 2 soniyalik toast (xato — qizil, muvaffaqiyat — yashil).
+  useActionToast(state, successToast);
   useEffect(() => {
-    if (closeOnSuccess && state.ok) {
+    if (!state.ok) return;
+    if (closeOnSuccess) {
       router.refresh();
       router.back();
+    } else if (successRedirect) {
+      router.push(successRedirect);
     }
-  }, [closeOnSuccess, state.ok, router]);
+  }, [state.ok, closeOnSuccess, successRedirect, router]);
 
   return (
     <form action={formAction} className="space-y-6">

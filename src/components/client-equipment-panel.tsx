@@ -8,6 +8,7 @@ import {
   requestEquipmentReturn,
   type EquipmentSource,
 } from "@/actions/equipment";
+import { toast } from "@/components/toaster";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -120,9 +121,11 @@ export function ClientEquipmentPanel({
       const res = await fn();
       if (res.ok) {
         setMsg(okMsg);
+        toast(okMsg, "success");
         router.refresh();
       } else {
         setErr(res.error ?? "Xatolik");
+        toast(res.error ?? "Xatolik", "error");
       }
     });
   }

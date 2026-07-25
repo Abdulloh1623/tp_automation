@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { ClientForm } from "@/components/client-form";
-import { updateClient, saveClientInline } from "@/actions/clients";
+import { saveClientInline } from "@/actions/clients";
 
 /**
  * Mijozni tahrirlash ko'rinishi — /mijozlar/[id]/tahrir sahifasi VA intercepting
@@ -66,9 +66,10 @@ export async function ClientEditView({
 
   if (!client) notFound();
 
-  const action = inline
-    ? saveClientInline.bind(null, client.id)
-    : updateClient.bind(null, client.id);
+  // Ikkala rejim ham redirect QILMAYDIGAN action ishlatadi ({ ok: true }
+  // qaytaradi) — forma natijaga ko'ra toast chiqaradi. Modal: yopiladi;
+  // to'liq sahifa: mijoz profiliga o'tadi.
+  const action = saveClientInline.bind(null, client.id);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -96,6 +97,7 @@ export async function ClientEditView({
             }}
             submitLabel="O'zgarishlarni saqlash"
             closeOnSuccess={inline}
+            successRedirect={inline ? undefined : `/mijozlar/${client.id}`}
           />
         </CardContent>
       </Card>

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/field-error";
+import { useActionToast } from "@/components/use-action-toast";
 import { CALL_RESULT } from "@/lib/constants";
 
 const initialState: CallLogFormState = {};
@@ -19,6 +20,7 @@ export function CallLogForm({ clientId }: { clientId: string }) {
   const formRef = useRef<HTMLFormElement>(null);
   const fe = state.fieldErrors ?? {};
 
+  useActionToast(state, "Qo'ng'iroq yozildi");
   useEffect(() => {
     if (!state.error) formRef.current?.reset();
   }, [state]);

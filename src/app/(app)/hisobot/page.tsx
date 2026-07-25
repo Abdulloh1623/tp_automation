@@ -9,6 +9,7 @@ import {
   Wrench,
   FileDown,
   Package,
+  Ban,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
@@ -93,6 +94,7 @@ export default async function ReportsPage() {
           id: true,
           region: true,
           status: true,
+          stage: true,
           currency: true,
           monthlyAmount: true,
           nextPaymentDate: true,
@@ -148,6 +150,7 @@ export default async function ReportsPage() {
   const total = clients.length;
   const activeClients = clients.filter((c) => c.status === "ACTIVE");
   const activeCount = activeClients.length;
+  const refusedCount = clients.filter((c) => c.stage === "REFUSED").length; // otkaz (bekor qilgan)
   const pendingCount = clients.filter((c) => c.status === "PENDING").length;
   const inactiveCount = clients.filter((c) => c.status === "INACTIVE").length;
   const churnRate = total > 0 ? Math.round((inactiveCount / total) * 100) : 0;
@@ -263,6 +266,13 @@ export default async function ReportsPage() {
           value={String(activeCount)}
           icon={UserCheck}
           tone="emerald"
+        />
+        <Kpi
+          label="Otkaz (bekor qilgan)"
+          value={String(refusedCount)}
+          sub={total > 0 ? `${Math.round((refusedCount / total) * 100)}% bazadan` : undefined}
+          icon={Ban}
+          tone="red"
         />
         <Kpi
           label="MRR (oylik daromad)"

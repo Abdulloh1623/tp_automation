@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { ClientLink } from "@/components/client-link";
 import { PhoneCopyButton } from "@/components/phone-copy";
+import { DuplicateDeleteButton } from "@/components/duplicate-delete-button";
 import { loadDuplicateGroups } from "@/lib/duplicates-data";
 import type { DupReason } from "@/lib/duplicates";
 import { CLIENT_STATUS, LEAD_STAGE } from "@/lib/constants";
@@ -23,7 +24,8 @@ function stageLabel(s: string): string {
 }
 
 export default async function DuplicatesPage() {
-  await requireRole(["ADMIN", "OPERATOR", "MANAGER"]);
+  const session = await requireRole(["ADMIN", "OPERATOR", "MANAGER"]);
+  const canDelete = session.role === "ADMIN" || session.role === "MANAGER";
   const groups = await loadDuplicateGroups();
 
   const high = groups.filter((g) => g.confidence === "high").length;
@@ -48,8 +50,10 @@ export default async function DuplicatesPage() {
           </div>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Bir xil telefon, shartnoma yoki nomga ega, ehtimoliy takrorlangan
-            yozuvlar. Bu ro'yxat hech narsani o'chirmaydi — tekshirib, keraksiz
-            nusxani qo'lda tuzating.
+            yozuvlar.{" "}
+            {canDelete
+              ? "Tekshirib, keraksiz (takroriy) nusxani \"O'chirish\" tugmasi bilan o'chiring — asl nusxani qoldiring."
+              : "Tekshirib, keraksiz nusxani boshliq/adminga o'chirtiring."}
           </p>
         </div>
       </div>
@@ -168,13 +172,21 @@ export default async function DuplicatesPage() {
                         </div>
                       </div>
 
-                      <Link
-                        href={`/mijozlar/${c.id}/tahrir`}
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-700 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                      >
-                        <Pencil className="h-3 w-3" />
-                        Tahrir
-                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        <Link
+                          href={`/mijozlar/${c.id}/tahrir`}
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-700 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          Tahrir
+                        </Link>
+                        {canDelete && (
+                          <DuplicateDeleteButton
+                            clientId={c.id}
+                            name={c.restaurantName || c.fullName || "—"}
+                          />
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

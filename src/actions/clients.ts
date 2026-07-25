@@ -706,3 +706,29 @@ export async function deleteClient(id: string): Promise<void> {
   revalidatePath("/mijozlar");
   redirect("/mijozlar");
 }
+
+/**
+ * Mijozni o'chirish (redirect QILMAYDI) — dublikatlar sahifasida keraksiz nusxani
+ * joyida o'chirish uchun. Bog'liq yozuvlar (telefon, to'lov, qo'ng'iroq, muammo,
+ * uskuna, ...) sxemada `onDelete: Cascade` bilan avtomatik o'chadi. ADMIN/MANAGER.
+ */
+export async function deleteClientInline(
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const g = await guardRole(["ADMIN", "MANAGER"]);
+  if (!g.ok) return { ok: false, error: g.error };
+  let removed;
+  try {
+    removed = await db.client.delete({ where: { id } });
+  } catch {
+    return { ok: false, error: "Mijoz topilmadi yoki o'chirib bo'lmadi" };
+  }
+  await logAudit("Mijoz o'chirildi (dublikat)", {
+    entity: "Client",
+    entityId: id,
+    detail: removed.restaurantName,
+  });
+  revalidatePath("/mijozlar");
+  revalidatePath("/mijozlar/dublikatlar");
+  return { ok: true };
+}

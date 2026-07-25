@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/db";
-import { Card, CardContent } from "@/components/ui/card";
 import { ClientForm } from "@/components/client-form";
 import { saveClientInline } from "@/actions/clients";
 
@@ -86,21 +85,17 @@ export async function ClientEditView({
         </h1>
       </div>
 
-      <Card>
-        <CardContent>
-          <ClientForm
-            action={action}
-            operators={operators}
-            defaultValues={{
-              ...client,
-              phones: client.phones.map((p) => ({ label: p.label, number: p.number })),
-            }}
-            submitLabel="O'zgarishlarni saqlash"
-            closeOnSuccess={inline}
-            successRedirect={inline ? undefined : `/mijozlar/${client.id}`}
-          />
-        </CardContent>
-      </Card>
+      <ClientForm
+        action={action}
+        operators={operators}
+        defaultValues={{
+          ...client,
+          phones: client.phones.map((p) => ({ label: p.label, number: p.number })),
+        }}
+        submitLabel="O'zgarishlarni saqlash"
+        closeOnSuccess={inline}
+        successRedirect={inline ? undefined : `/mijozlar/${client.id}`}
+      />
     </div>
   );
 }

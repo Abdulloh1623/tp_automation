@@ -2,7 +2,16 @@
 
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle } from "lucide-react";
+import {
+  AlertCircle,
+  User as UserIcon,
+  Phone,
+  FileText,
+  Wallet,
+  Package,
+  Banknote,
+  UserCog,
+} from "lucide-react";
 import type { ClientFormState } from "@/actions/clients";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
@@ -49,6 +58,35 @@ export type ClientFormValues = {
 };
 
 const initialState: ClientFormState = {};
+
+/**
+ * Forma ichki bo'limi — mijoz profilidagi Section bilan bir xil Hi-Tech ko'rinish
+ * (ikon chip + sarlavha, shishasimon karta). Klient komponenti bo'lgani uchun
+ * lucide ikonini to'g'ridan-to'g'ri prop qilib olsa bo'ladi (RSC chegarasi yo'q).
+ */
+function FormSection({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 shadow-sm dark:border-slate-800/80 dark:bg-slate-900/60">
+      <div className="flex items-center gap-2.5 border-b border-slate-100 px-4 py-3 dark:border-slate-800/70 sm:px-5">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500/15 to-primary-500/5 text-primary-600 ring-1 ring-inset ring-primary-500/20 dark:text-primary-400">
+          <Icon className="h-4 w-4" />
+        </span>
+        <h3 className="text-sm font-semibold tracking-tight text-slate-800 dark:text-slate-100">
+          {title}
+        </h3>
+      </div>
+      <div className="space-y-4 p-4 sm:p-5">{children}</div>
+    </section>
+  );
+}
 
 export function ClientForm({
   action,
@@ -101,7 +139,7 @@ export function ClientForm({
   }, [state.ok, closeOnSuccess, successRedirect, router]);
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} className="space-y-4">
       {state.error && (
         <div className="flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle className="h-4 w-4 shrink-0" />
@@ -109,6 +147,7 @@ export function ClientForm({
         </div>
       )}
 
+      <FormSection icon={UserIcon} title="Asosiy ma'lumot">
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="fullName">FIO *</Label>
@@ -153,9 +192,13 @@ export function ClientForm({
           </Select>
         </div>
       </div>
+      </FormSection>
 
-      <ClientPhonesField defaultPhones={v.phones ?? []} />
+      <FormSection icon={Phone} title="Qo'shimcha telefonlar">
+        <ClientPhonesField defaultPhones={v.phones ?? []} />
+      </FormSection>
 
+      <FormSection icon={FileText} title="Shartnoma">
       <div className="grid gap-4 sm:grid-cols-3">
         <div>
           <Label htmlFor="contractNumber">Shartnoma raqami</Label>
@@ -205,7 +248,9 @@ export function ClientForm({
           />
         </div>
       </div>
+      </FormSection>
 
+      <FormSection icon={Wallet} title="To'lov">
       <div className="grid gap-4 sm:grid-cols-3">
         <div>
           <Label htmlFor="monthlyAmount">
@@ -257,22 +302,20 @@ export function ClientForm({
         </div>
       </div>
 
+      </FormSection>
+
       {showEquipment && (
-        <div className="space-y-2">
-          <Label>Uskuna</Label>
+        <FormSection icon={Package} title="Uskuna">
           <ClientEquipmentPicker
             types={equipmentTypes ?? []}
             ustaSources={ustaSources ?? []}
             currency={v.currency ?? "USD"}
           />
-        </div>
+        </FormSection>
       )}
 
       {showInitialPayment && (
-        <div className="space-y-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">
-          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
-            Oxirgi to'lov (ixtiyoriy)
-          </div>
+        <FormSection icon={Banknote} title="Oxirgi to'lov (ixtiyoriy)">
           <p className="text-xs text-slate-400 dark:text-slate-500">
             Oldindan mavjud mijoz allaqachon to'lagan bo'lsa — summani va sanani kiriting.
             Bitta tarixiy to'lov yoziladi (chek shart emas). Bo'sh qoldirsangiz — yozilmaydi.
@@ -287,9 +330,10 @@ export function ClientForm({
               <Input id="lastPaymentDate" name="lastPaymentDate" type="date" />
             </div>
           </div>
-        </div>
+        </FormSection>
       )}
 
+      <FormSection icon={UserCog} title="Biriktirish va izoh">
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="assignedToId">Mas'ul operator</Label>
@@ -313,6 +357,7 @@ export function ClientForm({
         <Textarea id="notes" name="notes" defaultValue={v.notes ?? ""} aria-invalid={!!fe.notes} />
         <FieldError message={fe.notes} />
       </div>
+      </FormSection>
 
       <div className="flex gap-3">
         <Button type="submit" disabled={pending}>

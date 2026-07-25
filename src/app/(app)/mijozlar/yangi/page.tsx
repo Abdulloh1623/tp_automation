@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { Card, CardContent } from "@/components/ui/card";
 import { ClientForm } from "@/components/client-form";
 import type { EqTypeOpt, UstaSource } from "@/components/client-equipment-panel";
 import { createClient } from "@/actions/clients";
@@ -71,18 +70,14 @@ export default async function NewClientPage() {
         <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Yangi mijoz</h1>
       </div>
 
-      <Card>
-        <CardContent>
-          <ClientForm
-            action={createClient}
-            operators={operators}
-            submitLabel="Mijozni qo'shish"
-            showInitialPayment
-            equipmentTypes={equipmentTypes}
-            ustaSources={ustaSources}
-          />
-        </CardContent>
-      </Card>
+      <ClientForm
+        action={createClient}
+        operators={operators}
+        submitLabel="Mijozni qo'shish"
+        showInitialPayment
+        equipmentTypes={equipmentTypes}
+        ustaSources={ustaSources}
+      />
     </div>
   );
 }

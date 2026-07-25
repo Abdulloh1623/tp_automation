@@ -253,7 +253,7 @@ Bot: **@biznexautobot** (Biznex Automation Robot).
 - **📈 Hisobot yuborish** — kunlik/haftalik/oylik grafik hisobotni kanalga.
 
 ### 7.3. Kanallar
-- **Hisobot kanali** — avtomatik kunlik (18:30), haftalik (Dushanba 09:00),
+- **Hisobot kanali** — avtomatik kunlik (17:30), haftalik (Dushanba 09:00),
   oylik (1-kun 09:00) grafik hisobotlar.
 - **To'lovlar kanali** — har bir to'lovda mijoz ma'lumoti + summa + sana + chek rasmi.
 - **Zaxira (backup) kanali** — har kuni 03:00 da baza nusxasi.

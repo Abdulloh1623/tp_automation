@@ -52,7 +52,7 @@ const callLogSchema = z.object({
   nextFollowUpDate: z.string().optional(),
 });
 
-export type CallLogFormState = { error?: string; fieldErrors?: Record<string, string> };
+export type CallLogFormState = { error?: string; fieldErrors?: Record<string, string>; ok?: boolean };
 
 export async function addCallLog(
   clientId: string,
@@ -98,7 +98,7 @@ export async function addCallLog(
   });
   revalidatePath(`/mijozlar/${clientId}`);
   revalidatePath("/");
-  return {};
+  return { ok: true };
 }
 
 export type CallLogActionState = { ok: boolean; error?: string };

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Bell, X, AlertCircle } from "lucide-react";
 import { setSpecialNote } from "@/actions/leads";
+import { toast } from "@/components/toaster";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/utils";
@@ -61,9 +62,16 @@ export function SpecialNoteBell({
         setNote(res.specialNote ?? null);
         setBy(res.specialNoteBy ?? null);
         setAt(res.specialNoteAt ?? null);
+        toast(
+          res.specialNote && res.specialNote.trim() !== ""
+            ? "Eslatma saqlandi"
+            : "Eslatma o'chirildi",
+          "success",
+        );
         close();
       } else {
         setErr(res.error ?? "Xatolik");
+        toast(res.error ?? "Xatolik", "error");
       }
     });
   }

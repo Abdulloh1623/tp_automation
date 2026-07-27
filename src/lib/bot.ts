@@ -6,7 +6,12 @@ import { Bot, InlineKeyboard, type Context } from "grammy";
 import { botToken, receiptsGroupId } from "./telegram";
 import { intakeReceiptFile, intakeReceiptText } from "./receipt-intake-service";
 import { userRoleLabel } from "./constants";
-import { buildReport, buildReportAlbum, type ReportKind } from "./reports";
+import { buildReport, buildReportAlbum, startOfTzDay, type ReportKind } from "./reports";
+import { distributeLeadsCore } from "./leads-distribution";
+import { sendDailyReminders } from "./reminders";
+import { createBackup } from "./backup";
+import { getDiskUsage } from "./disk";
+import { db } from "./db";
 import { sendToChannel, sendAlbumToChannel, escapeHtml } from "./telegram";
 import {
   approveButtons,
@@ -39,7 +44,8 @@ function mainMenu(): InlineKeyboard {
     .text("🔑 Parol o'zgartirish", "pw").row()
     .text("📊 Kunlik lid soni", "target").row()
     .text("📅 1 kunlik qo'shimcha lid", "extra").row()
-    .text("📈 Hisobot yuborish", "report");
+    .text("📈 Hisobot yuborish", "report").row()
+    .text("🛠 Xizmat (holat / qayta yurgizish)", "ops");
 }
 
 async function showMenu(ctx: Context, actor: Actor) {
@@ -294,6 +300,110 @@ export async function startBot(): Promise<void> {
     await ctx.reply(`<b>${escapeHtml(u?.name ?? "Xodim")}</b> uchun bugungi qo'shimcha lid sonini yuboring:`, {
       parse_mode: "HTML",
     });
+  });
+
+  // --- 🛠 Xizmat menyusi: serverga SSH qilmasdan holatni ko'rish va
+  // o'tkazib yuborilgan ishlarni qayta yurgizish. Faqat ADMIN.
+  function opsMenu(): InlineKeyboard {
+    return new InlineKeyboard()
+      .text("📊 Holat", "ops_status").row()
+      .text("🔄 Taqsimotni qayta yurgizish", "ops_distribute").row()
+      .text("🔔 Eslatmalarni yuborish", "ops_remind").row()
+      .text("💾 Backup olish", "ops_backup").row()
+      .text("⬅️ Orqaga", "menu");
+  }
+
+  /** Xizmat amallari faqat ADMIN uchun. */
+  function opsAllowed(ctx: Context): boolean {
+    return (ctx as Context & { actor?: Actor }).actor?.role === "ADMIN";
+  }
+
+  bot.callbackQuery("ops", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    if (!opsAllowed(ctx)) {
+      await ctx.reply("Bu bo'lim faqat admin uchun.");
+      return;
+    }
+    await ctx.reply("🛠 <b>Xizmat</b> — kerakli amalni tanlang:", {
+      parse_mode: "HTML",
+      reply_markup: opsMenu(),
+    });
+  });
+
+  bot.callbackQuery("ops_status", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    if (!opsAllowed(ctx)) return;
+    const started = Date.now();
+    const [disk, clients, pendingCards, todayCalls] = await Promise.all([
+      getDiskUsage(),
+      db.client.count({ where: { status: "ACTIVE" } }),
+      db.pendingCardPayment.count({ where: { status: "PENDING" } }),
+      db.callLog.count({ where: { calledAt: { gte: startOfTzDay(0) } } }),
+    ]);
+    const dbMs = Date.now() - started;
+    await ctx.reply(
+      [
+        "📊 <b>Tizim holati</b>",
+        `💾 Disk: ${disk ? `${disk.freeGb} GB bo'sh / ${disk.totalGb} GB (band ${disk.usedPct}%)` : "aniqlanmadi"}`,
+        `🗄 Baza: javob berdi (${dbMs} ms)`,
+        `👥 Faol mijoz: ${clients}`,
+        `📞 Bugungi qo'ng'iroq: ${todayCalls}`,
+        `💳 Karta tasdig'i kutmoqda: ${pendingCards}`,
+      ].join("\n"),
+      { parse_mode: "HTML" },
+    );
+  });
+
+  bot.callbackQuery("ops_distribute", async (ctx) => {
+    await ctx.answerCallbackQuery({ text: "Taqsimot boshlandi…" });
+    if (!opsAllowed(ctx)) return;
+    try {
+      const r = await distributeLeadsCore();
+      await ctx.reply(
+        r.error
+          ? `⚠️ Taqsimot: ${escapeHtml(r.error)}`
+          : `✅ Taqsimot tugadi: <b>${r.assigned}</b> mijoz ${r.operators} operatorga`,
+        { parse_mode: "HTML" },
+      );
+    } catch (e) {
+      await ctx.reply(`❌ Taqsimot xatosi: ${escapeHtml(e instanceof Error ? e.message : String(e))}`, {
+        parse_mode: "HTML",
+      });
+    }
+  });
+
+  bot.callbackQuery("ops_remind", async (ctx) => {
+    await ctx.answerCallbackQuery({ text: "Eslatmalar yuborilmoqda…" });
+    if (!opsAllowed(ctx)) return;
+    try {
+      const r = await sendDailyReminders();
+      await ctx.reply(
+        `✅ Eslatma: operatorlarga ${r.operators.sent} ta yuborildi` +
+          ` (telegramsiz: ${r.operators.noTelegram}) · boshliq: ${r.managers.sent}`,
+      );
+    } catch (e) {
+      await ctx.reply(`❌ Eslatma xatosi: ${escapeHtml(e instanceof Error ? e.message : String(e))}`, {
+        parse_mode: "HTML",
+      });
+    }
+  });
+
+  bot.callbackQuery("ops_backup", async (ctx) => {
+    await ctx.answerCallbackQuery({ text: "Backup olinmoqda…" });
+    if (!opsAllowed(ctx)) return;
+    try {
+      const res = await createBackup();
+      await ctx.reply(
+        res.ok
+          ? `✅ Backup: <code>${escapeHtml(res.name ?? "")}</code> · ${res.sizeKb} KB · cheklar: ${res.receipts} · Telegram: ${escapeHtml(res.telegram ?? "-")}`
+          : `❌ Backup xatosi: ${escapeHtml(res.error ?? "noma'lum")}`,
+        { parse_mode: "HTML" },
+      );
+    } catch (e) {
+      await ctx.reply(`❌ Backup xatosi: ${escapeHtml(e instanceof Error ? e.message : String(e))}`, {
+        parse_mode: "HTML",
+      });
+    }
   });
 
   bot.callbackQuery("report", async (ctx) => {

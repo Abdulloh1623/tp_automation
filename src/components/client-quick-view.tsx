@@ -31,6 +31,9 @@ export function ClientQuickView({
   return (
     <Link
       href={`/mijozlar/${id}`}
+      // E2E uchun barqaror belgi: `a[href^="/mijozlar/"]` selektori "Yangi mijoz"
+      // (/mijozlar/yangi) tugmasiga ham tushib qolardi.
+      data-testid="client-link"
       className={
         children
           ? className

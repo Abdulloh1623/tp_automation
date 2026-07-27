@@ -58,3 +58,6 @@ next-env.d.ts
 # yuklab olinadi (~5MB har biri). Repoda saqlanmaydi.
 *.traineddata
 .env.test
+
+# Playwright skrinshotlari (CI artefakti)
+screenshots/

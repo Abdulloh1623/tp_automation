@@ -2,6 +2,16 @@
 # App:      npm run start   (default CMD)
 # Worker:   npm run bot     (docker-compose'da command bilan)
 # Migrate:  npm run db:deploy
+#
+# HAJM. Har deploy yangi teg bilan serverga tushadi, shuning uchun image hajmi
+# to'g'ridan-to'g'ri disk bosimi demak (2026-07-26 da 23 ta eski image 34 GB
+# egallab diskni to'ldirgan). Shu sabab bu yerda ataylab tozalanadi:
+#   - `.next/cache` (~470MB) builder'da o'chiriladi;
+#   - npm keshi o'rnatish bilan BIR qatlamda tozalanadi;
+#   - gnupg pgdg kalitidan keyin olib tashlanadi.
+# Next'ning `output: "standalone"` rejimi ISHLATILMAYDI: worker `tsx` orqali
+# `src/`dagi TypeScript'ni ishlatadi, ya'ni to'liq `node_modules` baribir kerak —
+# standalone qo'shilsa hajm kamaymay, ikkilanib ketardi.
 
 # ---- Builder: to'liq bog'liqliklar bilan quradi ----
 # Node 22 LTS (Jod). 22.15+ da Node webstreams'dagi TransformStream race tuzatilgan:
@@ -19,7 +29,10 @@ COPY package.json package-lock.json ./
 COPY patches ./patches
 RUN npm ci
 COPY . .
-RUN npx prisma generate && npm run build
+# `.next/cache` — webpack/SWC qurilish keshi (~470MB). Runtime'ga KERAK EMAS,
+# lekin `COPY .next` uni ham olib ketardi va image'ni uchdan bir baravar
+# shishirardi. Shu bosqichda o'chiramiz (builder qatlami final image'ga kirmaydi).
+RUN npx prisma generate && npm run build && rm -rf .next/cache
 
 # ---- Runner: faqat prod bog'liqliklar (vitest/playwright/eslint yo'q) ----
 FROM node:22.23.1-bookworm-slim AS runner
@@ -30,6 +43,9 @@ ENV TZ=Asia/Tashkent
 # openssl — Prisma uchun; postgresql-client-16 — worker pg_dump backup uchun (server pg16);
 # curl — healthcheck uchun; fontconfig + DejaVu — hisobot rasmlari (resvg) matni uchun
 # (slim image'da shrift YO'Q — bo'lmasa chart'lar matnsiz "bo'sh" chiqadi).
+# gnupg faqat pgdg kalitini qo'shish uchun kerak — o'rnatish tugagach olib
+# tashlanadi (image'da qolsa ~30MB bekorga turadi). curl QOLADI: app
+# konteynerining healthcheck'i uni ishlatadi.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates curl gnupg fontconfig fonts-dejavu-core \
   && install -d /usr/share/postgresql-common/pgdg \
@@ -37,14 +53,19 @@ RUN apt-get update \
   && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
   && apt-get update \
   && apt-get install -y --no-install-recommends postgresql-client-16 \
-  && rm -rf /var/lib/apt/lists/*
+  && apt-get purge -y gnupg \
+  && apt-get autoremove -y \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/*
 
 COPY package.json package-lock.json ./
 # Runner node_modules'i `next start` runtime'da yuklanadi — patch AYNAN shu yerda
 # qo'llanishi shart (builder'niki emas). patch-package prod dependency, --omit=dev
 # bilan ham mavjud; postinstall patches/ ni qo'llaydi.
 COPY patches ./patches
-RUN npm ci --omit=dev
+# `npm cache clean` AYNI qatlamda: npm ci yuklab olgan tarball keshi (~150MB)
+# alohida RUN'da o'chirilsa qatlamda qolib ketardi (Docker qatlamlari immutable).
+RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
 # Build natijasi va runtime uchun zarur fayllar
 COPY --from=builder /app/.next ./.next
@@ -55,14 +76,22 @@ COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/next.config.ts ./next.config.ts
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
-# Prisma client (prod node_modules ichida) generatsiya qilinadi
-RUN npx prisma generate
+# Prisma client (prod node_modules ichida) generatsiya qilinadi.
+# Prisma engine yuklab olish keshi (~/.cache/prisma) generatsiyadan keyin
+# kerak emas — engine allaqachon node_modules ichida.
+RUN npx prisma generate && rm -rf /root/.cache /root/.npm /tmp/*
 
 # Root'da ishlamaymiz: konteyner ichidagi biror zaiflik darhol root huquqini
 # bermasin. `uploads` va `backups` — volume mount nuqtalari, shu bois oldindan
 # yaratib, egaligini beramiz (aks holda ilova ularga yoza olmaydi).
-RUN mkdir -p /app/uploads /app/backups \
-  && chown -R node:node /app
+# DIQQAT: `chown -R node:node /app` QILMAYMIZ. Docker qatlamlari immutable —
+# faqat egalik o'zgarsa ham HAR BIR fayl yangi qatlamga qaytadan yoziladi,
+# ya'ni butun `node_modules` + `.next` ikkilanadi (o'lchandi: image 1668 MB,
+# shundan ~800 MB aynan shu nusxa). node foydalanuvchisiga faqat YOZISH kerak
+# bo'lgan kataloglar beriladi; qolganini u baribir o'qiy oladi.
+RUN mkdir -p /app/uploads /app/backups /app/.next/cache \
+  && chown node:node /app \
+  && chown -R node:node /app/uploads /app/backups /app/.next
 USER node
 
 EXPOSE 3100

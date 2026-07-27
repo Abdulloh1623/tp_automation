@@ -19,15 +19,7 @@ export async function getNavBadges(
   const escScope = assignedStaffScope(role, userId, "escalationStaffId");
   const manager = isManagerRole(role);
 
-  // Karta tasdig'i — faqat tasdiqlovchi va adminlarga ko'rinadi
-  const cardResolver =
-    role === "ADMIN" ||
-    !!(await db.user.findFirst({
-      where: { id: userId, cardVerifier: true },
-      select: { id: true },
-    }));
-
-  const [unread, lidlar, muammolar, eskalatsiya, qaytarish, takliflar, soliq, karta] =
+  const [unread, lidlar, muammolar, eskalatsiya, qaytarish, takliflar, soliq, karta, me] =
     await Promise.all([
       // Bildirishnomalar — o'qilmagan
       db.notificationRecipient.count({ where: { userId, readAt: null } }),
@@ -66,11 +58,20 @@ export async function getNavBadges(
       db.taxConnection.count({
         where: { status: "PENDING", ...(manager ? {} : { byUserId: userId }) },
       }),
-      // Karta to'lovi tasdig'i — kutayotgan so'rovlar (tasdiqlovchi/admin)
-      cardResolver
-        ? db.pendingCardPayment.count({ where: { status: "PENDING" } })
-        : Promise.resolve(0),
+      // Karta to'lovi tasdig'i — kutayotgan so'rovlar soni. Kim ko'rishi
+      // (tasdiqlovchi/admin) pastda hal qilinadi: shu bitta COUNT'ni ham
+      // parallel bajarib, qo'shimcha round-trip'dan qutulamiz.
+      db.pendingCardPayment.count({ where: { status: "PENDING" } }),
+      role === "ADMIN"
+        ? Promise.resolve(null)
+        : db.user.findFirst({
+            where: { id: userId, cardVerifier: true },
+            select: { id: true },
+          }),
     ]);
+
+  // Karta tasdig'i — faqat tasdiqlovchi va adminlarga ko'rinadi
+  const cardResolver = role === "ADMIN" || !!me;
 
   return {
     "/bildirishnomalar": unread,
@@ -80,6 +81,6 @@ export async function getNavBadges(
     "/qaytarish": qaytarish,
     "/takliflar": takliflar,
     "/soliq": soliq,
-    "/tolovlar": karta,
+    "/tolovlar": cardResolver ? karta : 0,
   };
 }

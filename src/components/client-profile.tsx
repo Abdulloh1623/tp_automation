@@ -223,22 +223,38 @@ function BiznexSubscriptionBadge({ sub }: { sub: BiznexSubscription }) {
  * Mijoz to'liq profili — /mijozlar/[id] sahifasi VA intercepting-route modali
  * (@modal) ikkalasi shu YAGONA komponentni ishlatadi (kod takrorlanmaydi).
  */
+// Profil ochilishida Biznex API'ni ko'pi bilan shuncha kutamiz. Fon
+// sinxronizatsiyasi uzunroq (8s) timeout bilan ishlaydi — u yerda kechikish
+// muammo emas, bu yerda esa foydalanuvchi kutib turadi.
+const PROFILE_BIZNEX_TIMEOUT_MS = 2500;
+
 export async function ClientProfile({ id }: { id: string }) {
   const session = await requireSession();
   const isAdmin = session.role === "ADMIN";
 
-  const client = await db.client.findUnique({
+  // HAMMA mustaqil so'rov BIR VAQTDA — ilgari ular ketma-ket bajarilardi
+  // (client → biznex → audit → turlar → ombor → ustalar), ya'ni profil ochilishi
+  // shu kechikishlar YIG'INDISIni kutardi. Endi eng sekinigacha kutiladi.
+  const [client, activity, typeRows, whStock, ustaUsers, ustaStockRows] = await Promise.all([
+    db.client.findUnique({
     where: { id },
     include: {
-      payments: { orderBy: { paidAt: "desc" }, include: { recordedBy: { select: { name: true } } } },
+      // Ro'yxatlar cheklangan: 300 ta qo'ng'iroqli mijozda profil sekinlashmasin.
+      // UI baribir qisqartirib ko'rsatadi (CollapsibleList).
+      payments: {
+        orderBy: { paidAt: "desc" },
+        take: 60,
+        include: { recordedBy: { select: { name: true } } },
+      },
       callLogs: {
         orderBy: { calledAt: "desc" },
+        take: 60,
         include: {
           operator: { select: { name: true } },
           editedBy: { select: { name: true } },
         },
       },
-      tickets: { orderBy: { createdAt: "desc" } },
+      tickets: { orderBy: { createdAt: "desc" }, take: 40 },
       phones: { orderBy: { createdAt: "asc" } },
       specialNoteBy: { select: { name: true } },
       equipmentItems: { include: { equipmentType: true } },
@@ -256,39 +272,18 @@ export async function ClientProfile({ id }: { id: string }) {
         include: { recordedBy: { select: { name: true } } },
       },
     },
-  });
-
-  if (!client) notFound();
-
-  // Biznex obuna holati — mijozning ASOSIY TELEFON raqami bo'yicha. Xatolik/
-  // sozlanmagan bo'lsa "unknown" qaytadi (badge ko'rsatilmaydi); raqam topilmasa
-  // "not_found" (ogohlantirish banneri). Sahifa render'i hech qachon buzilmaydi.
-  const subscription = await getBiznexSubscription(client.phone);
-
-  // Faoliyat jurnali — shu mijozga tegishli barcha amallar (audit)
-  const activity = await db.auditLog.findMany({
-    where: { entityId: id },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    select: { id: true, action: true, userName: true, detail: true, createdAt: true },
-  });
-
-  // Ombordagi turlar (manager biriktirish formasi uchun)
-  const typeRows = await db.equipmentType.findMany({ orderBy: { name: "asc" } });
-  const whStock = await db.inventoryStock.findMany({
-    where: { locationType: "WAREHOUSE" },
-  });
-  const whMap = new Map(whStock.map((s) => [s.equipmentTypeId, s.quantity]));
-  const eqTypes: EqTypeOpt[] = typeRows.map((t) => ({
-    id: t.id,
-    name: t.name,
-    rentalPrice: t.rentalPrice,
-    salePrice: t.salePrice,
-    warehouse: whMap.get(t.id) ?? 0,
-  }));
-
-  // Ustalar zaxirasi (o'zi olib borgan uskunalar) — o'rnatishda manba tanlash uchun.
-  const [ustaUsers, ustaStockRows] = await Promise.all([
+    }),
+    // Faoliyat jurnali — shu mijozga tegishli amallar (audit)
+    db.auditLog.findMany({
+      where: { entityId: id },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: { id: true, action: true, userName: true, detail: true, createdAt: true },
+    }),
+    // Ombordagi turlar (manager biriktirish formasi uchun)
+    db.equipmentType.findMany({ orderBy: { name: "asc" } }),
+    db.inventoryStock.findMany({ where: { locationType: "WAREHOUSE" } }),
+    // Ustalar zaxirasi (o'zi olib borgan uskunalar) — o'rnatishda manba tanlash uchun
     db.user.findMany({
       where: { role: "INSTALLER", isActive: true },
       select: { id: true, name: true },
@@ -299,6 +294,25 @@ export async function ClientProfile({ id }: { id: string }) {
       select: { locationId: true, equipmentTypeId: true, quantity: true },
     }),
   ]);
+
+  if (!client) notFound();
+
+  // Biznex obuna holati — TASHQI API. Mijoz ma'lumotidan keyin (telefon kerak),
+  // lekin qisqa timeout bilan: integratsiya sekinlashsa profil ochilishi
+  // to'xtab qolmasin — badge shunchaki ko'rsatilmaydi.
+  const subscription = await getBiznexSubscription(client.phone, {
+    timeoutMs: PROFILE_BIZNEX_TIMEOUT_MS,
+  });
+
+  const whMap = new Map(whStock.map((s) => [s.equipmentTypeId, s.quantity]));
+  const eqTypes: EqTypeOpt[] = typeRows.map((t) => ({
+    id: t.id,
+    name: t.name,
+    rentalPrice: t.rentalPrice,
+    salePrice: t.salePrice,
+    warehouse: whMap.get(t.id) ?? 0,
+  }));
+
   const ustaNameById = new Map(ustaUsers.map((u) => [u.id, u.name]));
   const ustaSrcMap = new Map<string, { equipmentTypeId: string; quantity: number }[]>();
   for (const r of ustaStockRows) {

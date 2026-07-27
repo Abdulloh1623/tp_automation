@@ -141,11 +141,27 @@ docker compose logs -f app worker # loglar
 > qarab farq qilishi mumkin.) Keyin cheklar sahifasiga rasm yuklab va
 > `docker compose exec worker npm run bot -- --backup` bilan tekshiring.
 
-`deploy-pull.sh` har deployда:
-1. **pre-deploy `pg_dump`** oladi (`backups/pre-deploy/`) — rollback uchun mos DB nusxasi;
-2. `TP_IMAGE` ni joriy commit **SHA**'ga pin qiladi va `.env`'ga saqlaydi
-   (reboot/manual `up -d` ham aynan shu versiyada qoladi — `:latest` emas);
-3. `.deploy-history`'ga yozadi (rollback shundan foydalanadi).
+### Avtomatik deploy (cron)
+
+Serverda `deploy-pull.sh` **har 3 daqiqada** cron orqali ishlaydi — ya'ni `main`ga
+merge qilingan reliz o'z-o'zidan chiqadi:
+
+```cron
+*/3 * * * * /usr/bin/flock -n /tmp/tp-deploy.lock /home/ubuntu/tp_automation/scripts/deploy-pull.sh >> /home/ubuntu/deploy.log 2>&1
+```
+
+Skript **hech narsa o'zgarmagan bo'lsa darhol chiqadi** (ishlab turgan image
+kutilgan SHA-tegga teng va barcha xizmatlar ko'tarilgan). Xizmatlardan biri
+to'xtab qolgan bo'lsa — faqat `up -d` qiladi (dump/tarixsiz).
+
+Haqiqiy reliz aniqlansa:
+1. eski image'lar tozalanadi (`docker-gc.sh`, KEEP=3) — **pull'dan oldin**, aks
+   holda disk to'lganda pull yiqilib tozalash hech qachon ishlamaydi;
+2. yangi SHA image tortiladi (`:latest` emas);
+3. **pre-deploy `pg_dump`** olinadi (`backups/pre-deploy/`) — rollback uchun mos
+   DB nusxasi (faqat haqiqiy deployda → oxirgi 14 ta dump = oxirgi 14 reliz);
+4. `TP_IMAGE` `.env`'ga saqlanadi (reboot/manual `up -d` ham shu versiyada qoladi);
+5. `up -d` va `.deploy-history`'ga yozuv (rollback shundan foydalanadi).
 
 **Rollback (buzuq reliz bo'lsa):**
 
@@ -155,11 +171,10 @@ docker compose logs -f app worker # loglar
 ./scripts/rollback.sh --list      # so'nggi deploylar ro'yxati
 ```
 
-Oldingi image lokalda tag'langan (dangling emas) → `image prune` uni o'chirmaydi →
-rollback tarmoqsiz, bir necha soniyada bajariladi. Deploy skripti oxirgi **8**
-reliz image'ini saqlaydi (`KEEP` — `deploy-pull.sh`), eskilarini o'chiradi (disk
-to'lib qolmasin). Undan eskiroq relizga rollback qilinsa image GHCR'dan qayta
-tortiladi (tarmoq kerak, lekin ishlaydi).
+Oxirgi **3** reliz image'i lokalda saqlanadi (`KEEP` — `scripts/docker-gc.sh`),
+shu sabab bir-ikki qadam orqaga rollback tarmoqsiz, bir necha soniyada bajariladi.
+Undan eskiroq relizga qaytilsa image GHCR'dan qayta tortiladi (tarmoq kerak,
+lekin ishlaydi).
 
 > ⚠️ **Schema rollback:** `rollback.sh` faqat **app image**'ini qaytaradi. Prisma
 > migratsiyalari `up -d`'da avtomatik qo'llanadi va **avtomatik orqaga qaytmaydi**.

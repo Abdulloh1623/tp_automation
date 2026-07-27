@@ -11,6 +11,8 @@ import {
   PackageCheck,
   PlayCircle,
 } from "lucide-react";
+import { TicketTabs } from "@/components/ticket-tabs";
+import { EmptyState } from "@/components/empty-state";
 import {
   SearchInput,
   RegionSelect,
@@ -28,7 +30,6 @@ import { Button } from "@/components/ui/button";
 import { ClientLink } from "@/components/client-link";
 import { Badge } from "@/components/ui/badge";
 import { confirmDialog } from "@/components/confirm-dialog";
-import { EmptyState } from "@/components/empty-state";
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { SpecialNoteBell } from "@/components/special-note-bell";
 import { formatPhone, normalizePhone } from "@/lib/utils";
@@ -54,31 +55,43 @@ export type ReturnQueueItem = {
 
 export type UstaOpt = { id: string; name: string };
 
-// Bo'limlar (status bo'yicha) — ustma-ust ko'rsatiladi.
+// Bosqichlar — yuqorida yonma-yon TAB sifatida (eskalatsiya/muammolar bilan
+// bir xil naqsh). Ilgari to'rttasi ustma-ust bo'lim edi: uzun ro'yxatda
+// keraklisini topish uchun sahifani aylantirish kerak bo'lardi.
 const SECTIONS: {
   status: string;
   title: string;
   hint: string;
+  tone: "red" | "amber" | "sky" | "emerald";
+  icon: React.ReactNode;
 }[] = [
   {
     status: "PENDING",
     title: "Yangi",
     hint: "Usta biriktirilishi kutilmoqda",
+    tone: "red",
+    icon: <AlertCircle className="h-4 w-4" />,
   },
   {
     status: "APPROVED",
-    title: "Biriktirilgan",
+    title: "Biriktirildi",
     hint: "Usta biriktirildi — jarayonni boshlang",
+    tone: "sky",
+    icon: <Wrench className="h-4 w-4" />,
   },
   {
     status: "IN_PROGRESS",
     title: "Jarayonda",
     hint: "Usta yo'lda — uskuna olib kelingach yakunlang",
+    tone: "amber",
+    icon: <PlayCircle className="h-4 w-4" />,
   },
   {
     status: "DONE",
-    title: "Uskunalar qaytarilgan",
+    title: "Qaytarildi",
     hint: "Yakunlangan arizalar (oxirgi 50 ta)",
+    tone: "emerald",
+    icon: <PackageCheck className="h-4 w-4" />,
   },
 ];
 
@@ -96,6 +109,14 @@ export function ReturnQueue({
   const [region, setRegion] = useState("");
 
   const regions = useMemo(() => uniqueRegions(items), [items]);
+  // Ish qayerda bo'lsa — o'sha tab ochiladi (yangi → biriktirildi → jarayonda);
+  // hammasi bo'sh bo'lsa "Qaytarildi" tarixi.
+  const initialTab = useMemo(() => {
+    const firstWithWork = SECTIONS.find(
+      (sec) => sec.status !== "DONE" && items.some((r) => r.status === sec.status),
+    );
+    return firstWithWork?.status ?? "DONE";
+  }, [items]);
   const filtered = useMemo(
     () =>
       items.filter(
@@ -130,37 +151,40 @@ export function ReturnQueue({
           <AlertCircle className="h-4 w-4 shrink-0" /> {err}
         </div>
       )}
-      {SECTIONS.map((sec) => {
-        const rows = filtered.filter((r) => r.status === sec.status);
-        return (
-          <section key={sec.status} className="space-y-3">
-            <div className="flex items-baseline gap-2">
-              <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                {sec.title}
-              </h2>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                {rows.length}
-              </span>
-              <span className="text-xs text-slate-400 dark:text-slate-500">{sec.hint}</span>
-            </div>
-            {rows.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-slate-200 dark:border-slate-800 px-3 py-2 text-xs text-slate-400 dark:text-slate-500">
-                Bo'sh
-              </p>
-            ) : (
-              rows.map((r) => (
-                <Row
-                  key={r.id}
-                  r={r}
-                  ustalar={ustalar}
-                  canAssign={canAssign}
-                  onError={setErr}
-                />
-              ))
-            )}
-          </section>
-        );
-      })}
+      <TicketTabs
+        initialKey={initialTab}
+        tabs={SECTIONS.map((sec) => {
+          const rows = filtered.filter((r) => r.status === sec.status);
+          return {
+            key: sec.status,
+            label: sec.title,
+            icon: sec.icon,
+            tone: sec.tone,
+            // Hisoblagich filtrdan MUSTAQIL — tab tanlashda umumiy holat ko'rinsin
+            count: items.filter((r) => r.status === sec.status).length,
+            content: (
+              <div className="space-y-3">
+                <p className="text-xs text-slate-500 dark:text-slate-400">{sec.hint}</p>
+                {rows.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-400 dark:border-slate-800 dark:text-slate-500">
+                    Bu bosqichda ariza yo'q
+                  </p>
+                ) : (
+                  rows.map((r) => (
+                    <Row
+                      key={r.id}
+                      r={r}
+                      ustalar={ustalar}
+                      canAssign={canAssign}
+                      onError={setErr}
+                    />
+                  ))
+                )}
+              </div>
+            ),
+          };
+        })}
+      />
     </div>
   );
 }
@@ -206,7 +230,7 @@ function Row({
               noteAt={r.specialNoteAt}
             />
             <Badge tone="slate">{r.region ?? "viloyatsiz"}</Badge>
-            {r.status === "APPROVED" && <Badge tone="blue">Biriktirilgan</Badge>}
+            {r.status === "APPROVED" && <Badge tone="blue">Biriktirildi</Badge>}
             {r.status === "IN_PROGRESS" && <Badge tone="amber">Jarayonda</Badge>}
             {done && <Badge tone="green">Qaytarildi</Badge>}
           </div>

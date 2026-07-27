@@ -55,8 +55,10 @@ for (const vp of [
       await page.goto("/mijozlar");
       await page.waitForLoadState("networkidle");
 
-      // Ro'yxatdagi birinchi mijoz nomi — profil modalini ochadi
-      const firstClient = page.locator('a[href^="/mijozlar/"]').first();
+      // Ro'yxatdagi birinchi mijoz nomi — profil modalini ochadi.
+      // DIQQAT: `a[href^="/mijozlar/"]` ishlatmang — u "Yangi mijoz"
+      // (/mijozlar/yangi) tugmasiga ham tushadi va modal ochilmaydi.
+      const firstClient = page.locator('[data-testid="client-link"]').first();
       if ((await firstClient.count()) === 0) test.skip(true, "Mijoz yo'q (seed bo'sh)");
       await firstClient.click();
 

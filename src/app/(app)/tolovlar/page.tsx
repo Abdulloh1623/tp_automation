@@ -1,5 +1,5 @@
 import { startOfMonth } from "date-fns";
-import { Users, Receipt } from "lucide-react";
+import { Users, Receipt, CreditCard } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { TicketTabs } from "@/components/ticket-tabs";
@@ -14,6 +14,10 @@ import {
   type PendingReceiptItem,
   type AmountCandidate,
 } from "@/components/pending-receipts-queue";
+import {
+  CardApprovalQueue,
+  type CardApprovalItem,
+} from "@/components/card-approval-queue";
 
 import { formatDate, formatMoney, daysUntil } from "@/lib/utils";
 import { paymentState, paymentUrgency, PAYMENT_STATE_LABEL } from "@/lib/payment-status";
@@ -100,6 +104,40 @@ export default async function PaymentsPage() {
     suggestedCurrency: p.suggestedCurrency,
     amountConfidence: (p.amountConfidence as "high" | "low" | "none" | null) ?? null,
     amountCandidates: parseCandidates(p.amountCandidates),
+  }));
+
+  // Karta egasi tasdig'ini kutayotgan to'lovlar (hali Payment EMAS)
+  const cardRows = await db.pendingCardPayment.findMany({
+    where: { status: "PENDING" },
+    orderBy: { createdAt: "asc" },
+    include: {
+      client: { select: { restaurantName: true, fullName: true, phone: true } },
+      recordedBy: { select: { name: true } },
+    },
+  });
+  const cardApprovals: CardApprovalItem[] = cardRows.map((r) => ({
+    id: r.id,
+    clientId: r.clientId,
+    restaurantName: r.client.restaurantName,
+    fullName: r.client.fullName,
+    phone: r.client.phone,
+    amount: r.amount,
+    currency: r.currency,
+    method: r.method,
+    paidAt: r.paidAt.toISOString(),
+    createdAt: r.createdAt.toISOString(),
+    recordedByName: r.recordedBy?.name ?? null,
+    receiptNote: r.receiptNote,
+    isPdf: r.receiptMime === "application/pdf",
+    hasReceipt: !!r.receiptPath,
+    notified: (() => {
+      try {
+        const arr = JSON.parse(r.tgMessages ?? "[]");
+        return Array.isArray(arr) ? arr.length : 0;
+      } catch {
+        return 0;
+      }
+    })(),
   }));
 
   // Diqqat talab qiladiganlar tepada: summa o'qilmagan / taxminiy bo'lganlar,
@@ -239,6 +277,23 @@ export default async function PaymentsPage() {
             content: <PaymentsTable rows={rows} />,
           },
           {
+            key: "karta",
+            label: "Karta tasdig'i",
+            icon: <CreditCard className="h-4 w-4" />,
+            tone: "amber",
+            count: cardApprovals.length,
+            content:
+              cardApprovals.length > 0 ? (
+                <CardApprovalQueue items={cardApprovals} />
+              ) : (
+                <EmptyState
+                  icon={CreditCard}
+                  title="Tasdiq kutayotgan karta to'lovi yo'q"
+                  hint="Karta/QR to'lovi kiritilganda kartaga dostupi bor xodimga botga xabar boradi; shu yerda ham tasdiqlash mumkin."
+                />
+              ),
+          },
+          {
             key: "cheklar",
             label: "Telegram cheklari",
             icon: <Receipt className="h-4 w-4" />,
@@ -257,7 +312,13 @@ export default async function PaymentsPage() {
           },
         ]}
         // Kutayotgan chek bo'lsa — o'sha bo'lim ochiladi (ish shu yerda)
-        initialKey={pendingReceipts.length > 0 ? "cheklar" : "mijozlar"}
+        initialKey={
+          cardApprovals.length > 0
+            ? "karta"
+            : pendingReceipts.length > 0
+              ? "cheklar"
+              : "mijozlar"
+        }
       />
     </div>
   );

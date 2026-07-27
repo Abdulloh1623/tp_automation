@@ -25,6 +25,8 @@ const baseSchema = z.object({
   telegramId: z.string().optional(),
   dailyLeadTarget: z.coerce.number().int().min(0).default(20),
   shift: z.string().optional(),
+  // Kartaga dostupi bor xodim — karta/QR to'lovlarini u tasdiqlaydi
+  cardVerifier: z.coerce.boolean().default(false),
 });
 
 /** Faqat DAY/NIGHT qabul qilinadi; boshqasi (yoki bo'sh) — DAY. */
@@ -110,6 +112,7 @@ export async function updateUser(
     telegramId?: string;
     dailyLeadTarget?: number | string;
     shift?: string;
+    cardVerifier?: boolean;
   },
 ): Promise<UserActionState> {
   const admin = await requireAdmin();
@@ -140,6 +143,7 @@ export async function updateUser(
         telegramId: clean(parsed.data.telegramId),
         dailyLeadTarget: parsed.data.dailyLeadTarget,
         shift: normShift(parsed.data.shift),
+        cardVerifier: parsed.data.cardVerifier,
         ...(roleChanged ? { sessionVersion: { increment: 1 } } : {}),
       },
     });

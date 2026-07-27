@@ -25,6 +25,31 @@ export function paymentMethodLabel(m?: string | null): string {
   return PAYMENT_METHOD[m as PaymentMethod] ?? (m ?? "");
 }
 
+// Kartaga dostupi bor xodim tasdig'idan o'tadigan usullar. Bu usullarda pul
+// kartaga TUSHGANINI faqat karta egasi ko'ra oladi — shu sabab to'lov u
+// tasdiqlagunicha "kutilmoqda" holatida turadi (lib/card-payment.ts).
+export const CARD_CONFIRM_METHODS = ["CARD", "QR"] as const;
+
+// Karta to'lovini tasdiqlash navbatining holati
+export const CARD_REQUEST_STATUS = {
+  PENDING: "Tasdiq kutilmoqda",
+  CONFIRMED: "Tasdiqlandi",
+  REJECTED: "Rad etildi",
+} as const;
+export type CardRequestStatus = keyof typeof CARD_REQUEST_STATUS;
+
+// Rad etish sabablari — botda tugma sifatida chiqadi (matn yozish shart emas)
+export const CARD_REJECT_REASON = {
+  NO_MONEY: "Pul kartaga tushmadi",
+  WRONG_AMOUNT: "Summa mos kelmadi",
+  OTHER: "Boshqa sabab",
+} as const;
+export type CardRejectReason = keyof typeof CARD_REJECT_REASON;
+
+export function cardRejectReasonLabel(r?: string | null): string {
+  return CARD_REJECT_REASON[r as CardRejectReason] ?? (r ?? "");
+}
+
 // Ustaga topshirish rejimi — hujjat bilan (imzolangan hujjat yuklanadi) yoki
 // hujjatsiz (izoh majburiy).
 export const HANDOUT_MODE = {

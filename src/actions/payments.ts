@@ -9,6 +9,7 @@ import { logAudit } from "@/lib/audit";
 import { deleteReceipt } from "@/lib/receipts";
 import { nextPaymentAfterDelete } from "@/lib/billing";
 import { processPayment } from "@/lib/payment-core";
+import { createCardConfirmationRequest, needsCardConfirmation } from "@/lib/card-payment";
 import { formatMoney } from "@/lib/utils";
 import { PAYMENT_METHOD, type PaymentMethod } from "@/lib/constants";
 import { currencyEnum, noteString, paymentMethodEnum } from "@/lib/validation";
@@ -31,7 +32,43 @@ const paymentSchema = z.object({
   receiptNote: noteString.optional(),
 });
 
-export type PaymentFormState = { error?: string; ok?: boolean };
+/** `pending` — to'lov yozilmadi, karta egasi tasdig'i kutilmoqda. */
+export type PaymentFormState = { error?: string; ok?: boolean; pending?: boolean };
+
+/**
+ * Karta/QR to'lovini tasdiqlash navbatiga qo'yadi.
+ *
+ * `null` qaytsa — tasdiqlash kerak emas (boshqa usul) yoki tasdiqlovchi
+ * sozlanmagan; bunday holda chaqiruvchi to'lovni odatdagidek yozadi.
+ */
+async function routeThroughCardConfirmation(
+  session: { userId: string; name: string },
+  clientId: string,
+  fields: z.infer<typeof paymentSchema>,
+  receipt: { buffer: Buffer; mime: string },
+): Promise<PaymentFormState | null> {
+  if (!needsCardConfirmation(fields.method)) return null;
+
+  const res = await createCardConfirmationRequest({
+    clientId,
+    amount: fields.amount,
+    currency: fields.currency,
+    days: fields.days,
+    method: fields.method,
+    paidAt: fields.paidAt,
+    receiptNote: fields.receiptNote,
+    receipt,
+    actor: { userId: session.userId, name: session.name },
+  });
+  if (res.ok) {
+    revalidatePath(`/mijozlar/${clientId}`);
+    revalidatePath("/tolovlar");
+    return { ok: true, pending: true };
+  }
+  // Tasdiqlovchi umuman sozlanmagan bo'lsa to'lovni bloklamaymiz — aks holda
+  // to'lovlar abadiy "kutilmoqda"da osilib qolardi. Qolgan xatolar qaytariladi.
+  return res.noVerifier ? null : { error: res.error };
+}
 
 /** FormData'dan chek faylini o'qiydi (majburiy). */
 async function readReceiptFile(
@@ -71,6 +108,10 @@ export async function recordPayment(
   const rc = await readReceiptFile(formData);
   if ("error" in rc) return { error: rc.error };
 
+  // Karta/QR — avval kartaga dostupi bor xodim tasdiqlaydi (to'lov hali yozilmaydi)
+  const routed = await routeThroughCardConfirmation(g.session, clientId, parsed.data, rc);
+  if (routed) return routed;
+
   const res = await processPayment(g.session, clientId, parsed.data, rc);
   return res.ok ? { ok: true } : { error: res.error };
 }
@@ -101,8 +142,16 @@ export async function recordLeadPayment(
   const rc = await readReceiptFile(formData);
   if ("error" in rc) return { error: rc.error };
 
-  const res = await processPayment(g.session, clientId, parsed.data, rc);
-  if (!res.ok) return { error: res.error };
+  // Karta/QR — tasdiq kutiladi. Lid natijasi baribir yopiladi (qo'ng'iroq
+  // bajarildi); tasdiq kelmasa mijoz qarzdor bo'lib ertangi taqsimotga qaytadi
+  // va operatorga rad etilgani haqida bildirishnoma boradi.
+  const routed = await routeThroughCardConfirmation(g.session, clientId, parsed.data, rc);
+  if (routed && routed.error) return routed;
+
+  if (!routed) {
+    const res = await processPayment(g.session, clientId, parsed.data, rc);
+    if (!res.ok) return { error: res.error };
+  }
 
   // Lid natijasi: "To'lov qildi" → bo'lim RESOLVED (izoh — to'lov usuli)
   await db.callLog.create({
@@ -126,7 +175,7 @@ export async function recordLeadPayment(
     },
   });
   revalidatePath("/lidlar");
-  return { ok: true };
+  return { ok: true, pending: routed?.pending };
 }
 
 // --- ADMIN: to'lov tarixini tuzatish (edit/delete) ---

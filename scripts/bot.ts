@@ -14,6 +14,7 @@ import { startBot } from "../src/lib/bot";
 import { sendDailyReminders, sendOperatorReminders } from "../src/lib/reminders";
 import { distributeLeadsCore } from "../src/lib/leads-distribution";
 import { runSlaCheck } from "../src/lib/sla";
+import { remindStaleCardRequests } from "../src/lib/card-payment";
 import { reportError } from "../src/lib/error-report";
 import { withDbJobRetry } from "../src/lib/db-retry";
 import { getDiskUsage, isDiskLow, diskWarning } from "../src/lib/disk";
@@ -113,6 +114,9 @@ async function runSla() {
   try {
     const r = await withRetry("SLA", () => runSlaCheck());
     log(`SLA → muammo:${r.tickets} eskalatsiya:${r.escalations} taklif:${r.suggestions} ogohlantirildi`);
+    // Javobsiz qolgan karta tasdiqlari — to'lov hisobga olinmay turibdi
+    const cards = await withRetry("karta tasdig'i", () => remindStaleCardRequests());
+    if (cards > 0) log(`karta tasdig'i → ${cards} ta so'rov eslatildi`);
   } catch (e) {
     log("SLA XATO:", e instanceof Error ? e.message : e);
     await reportError(e, { source: "worker", path: "sla", notifyTransient: true });

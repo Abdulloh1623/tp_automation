@@ -249,6 +249,68 @@ export async function sendDocument(
   return callTelegramForm("sendDocument", form);
 }
 
+// --- Tugmali xabarlar (karta to'lovini tasdiqlash) --------------------------
+
+export type InlineButton = { text: string; callback_data: string };
+
+/**
+ * Chekni tugmalar bilan shaxsiy chatga yuboradi va xabar ID'sini qaytaradi
+ * (keyin tugmalarni olib tashlash uchun kerak).
+ *
+ * Rasm bo'lsa — foto, PDF bo'lsa — hujjat, fayl bo'lmasa yoki yuborilmasa —
+ * matn. Har uch holatda ham tugmalar biriktiriladi.
+ */
+export async function sendApprovalRequest(
+  chatId: string | number,
+  caption: string,
+  file: { buffer: Buffer; mime: string } | null,
+  buttons: InlineButton[][],
+): Promise<TgResult<{ message_id: number }>> {
+  const markup = JSON.stringify({ inline_keyboard: buttons });
+
+  if (file) {
+    const form = new FormData();
+    form.append("chat_id", String(chatId));
+    form.append("caption", caption);
+    form.append("parse_mode", "HTML");
+    form.append("reply_markup", markup);
+    const blob = new Blob([new Uint8Array(file.buffer)], { type: file.mime || undefined });
+    if (file.mime === "application/pdf") {
+      form.append("document", blob, "chek.pdf");
+      const res = await callTelegramForm<{ message_id: number }>("sendDocument", form);
+      if (res.ok) return res;
+    } else {
+      form.append("photo", blob, "chek");
+      const res = await callTelegramForm<{ message_id: number }>("sendPhoto", form);
+      if (res.ok) return res;
+    }
+    // Fayl ketmasa — kamida matn va tugmalar borsin (tasdiqlash to'xtab qolmasin)
+  }
+
+  return callTelegram<{ message_id: number }>("sendMessage", {
+    chat_id: chatId,
+    text: caption,
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+    reply_markup: { inline_keyboard: buttons },
+  });
+}
+
+/**
+ * Xabardagi tugmalarni olib tashlaydi (savol hal bo'lgach ikkinchi marta
+ * bosilmasin). Foto/matn — ikkalasi uchun ham ishlaydi.
+ */
+export async function clearInlineKeyboard(
+  chatId: string | number,
+  messageId: number,
+): Promise<TgResult> {
+  return callTelegram("editMessageReplyMarkup", {
+    chat_id: chatId,
+    message_id: messageId,
+    reply_markup: { inline_keyboard: [] },
+  });
+}
+
 /** Backup faylini zaxira kanaliga yuboradi. Kanal yo'q → skip (log). */
 export async function sendBackupToChannel(
   buffer: Buffer,

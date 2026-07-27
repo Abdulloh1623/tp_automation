@@ -57,7 +57,14 @@ export function PaymentForm({
       if (res.ok) {
         setDone(true);
         setReceipt(null);
-        toast("To'lov qabul qilindi", "success");
+        // Karta/QR: to'lov hali YOZILMADI — kartaga dostupi bor xodim
+        // tasdiqlagach yoziladi. Operator buni bilishi shart.
+        toast(
+          res.pending
+            ? "Karta egasi tasdig'i kutilmoqda — to'lov hali yozilmadi"
+            : "To'lov qabul qilindi",
+          res.pending ? "info" : "success",
+        );
         router.refresh();
       } else {
         setError(res.error ?? "Xatolik");

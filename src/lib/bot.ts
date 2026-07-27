@@ -9,7 +9,13 @@ import { userRoleLabel } from "./constants";
 import { buildReport, buildReportAlbum, type ReportKind } from "./reports";
 import { sendToChannel, sendAlbumToChannel, escapeHtml } from "./telegram";
 import {
+  approveButtons,
+  rejectReasonButtons,
+  resolveCardPayment,
+} from "./card-payment";
+import {
   resolveActor,
+  resolveCardVerifier,
   listEmployees,
   addEmployee,
   changePassword,
@@ -125,6 +131,53 @@ export async function startBot(): Promise<void> {
     });
   });
 
+  // --- Karta to'lovini tasdiqlash (kartaga dostupi bor xodim) ---
+  // Auth middleware'dan OLDIN: tasdiqlovchi ADMIN/MANAGER bo'lishi shart emas,
+  // shu sabab o'z tekshiruvini o'zi qiladi (resolveCardVerifier).
+  bot.callbackQuery(/^cardpay:(ok|no|back):([^:]+)(?::([A-Z_]+))?$/, async (ctx) => {
+    const [, action, requestId, reasonCode] = ctx.match as unknown as string[];
+    const verifier = ctx.from?.id ? await resolveCardVerifier(ctx.from.id) : null;
+    if (!verifier) {
+      await ctx.answerCallbackQuery({
+        text: "Sizda karta to'lovini tasdiqlash huquqi yo'q",
+        show_alert: true,
+      });
+      return;
+    }
+    const actor = { userId: verifier.id, name: verifier.name };
+
+    // "Rad etish" bosilganda avval sababni so'raymiz (matn yozish shart emas)
+    if (action === "no" && !reasonCode) {
+      await ctx.answerCallbackQuery();
+      await ctx.editMessageReplyMarkup({
+        reply_markup: { inline_keyboard: rejectReasonButtons(requestId) },
+      });
+      return;
+    }
+    if (action === "back") {
+      await ctx.answerCallbackQuery();
+      await ctx.editMessageReplyMarkup({
+        reply_markup: { inline_keyboard: approveButtons(requestId) },
+      });
+      return;
+    }
+
+    const res = await resolveCardPayment(requestId, {
+      approve: action === "ok",
+      actor,
+      via: "TELEGRAM",
+      reason: reasonCode,
+    });
+    await ctx.answerCallbackQuery({
+      text: res.ok
+        ? action === "ok"
+          ? "To'lov tasdiqlandi"
+          : "To'lov rad etildi"
+        : res.error,
+      show_alert: !res.ok,
+    });
+  });
+
   // Kirish nazorati: /start har doim, qolgani faqat ruxsat berilganlarga
   bot.use(async (ctx, next) => {
     // Guruhlarda menyu ishlamaydi — "ruxsat yo'q" javoblari bilan spamlamaymiz
@@ -150,6 +203,19 @@ export async function startBot(): Promise<void> {
     const tgId = ctx.from?.id;
     const actor = tgId ? await resolveActor(tgId) : null;
     if (!actor) {
+      // Menyu huquqi yo'q, lekin karta tasdiqlovchisi bo'lishi mumkin —
+      // unga "ruxsat yo'q" deyish chalg'ituvchi bo'lardi.
+      const verifier = tgId ? await resolveCardVerifier(tgId) : null;
+      if (verifier) {
+        await ctx.reply(
+          `👋 <b>${escapeHtml(verifier.name)}</b>\n\nSiz karta to'lovlarini tasdiqlaysiz.\n` +
+            `Yangi karta/QR to'lovi kiritilganda chek, summa va vaqt shu yerga keladi — ` +
+            `pul kartaga tushganini tekshirib, <b>✅ Tasdiqlash</b> yoki <b>❌ Rad etish</b> tugmasini bosing.\n\n` +
+            `Tasdiqlanmagan to'lov hisobga olinmaydi.`,
+          { parse_mode: "HTML" },
+        );
+        return;
+      }
       await ctx.reply(
         `Salom! Bu — TP Automation boshqaruv boti.\nSizning Telegram ID: <code>${tgId}</code>\nFoydalanish uchun admin shu ID'ni profilingizga ulashi kerak.`,
         { parse_mode: "HTML" },

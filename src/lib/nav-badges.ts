@@ -19,7 +19,15 @@ export async function getNavBadges(
   const escScope = assignedStaffScope(role, userId, "escalationStaffId");
   const manager = isManagerRole(role);
 
-  const [unread, lidlar, muammolar, eskalatsiya, qaytarish, takliflar, soliq] =
+  // Karta tasdig'i — faqat tasdiqlovchi va adminlarga ko'rinadi
+  const cardResolver =
+    role === "ADMIN" ||
+    !!(await db.user.findFirst({
+      where: { id: userId, cardVerifier: true },
+      select: { id: true },
+    }));
+
+  const [unread, lidlar, muammolar, eskalatsiya, qaytarish, takliflar, soliq, karta] =
     await Promise.all([
       // Bildirishnomalar — o'qilmagan
       db.notificationRecipient.count({ where: { userId, readAt: null } }),
@@ -58,6 +66,10 @@ export async function getNavBadges(
       db.taxConnection.count({
         where: { status: "PENDING", ...(manager ? {} : { byUserId: userId }) },
       }),
+      // Karta to'lovi tasdig'i — kutayotgan so'rovlar (tasdiqlovchi/admin)
+      cardResolver
+        ? db.pendingCardPayment.count({ where: { status: "PENDING" } })
+        : Promise.resolve(0),
     ]);
 
   return {
@@ -68,5 +80,6 @@ export async function getNavBadges(
     "/qaytarish": qaytarish,
     "/takliflar": takliflar,
     "/soliq": soliq,
+    "/tolovlar": karta,
   };
 }

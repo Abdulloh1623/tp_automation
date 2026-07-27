@@ -22,6 +22,19 @@ export async function resolveActor(telegramId: string | number): Promise<Actor |
   return u;
 }
 
+/**
+ * Karta to'lovini tasdiqlash huquqi bor xodimni topadi.
+ *
+ * `resolveActor`dan ALOHIDA: tasdiqlovchi ADMIN/MANAGER bo'lishi shart emas
+ * (kassir ham bo'lishi mumkin), lekin unga botning boshqa menyulari ochilmaydi.
+ */
+export async function resolveCardVerifier(telegramId: string | number): Promise<Actor | null> {
+  return db.user.findFirst({
+    where: { telegramId: String(telegramId), isActive: true, cardVerifier: true },
+    select: { id: true, name: true, role: true },
+  });
+}
+
 async function audit(actor: Actor, action: string, detail?: string) {
   try {
     await db.auditLog.create({

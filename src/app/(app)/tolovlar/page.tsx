@@ -56,34 +56,46 @@ function totalByCurrency(items: { amount: number; currency: string }[]): string 
 
 export default async function PaymentsPage() {
   await requireRole(["ADMIN", "MANAGER", "OPERATOR"]);
-  const clients = await db.client.findMany({
-    where: { status: "ACTIVE" },
-    include: {
-      assignedTo: { select: { name: true } },
-      specialNoteBy: { select: { name: true } },
-    },
-  });
-
   const monthStart = startOfMonth(new Date());
-  const monthPayments = await db.payment.findMany({
-    where: { paidAt: { gte: monthStart } },
-    orderBy: { paidAt: "desc" },
-    include: {
-      client: { select: { id: true, restaurantName: true, fullName: true, phone: true } },
-      recordedBy: { select: { name: true } },
-    },
-  });
 
-  // Telegram guruhidan kelgan, hali tasdiqlanmagan cheklar
-  const pendingRows = await db.pendingPayment.findMany({
-    where: { status: "PENDING" },
-    orderBy: { receivedAt: "desc" },
-    include: {
-      suggestedClient: {
-        select: { restaurantName: true, fullName: true, phone: true },
+  // To'rtta mustaqil so'rov BIR VAQTDA (ilgari ketma-ket edi — sahifa ularning
+  // yig'indisini kutardi).
+  const [clients, monthPayments, pendingRows, cardRows] = await Promise.all([
+    db.client.findMany({
+      where: { status: "ACTIVE" },
+      include: {
+        assignedTo: { select: { name: true } },
+        specialNoteBy: { select: { name: true } },
       },
-    },
-  });
+    }),
+    db.payment.findMany({
+      where: { paidAt: { gte: monthStart } },
+      orderBy: { paidAt: "desc" },
+      include: {
+        client: { select: { id: true, restaurantName: true, fullName: true, phone: true } },
+        recordedBy: { select: { name: true } },
+      },
+    }),
+    // Telegram guruhidan kelgan, hali tasdiqlanmagan cheklar
+    db.pendingPayment.findMany({
+      where: { status: "PENDING" },
+      orderBy: { receivedAt: "desc" },
+      include: {
+        suggestedClient: {
+          select: { restaurantName: true, fullName: true, phone: true },
+        },
+      },
+    }),
+    // Karta egasi tasdig'ini kutayotgan to'lovlar (hali Payment EMAS)
+    db.pendingCardPayment.findMany({
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "asc" },
+      include: {
+        client: { select: { restaurantName: true, fullName: true, phone: true } },
+        recordedBy: { select: { name: true } },
+      },
+    }),
+  ]);
   const pendingReceipts: PendingReceiptItem[] = pendingRows.map((p) => ({
     id: p.id,
     senderName: p.senderName,
@@ -106,15 +118,6 @@ export default async function PaymentsPage() {
     amountCandidates: parseCandidates(p.amountCandidates),
   }));
 
-  // Karta egasi tasdig'ini kutayotgan to'lovlar (hali Payment EMAS)
-  const cardRows = await db.pendingCardPayment.findMany({
-    where: { status: "PENDING" },
-    orderBy: { createdAt: "asc" },
-    include: {
-      client: { select: { restaurantName: true, fullName: true, phone: true } },
-      recordedBy: { select: { name: true } },
-    },
-  });
   const cardApprovals: CardApprovalItem[] = cardRows.map((r) => ({
     id: r.id,
     clientId: r.clientId,

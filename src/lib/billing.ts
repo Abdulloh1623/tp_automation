@@ -154,17 +154,26 @@ function toBiznexRecord(raw: Record<string, unknown>): BiznexRecord | null {
 //  - uzoq ishlovchi Next server: TTL (10 daqiqa) bo'yicha yangilanadi.
 // `inflight` bir vaqtdagi chaqiruvlarni bitta fetch'ga birlashtiradi.
 const BIZNEX_LIST_TTL_MS = 10 * 60 * 1000;
+// Fetch muvaffaqiyatsiz bo'lsa shuncha vaqt qayta urinmaymiz. Busiz Biznex
+// o'chib qolganda HAR BIR profil ochilishi timeout'ni kutardi (sahifa bir necha
+// soniya osilib turardi) — endi birinchi xatodan keyin darhol "unknown" qaytadi.
+const BIZNEX_FAIL_COOLDOWN_MS = 60 * 1000;
 let cachedSubscriptions: BiznexRecord[] | null = null;
 let cachedAt = 0;
+let failedAt = 0;
 let inflight: Promise<BiznexRecord[] | null> | null = null;
 
 /** To'liq obunalar ro'yxatini oladi (keshlangan). Xatoda null — kesh buzilmaydi. */
 async function loadSubscriptions(
   base: string,
   token: string,
+  timeoutMs = BIZNEX_TIMEOUT_MS,
 ): Promise<BiznexRecord[] | null> {
   if (cachedSubscriptions && Date.now() - cachedAt < BIZNEX_LIST_TTL_MS) {
     return cachedSubscriptions;
+  }
+  if (!cachedSubscriptions && Date.now() - failedAt < BIZNEX_FAIL_COOLDOWN_MS) {
+    return null; // yaqinda yiqilgan — kutib o'tirmaymiz
   }
   if (inflight) return inflight; // boshqa chaqiruv allaqachon yuklayapti
 
@@ -173,16 +182,21 @@ async function loadSubscriptions(
       const res = await fetch(`${base}/subscriptions?page=0&size=1000`, {
         headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
         cache: "no-store",
-        signal: AbortSignal.timeout(BIZNEX_TIMEOUT_MS),
+        signal: AbortSignal.timeout(timeoutMs),
       });
-      if (!res.ok) return null;
+      if (!res.ok) {
+        failedAt = Date.now();
+        return null;
+      }
       const list = extractList(await res.json())
         .map(toBiznexRecord)
         .filter((r): r is BiznexRecord => r !== null);
       cachedSubscriptions = list;
       cachedAt = Date.now();
+      failedAt = 0;
       return list;
     } catch {
+      failedAt = Date.now();
       return null; // tarmoq/timeout — mavjud kesh (agar bo'lsa) saqlanadi
     } finally {
       inflight = null;
@@ -232,6 +246,7 @@ function interpretRecord(rec: BiznexRecord): BiznexSubscription {
  */
 export async function getBiznexSubscription(
   phone: string,
+  opts: { timeoutMs?: number } = {},
 ): Promise<BiznexSubscription> {
   const base = process.env.BIZNEX_API_URL;
   const token = process.env.BIZNEX_STATIC_TOKEN;
@@ -240,7 +255,8 @@ export async function getBiznexSubscription(
   const normalized = digits(phone ?? "");
   if (!normalized) return BIZNEX_NOT_FOUND; // raqamsiz mijozni moslab bo'lmaydi
 
-  const list = await loadSubscriptions(base, token);
+  // Interaktiv sahifalar qisqaroq timeout beradi (foydalanuvchi kutib turadi).
+  const list = await loadSubscriptions(base, token, opts.timeoutMs);
   if (!list) return BIZNEX_UNKNOWN; // fetch muvaffaqiyatsiz — flag o'zgarmaydi
 
   const tail9 = normalized.slice(-9);

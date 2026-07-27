@@ -51,22 +51,14 @@ export default async function DashboardPage() {
   const monthStart = startOfMonth(now);
   const trendStart = startOfDay(subDays(now, 13));
 
-  const clients = await db.client.findMany({
-    where: { status: "ACTIVE" },
-    include: {
-      assignedTo: { select: { name: true } },
-      callLogs: { orderBy: { calledAt: "desc" }, take: 1 },
-      tickets: { where: { status: { not: "RESOLVED" } }, select: { id: true } },
-    },
-  });
-
-  const dueFollowups = await db.callLog.findMany({
-    where: { nextFollowUpDate: { lte: today }, client: { status: "ACTIVE" } },
-    select: { clientId: true },
-  });
-  const followupIds = new Set(dueFollowups.map((f) => f.clientId));
-
+  // Panel uchun HAMMA so'rov bitta parallel to'plamda. Ilgari `clients`,
+  // `dueFollowups`, ijara uskunalari va yarim yillik to'lovlar alohida
+  // `await` bilan olinardi — panel ularning yig'indisini kutardi.
   const [
+    clients,
+    dueFollowups,
+    rentalEquipment,
+    halfYearPayments,
     statusGroups,
     monthPayments,
     operatorActivity,
@@ -85,6 +77,32 @@ export default async function DashboardPage() {
     ticketSlaBreached,
     escSlaBreached,
   ] = await Promise.all([
+    db.client.findMany({
+      where: { status: "ACTIVE" },
+      include: {
+        assignedTo: { select: { name: true } },
+        callLogs: { orderBy: { calledAt: "desc" }, take: 1 },
+        tickets: { where: { status: { not: "RESOLVED" } }, select: { id: true } },
+      },
+    }),
+    db.callLog.findMany({
+      where: { nextFollowUpDate: { lte: today }, client: { status: "ACTIVE" } },
+      select: { clientId: true },
+    }),
+    // Uskuna ijara daromadi (oylik) — faol mijozlardagi ijaradagi uskunalar.
+    db.clientEquipment.findMany({
+      where: { ownership: "RENTAL", quantity: { gt: 0 }, client: { status: "ACTIVE" } },
+      select: {
+        quantity: true,
+        equipmentType: { select: { rentalPrice: true } },
+        client: { select: { currency: true } },
+      },
+    }),
+    // Oxirgi 6 oy — yig'ilgan to'lovlar (valyuta bo'yicha, oy kesimida).
+    db.payment.findMany({
+      where: { paidAt: { gte: startOfMonth(subMonths(now, 5)) } },
+      select: { amount: true, currency: true, paidAt: true },
+    }),
     db.client.groupBy({ by: ["status"], _count: true }),
     db.payment.findMany({
       where: { paidAt: { gte: monthStart } },
@@ -170,6 +188,8 @@ export default async function DashboardPage() {
     }),
   ]);
 
+  const followupIds = new Set(dueFollowups.map((f) => f.clientId));
+
   // KPI / hisob-kitoblar
   const workList = clients
     .map((c) => {
@@ -199,15 +219,6 @@ export default async function DashboardPage() {
     if (paymentState(c.nextPaymentDate) === "OVERDUE") addMoney(debt, c.currency, c.monthlyAmount);
   }
 
-  // Uskuna ijara daromadi (oylik) — faol mijozlardagi ijaradagi uskunalar.
-  const rentalEquipment = await db.clientEquipment.findMany({
-    where: { ownership: "RENTAL", quantity: { gt: 0 }, client: { status: "ACTIVE" } },
-    select: {
-      quantity: true,
-      equipmentType: { select: { rentalPrice: true } },
-      client: { select: { currency: true } },
-    },
-  });
   // Uskuna ijarasi MRR ichidagi ulush (monthlyAmount = jami) — qo'shilmaydi,
   // faqat "shundan qanchasi uskuna" ma'lumoti sifatida ko'rsatiladi.
   const rentalRev: Money = { USD: 0, UZS: 0 };
@@ -250,12 +261,6 @@ export default async function DashboardPage() {
     addMoney(b.sum, c.currency, c.monthlyAmount);
   }
 
-  // Oxirgi 6 oy — yig'ilgan to'lovlar (valyuta bo'yicha, oy kesimida).
-  const halfYearStart = startOfMonth(subMonths(now, 5));
-  const halfYearPayments = await db.payment.findMany({
-    where: { paidAt: { gte: halfYearStart } },
-    select: { amount: true, currency: true, paidAt: true },
-  });
   const monthlyCollected = Array.from({ length: 6 }, (_, idx) => {
     const d = subMonths(now, 5 - idx);
     const from = startOfMonth(d);

@@ -67,14 +67,17 @@ export default async function ClientsPage({
   // "Biznex-da topilmaganlar" — fon skripti (`npm run sync-biznex`) qo'ygan flag.
   if (biznex === "not_found") where.biznexStatus = "NOT_FOUND";
 
-  const operators = await db.user.findMany({
-    where: { role: { in: ["OPERATOR", "ADMIN", "MANAGER"] }, isActive: true },
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
-  });
-
-  const total = await db.client.count({ where });
-  const dupGroups = await countDuplicateGroups();
+  // Uchta mustaqil so'rov parallel; mijozlar ro'yxati esa `total`ga bog'liq
+  // (sahifa raqami cheklanadi), shuning uchun undan keyin ketadi.
+  const [operators, total, dupGroups] = await Promise.all([
+    db.user.findMany({
+      where: { role: { in: ["OPERATOR", "ADMIN", "MANAGER"] }, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    db.client.count({ where }),
+    countDuplicateGroups(),
+  ]);
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const current = Math.min(page, pageCount);
 

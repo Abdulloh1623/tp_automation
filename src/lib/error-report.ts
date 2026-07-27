@@ -11,6 +11,10 @@ export type ErrorContext = {
   routeType?: string; // render | route | action | middleware
   requestId?: string; // so'rov-ID (x-request-id) — loglarni bog'lash uchun
   extra?: string;
+  // O'tkinchi DB xatosi bo'lsa ham kanalga yuborilsin. Fon ishlari (cron) uchun:
+  // qayta urinishlar tugagach ish UMUMAN bajarilmaydi (masalan kunlik taqsimot
+  // o'tmay qoladi) — sabab "o'tkinchi" bo'lsa ham buni bilish kerak.
+  notifyTransient?: boolean;
 };
 
 const TZ = "Asia/Tashkent";
@@ -112,7 +116,7 @@ export async function reportError(error: unknown, ctx: ErrorContext = {}): Promi
   );
   // O'tkinchi DB-ulanish uzilishi (deploy/restart) — bug emas, kanalga
   // yuborilmaydi (konsol izi yetarli). withDbRetry baribir qayta uriladi.
-  if (isTransientDbError(error)) return;
+  if (isTransientDbError(error) && !ctx.notifyTransient) return;
   // Mijoz streaming render'ni yarmida uzganda chiqadigan zararsiz stream race —
   // kanalga yubormaymiz (soxta signal).
   if (isBenignStreamAbort(error)) return;

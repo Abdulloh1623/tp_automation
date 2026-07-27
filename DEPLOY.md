@@ -177,54 +177,80 @@ docker compose exec postgres psql -U tp -d tp_automation   # bazaga kirish
 docker compose down                   # to'xtatish (ma'lumot saqlanadi — volume'da)
 ```
 
-## 9. Xotira (OOM) va "database system is in recovery mode"
+## 9. "database system is in recovery mode" — tashxis
 
 **Alomat:** Telegram xato kanalida `PrismaClientUnknownRequestError: ... FATAL: the
 database system is in recovery mode` (ko'pincha cron vaqtida: 08:00 taqsimot, 03:00 backup).
 
-**Ma'nosi:** postgres **o'chib qolmagan** — uning bitta backend jarayoni o'ldirilgan
-(deyarli har doim OOM-killer), shundan keyin postmaster hamma ulanishlarni uzib,
-WAL'ni qayta o'ynatadi (crash recovery). Shu bir necha soniyada **hamma** so'rov
-`FATAL` bilan rad etiladi. (Sovuq ishga tushishda xabar boshqacha bo'ladi —
-`the database system is starting up`.)
+**Ma'nosi:** postgres o'chib qolmagan — uning bitta backend jarayoni **abnormal
+o'lgan** (PANIC yoki signal), shundan keyin postmaster hamma ulanishni uzib WAL'ni
+qayta o'ynatadi (crash recovery) va shu davrda har qanday so'rovni `FATAL` bilan
+rad etadi. Sovuq ishga tushishda xabar boshqacha bo'lardi — `the database system
+is starting up`, ya'ni bu **restart/deploy/reboot emas**.
 
-**Nega OOM bo'ladi:** `t3.small` = 2 GB, konteyner limitlari yig'indisi esa
-768 (postgres) + 640 (app) + 448 (worker) + 128 (caddy) + 64 (autoheal) = **2048 MB**,
-ya'ni OS/dockerd/sshd uchun zaxira **qolmaydi**. Limitlar rezervatsiya emas —
-odatda hammasi bir vaqtda maksimumga chiqmaydi, lekin chiqqan payt host OOM-killer
-eng "og'ir" jarayonni (odatda postgres backend) o'ldiradi.
+Ikki asosiy sabab: **disk to'lgan** (birinchi tekshiring) yoki **xotira (OOM)**.
 
-**Tekshirish (serverda):**
+### Avval: disk
+
+Postgres WAL yozolmasa PANIC qiladi → crash recovery → tizim to'liq to'xtaydi.
+2026-07-26/27 hodisasi aynan shu bo'lgan (`could not extend file ...: No space
+left on device`, keyingi kuni taqsimot recovery mode'ga urilgan).
 
 ```bash
-sudo dmesg -T | grep -iE "out of memory|killed process|oom-kill" | tail -20
-docker inspect --format '{{.Name}} OOMKilled={{.State.OOMKilled}} restarts={{.RestartCount}}' $(docker compose ps -q)
-docker compose logs postgres --since 24h | grep -iE "terminated by signal|recovery|restart"
+df -h /                                   # 100% bo'lsa — sabab shu
+docker system df                          # image/konteyner/volume/log hajmi
+sudo du -sh /var/lib/docker/containers/*  # konteyner loglari
+docker compose exec worker du -sh /app/backups /app/uploads
+docker compose logs postgres | grep -i "no space left"
+```
+
+Tozalash (xavfsiz tartibda):
+
+```bash
+docker system prune -af                   # ishlatilmayotgan image/konteyner
+docker compose exec worker sh -c 'ls -1t /app/backups | tail -n +8 | xargs -r -I{} rm -rf /app/backups/{}'
+sudo truncate -s 0 /var/lib/docker/containers/*/*-json.log   # eski loglar
+```
+
+Disk bo'shagach postgres o'zi tiklanadi; tiklanmasa `docker compose restart postgres`
+va logda `database system is ready to accept connections` ni kuting.
+
+Diskni to'ldiradigan odatiy manbalar va ularning cheklovi:
+
+| Manba | Cheklov |
+| --- | --- |
+| Konteyner loglari | `logging: json-file, max-size 10m × 3` (compose'da) |
+| Kunlik backup | 14 kun (`KEEP`, `lib/backup.ts`); cheklar **hard link** bilan (nusxa emas) |
+| Pre-deploy dump | oxirgi 14 ta (`scripts/deploy-pull.sh`) |
+| Eski image'lar | oxirgi 8 reliz (`scripts/deploy-pull.sh`) |
+
+### Keyin: xotira (OOM)
+
+```bash
+sudo dmesg -T | grep -iE "out of memory|killed process|memory cgroup" | tail -20
+docker compose logs postgres | grep -iE "terminated by signal"
 free -m && docker stats --no-stream
 ```
 
-`postgres` logida `server process ... was terminated by signal 9: Killed` +
-`terminating any other active server processes` bo'lsa — tashxis tasdiqlangan.
+`server process ... was terminated by signal 9: Killed` + dmesg'da OOM bo'lsa —
+xotira. Diqqat: `docker inspect .State.OOMKilled` faqat PID 1 uchun, backend
+o'ldirilsa `false` qoladi va `RestartCount` ham o'zgarmaydi — bu OOM'ni **inkor
+etmaydi**. `dmesg`/`journalctl -k` esa faqat joriy boot'ni ko'rsatadi.
 
-**Yechim (tavsiya tartibida):**
+`t3.small` = 2 GB, konteyner limitlari yig'indisi 768 + 640 + 448 + 128 + 64 =
+**2048 MB** — OS uchun zaxira qolmaydi. Yechim: 2 GB swap (`free -m` da bormi
+tekshiring), yoki `t3.medium`, yoki limitlarni ~1.7 GB gacha tushirish.
 
-1. **Swap qo'shing** (2 GB box uchun eng arzon va samarali — OOM-killer umuman ishga
-   tushmaydi, eng yomon holatda sekinlashuv bo'ladi):
+```bash
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
 
-   ```bash
-   sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
-   sudo mkswap /swapfile && sudo swapon /swapfile
-   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-   sudo sysctl -w vm.swappiness=10 && echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swap.conf
-   ```
-
-2. Takrorlansa — `t3.medium` (4 GB) ga ko'taring yoki `docker-compose.yml` dagi
-   limitlar yig'indisini ~1.7 GB gacha tushiring (app 640→512, worker 448→384).
-
-**Kod tomondan:** fon ishlari (cron) endi o'tkinchi DB uzilishida ~1 daqiqagacha
-kutib qayta uriladi (`withDbJobRetry`, `src/lib/db-retry.ts`) — tiklanish tugagach
-ish o'zi bajariladi. Qayta urinishlar ham yordam bermasa, xato kanaliga xabar
-boradi (`notifyTransient`).
+**Kod tomondan:** fon ishlari (cron) o'tkinchi DB uzilishida ~1 daqiqagacha kutib
+qayta uriladi (`withDbJobRetry`), disk bo'sh joyi har kuni 07:00 da tekshiriladi
+va kamaysa xato kanaliga ogohlantirish boradi (`lib/disk.ts`), backup esa disk
+to'lgan bo'lsa yozishga urinmaydi.
 
 ---
 

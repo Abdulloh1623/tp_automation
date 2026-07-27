@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { formatErrorReport, shouldSend, isBenignStreamAbort } from "./error-report";
+import {
+  formatErrorReport,
+  shouldSend,
+  isBenignStreamAbort,
+  errorSeverity,
+  criticalChannelId,
+  errorsChannelId,
+} from "./error-report";
 
 const now = new Date("2026-06-26T09:30:00Z");
 
@@ -81,5 +88,79 @@ describe("isBenignStreamAbort — streaming uzilish shovqinini filtrlash", () =>
     expect(isBenignStreamAbort(new Error("baza yiqildi"))).toBe(false);
     expect(isBenignStreamAbort(null)).toBe(false);
     expect(isBenignStreamAbort("satr")).toBe(false);
+  });
+});
+
+describe("errorSeverity", () => {
+  it("infratuzilma xabarlari — kritik", () => {
+    expect(errorSeverity(new Error("could not extend file: No space left on device"))).toBe(
+      "critical",
+    );
+    expect(errorSeverity(new Error("FATAL: the database system is in recovery mode"))).toBe(
+      "critical",
+    );
+    expect(errorSeverity(new Error("JavaScript heap out of memory"))).toBe("critical");
+    expect(errorSeverity(new Error("connect ECONNREFUSED 172.18.0.2:5432"))).toBe("critical");
+  });
+
+  it("fon ishi (worker) yiqilsa — kritik (ish bajarilmagan)", () => {
+    expect(errorSeverity(new Error("nimadir"), { source: "worker", path: "distribute" })).toBe(
+      "critical",
+    );
+  });
+
+  it("to'lov/backup yo'llari — kritik", () => {
+    expect(errorSeverity(new Error("x"), { path: "backup" })).toBe("critical");
+    expect(errorSeverity(new Error("x"), { path: "/tolovlar" })).toBe("critical");
+    expect(errorSeverity(new Error("x"), { source: "server", path: "/api/card-receipts/1" })).toBe(
+      "critical",
+    );
+  });
+
+  it("oddiy sahifa xatosi — kritik EMAS", () => {
+    expect(errorSeverity(new Error("Mijoz topilmadi"), { source: "server", path: "/lidlar" })).toBe(
+      "normal",
+    );
+    expect(errorSeverity(new Error("x"), {})).toBe("normal");
+    expect(errorSeverity(null)).toBe("normal");
+  });
+});
+
+describe("kritik xato ko'rinishi", () => {
+  it("sarlavha va ogohlantirish qatori ajralib turadi", () => {
+    const msg = formatErrorReport(new Error("No space left on device"), { source: "worker" }, now);
+    expect(msg).toContain("KRITIK");
+    expect(msg).toContain("Darhol tekshiring");
+  });
+
+  it("oddiy xatoda kritik belgilari yo'q", () => {
+    const msg = formatErrorReport(new Error("Mijoz topilmadi"), { source: "server" }, now);
+    expect(msg).not.toContain("KRITIK");
+    expect(msg).not.toContain("Darhol tekshiring");
+  });
+});
+
+describe("criticalChannelId", () => {
+  it("alohida kanal sozlansa — o'sha kanal", () => {
+    process.env.TELEGRAM_ERRORS_CRITICAL_CHANNEL_ID = "-100777";
+    process.env.TELEGRAM_ERRORS_CHANNEL_ID = "-100111";
+    expect(criticalChannelId()).toBe("-100777");
+    delete process.env.TELEGRAM_ERRORS_CRITICAL_CHANNEL_ID;
+  });
+
+  it("sozlanmasa — oddiy xato kanaliga tushadi", () => {
+    delete process.env.TELEGRAM_ERRORS_CRITICAL_CHANNEL_ID;
+    process.env.TELEGRAM_ERRORS_CHANNEL_ID = "-100111";
+    expect(criticalChannelId()).toBe(errorsChannelId());
+    expect(criticalChannelId()).toBe("-100111");
+  });
+});
+
+describe("shouldSend oynasi", () => {
+  it("oddiy xatolar uzunroq oynada bir marta chiqadi", () => {
+    const t = 1_000_000;
+    expect(shouldSend("oddiy-xato", t, 15 * 60_000)).toBe(true);
+    expect(shouldSend("oddiy-xato", t + 5 * 60_000, 15 * 60_000)).toBe(false);
+    expect(shouldSend("oddiy-xato", t + 16 * 60_000, 15 * 60_000)).toBe(true);
   });
 });

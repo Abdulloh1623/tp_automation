@@ -192,6 +192,24 @@ docker compose exec postgres psql -U tp -d tp_automation   # bazaga kirish
 docker compose down                   # to'xtatish (ma'lumot saqlanadi — volume'da)
 ```
 
+## 8.1 Xato kanallari (kritik / oddiy)
+
+Server va worker xatolari Telegramga avtomatik yuboriladi. Ular ikkiga ajratilgan
+(`lib/error-report.ts` → `errorSeverity`):
+
+| Daraja | Nima kiradi | Qayerga | Takror |
+| --- | --- | --- | --- |
+| 🚨 **Kritik** | disk to'lishi (`No space left`), baza yiqilishi/recovery, xotira tugashi, **bajarilmay qolgan cron ishlari** (backup, taqsimot, eslatma, SLA), to'lov/karta oqimi | `TELEGRAM_ERRORS_CRITICAL_CHANNEL_ID` (bo'lmasa — oddiy kanal, 🚨 belgisi bilan) | har 1 daqiqada |
+| 🔴 Oddiy | bitta so'rov/sahifa xatosi — foydalanuvchi qayta urinishi mumkin | `TELEGRAM_ERRORS_CHANNEL_ID` | har 15 daqiqada |
+
+Sabab: 2026-07-26 da `could not extend file: No space left on device` xatosi
+oddiy xatolar oqimida ko'zdan qochgan va ertasiga postgres halokatga uchragan.
+Kritik xabarda "⚠️ Darhol tekshiring — ish bajarilmagan bo'lishi mumkin" qatori
+bo'ladi.
+
+Alohida kanal ochish tavsiya etiladi: yangi kanal → botni admin qiling → ID'ni
+`.env` ga `TELEGRAM_ERRORS_CRITICAL_CHANNEL_ID` sifatida yozing.
+
 ## 9. "database system is in recovery mode" — tashxis
 
 **Alomat:** Telegram xato kanalida `PrismaClientUnknownRequestError: ... FATAL: the
@@ -286,7 +304,7 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 **Kod tomondan:** fon ishlari (cron) o'tkinchi DB uzilishida ~1 daqiqagacha kutib
 qayta uriladi (`withDbJobRetry`), disk bo'sh joyi har kuni 07:00 da tekshiriladi
-va kamaysa xato kanaliga ogohlantirish boradi (`lib/disk.ts`), backup esa disk
+va kamaysa **kritik** xato kanaliga ogohlantirish boradi (`lib/disk.ts`), backup esa disk
 to'lgan bo'lsa yozishga urinmaydi.
 
 ---

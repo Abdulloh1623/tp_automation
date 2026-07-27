@@ -20,9 +20,10 @@ set -euo pipefail
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 IMAGE_REPO="${IMAGE_REPO:-ghcr.io/abdulloh1623/tp_automation}"
-# Nechta oxirgi reliz saqlansin. 3 = joriy + 2 orqaga qaytish varianti; qolganini
-# rollback GHCR'dan tortadi. Har biri ~1.5 GB, shuning uchun ko'p saqlash qimmat.
-KEEP="${KEEP:-3}"
+# Nechta oxirgi reliz saqlansin. 2 = joriy + bitta orqaga qaytish varianti
+# (lokal, tarmoqsiz). Undan eskisi kerak bo'lsa rollback.sh GHCR'dan tortadi.
+# Har bir image ~1.5 GB — ko'p saqlash qimmat, shu sabab default kichik.
+KEEP="${KEEP:-2}"
 
 # ubuntu docker guruhida bo'lmasa sudo bilan ishlaymiz; ikkalasi ham ishlamasa
 # jimgina chiqamiz (deploy skripti buni chaqiradi — u to'xtab qolmasin).

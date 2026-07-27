@@ -155,8 +155,8 @@ kutilgan SHA-tegga teng va barcha xizmatlar ko'tarilgan). Xizmatlardan biri
 to'xtab qolgan bo'lsa — faqat `up -d` qiladi (dump/tarixsiz).
 
 Haqiqiy reliz aniqlansa:
-1. eski image'lar tozalanadi (`docker-gc.sh`, KEEP=3) — **pull'dan oldin**, aks
-   holda disk to'lganda pull yiqilib tozalash hech qachon ishlamaydi;
+1. eski image'lar tozalanadi (`docker-gc.sh`, KEEP=2) — **pull'dan oldin** (yangi
+   image uchun joy) va **`trap`da chiqishda yana** (yiqilsa ham bajariladi);
 2. yangi SHA image tortiladi (`:latest` emas);
 3. **pre-deploy `pg_dump`** olinadi (`backups/pre-deploy/`) — rollback uchun mos
    DB nusxasi (faqat haqiqiy deployda → oxirgi 14 ta dump = oxirgi 14 reliz);
@@ -171,8 +171,8 @@ Haqiqiy reliz aniqlansa:
 ./scripts/rollback.sh --list      # so'nggi deploylar ro'yxati
 ```
 
-Oxirgi **3** reliz image'i lokalda saqlanadi (`KEEP` — `scripts/docker-gc.sh`),
-shu sabab bir-ikki qadam orqaga rollback tarmoqsiz, bir necha soniyada bajariladi.
+Oxirgi **2** reliz image'i lokalda saqlanadi (`KEEP` — `scripts/docker-gc.sh`),
+shu sabab bir qadam orqaga rollback tarmoqsiz, bir necha soniyada bajariladi.
 Undan eskiroq relizga qaytilsa image GHCR'dan qayta tortiladi (tarmoq kerak,
 lekin ishlaydi).
 
@@ -241,7 +241,7 @@ Diskni to'ldiradigan odatiy manbalar va ularning cheklovi:
 
 | Manba | Odatdagi hajm | Cheklov |
 | --- | --- | --- |
-| **Eski reliz image'lari** | **~1.5 GB × har deploy** | oxirgi 3 ta (`scripts/docker-gc.sh`) |
+| **Eski reliz image'lari** | **~1.5 GB × har deploy** | oxirgi 2 ta (`scripts/docker-gc.sh`) |
 | Konteyner loglari | o'sib boradi | `json-file, max-size 10m × 3` (compose) |
 | Kunlik backup | ~270 MB | 14 kun (`KEEP`, `lib/backup.ts`); cheklar **hard link** |
 | Pre-deploy dump | kichik | oxirgi 14 ta (`scripts/deploy-pull.sh`) |

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { PackagePlus, Undo2, AlertCircle, Check, Clock, Plus, Trash2 } from "lucide-react";
+import { PackagePlus, Undo2, AlertCircle, Check, Clock, Plus, Trash2, PackageCheck } from "lucide-react";
 import {
   assignEquipmentBatchToClient,
   requestEquipmentReturn,
@@ -130,12 +130,24 @@ export function ClientEquipmentPanel({
     });
   }
 
+  // Biror qatorda qoldiqdan oshib ketganmi? Server ham tekshiradi (tranzaksiya
+  // ichida), lekin forma to'ldirilgach xato olish o'rniga darhol to'xtatamiz.
+  const overLimit = rows.some(
+    (r) => !installed && r.typeId && Number(r.qty) > availFor(r.typeId),
+  );
+
   function submitAssign() {
     const list = rows
       .map((r) => ({ equipmentTypeId: r.typeId, quantity: Number(r.qty) }))
       .filter((i) => i.equipmentTypeId && i.quantity > 0);
     if (list.length === 0) {
       setErr("Kamida bitta texnika va miqdor kiriting");
+      return;
+    }
+    if (overLimit) {
+      const msg = "Manbada yetarli emas — miqdorni kamaytiring yoki boshqa manba tanlang";
+      setErr(msg);
+      toast(msg, "error");
       return;
     }
     const source: EquipmentSource = effSource.startsWith("USTA:")
@@ -228,40 +240,57 @@ export function ClientEquipmentPanel({
             </div>
             <div>
               <Label>Manba (qayerdan)</Label>
-              <Select
-                value={effSource}
-                onChange={(e) => setASource(e.target.value)}
-                disabled={installed}
-              >
-                {sourceOptions.map((o) => (
-                  <option key={o.key} value={o.key}>
-                    {o.label}
-                  </option>
-                ))}
-              </Select>
+              {/* "Allaqachon o'rnatilgan" belgilanganda manba tushunchasi YO'Q —
+                  uskuna hech qayerdan olinmaydi. Ilgari bu yerda o'chirilgan
+                  (disabled) select "Sklad (ombor)" ni ko'rsatib turardi va
+                  checkbox matni bilan ziddiyat hosil qilardi. */}
+              {installed ? (
+                <div className="flex h-10 items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                  <PackageCheck className="h-4 w-4 shrink-0" />
+                  Mijozda — hech qayerdan olinmaydi
+                </div>
+              ) : (
+                <Select value={effSource} onChange={(e) => setASource(e.target.value)}>
+                  {sourceOptions.map((o) => (
+                    <option key={o.key} value={o.key}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
+              )}
+              {/* Bu qoida AYNAN manba tanloviga tegishli — shu sabab select
+                  ostida turadi (ilgari checkbox ostida edi va chalkashtirardi). */}
+              {!installed && (
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Usta o'zi olib borgan bo'lsa — usta zaxirasidan; ombordan olib
+                  ketilsa — Sklad.
+                </p>
+              )}
             </div>
           </div>
 
-          <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-200">
+          <label
+            className={
+              "flex items-start gap-2 rounded-lg border p-2.5 text-sm transition-colors " +
+              (installed
+                ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200")
+            }
+          >
             <input
               type="checkbox"
               checked={installed}
               onChange={(e) => setInstalled(e.target.checked)}
-              className="mt-0.5"
+              className="mt-0.5 h-4 w-4"
             />
             <span>
-              Allaqachon o'rnatilgan (ombordan qoldiq ayirilmaydi)
-              <span className="block text-xs text-slate-400 dark:text-slate-500">
-                Oldindan mavjud mijoz uchun — uskuna allaqachon mijozda, sotuvda yangi to'lov yozilmaydi.
+              Uskuna allaqachon mijozda (yangi o'rnatish emas)
+              <span className="block text-xs opacity-80">
+                Oldindan mavjud mijozni tizimga kiritish uchun: ombor/usta qoldig'i
+                ayirilmaydi va sotuvda yangi to'lov yozilmaydi.
               </span>
             </span>
           </label>
-
-          {!installed && (
-            <p className="text-xs text-slate-400 dark:text-slate-500">
-              Usta o'zi olib borgan bo'lsa — usta zaxirasidan; Toshkentda ombordan olib ketilsa — Sklad.
-            </p>
-          )}
 
           {/* Texnika qatorlari */}
           <div className="space-y-2">
@@ -283,24 +312,44 @@ export function ClientEquipmentPanel({
                       ))}
                     </Select>
                   </div>
-                  <div className="w-24">
-                    <Label>Miqdor</Label>
+                  <div className="w-32">
+                    <div className="flex items-baseline justify-between gap-1">
+                      <Label>Miqdor</Label>
+                      {/* Qoldiq — miqdor maydonining O'ZIDA, o'qiladigan kontrastda
+                          (ilgari kichik va oqish kulrang edi, e'tibordan qolardi). */}
+                      {!installed && (
+                        <span
+                          className={
+                            "text-[11px] font-medium " +
+                            (over
+                              ? "text-red-600 dark:text-red-400"
+                              : "text-slate-600 dark:text-slate-300")
+                          }
+                        >
+                          mavjud {avail}
+                        </span>
+                      )}
+                    </div>
                     <Input
                       type="number"
                       min={1}
+                      // Ombordan olinayotganda brauzer ham chegarani biladi
+                      max={installed ? undefined : avail}
                       value={r.qty}
                       onChange={(e) => updateRow(r.key, { qty: e.target.value })}
-                      className={over ? "border-red-300 dark:border-red-700" : ""}
+                      aria-invalid={over}
+                      className={over ? "border-red-400 dark:border-red-700" : ""}
                     />
-                    {!installed && (
-                      <p
-                        className={
-                          "mt-0.5 text-[11px] " +
-                          (over ? "text-red-600 dark:text-red-400" : "text-slate-400 dark:text-slate-500")
-                        }
-                      >
-                        mavjud: {avail}
+                    {installed ? (
+                      <p className="mt-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                        ombordan ayirilmaydi
                       </p>
+                    ) : (
+                      over && (
+                        <p className="mt-0.5 text-[11px] font-medium text-red-600 dark:text-red-400">
+                          faqat {avail} ta bor
+                        </p>
+                      )
                     )}
                   </div>
                   <Button
@@ -321,7 +370,7 @@ export function ClientEquipmentPanel({
             <Button variant="outline" className="text-sm" onClick={addRow} disabled={pending}>
               <Plus className="h-4 w-4" /> Texnika qo'shish
             </Button>
-            <Button disabled={pending} onClick={submitAssign}>
+            <Button disabled={pending || overLimit} onClick={submitAssign}>
               <PackagePlus className="h-4 w-4" /> Biriktirish
             </Button>
           </div>

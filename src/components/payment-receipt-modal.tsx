@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { X, AlertCircle, CheckCircle2 } from "lucide-react";
 import { recordLeadPayment } from "@/actions/payments";
+import { toast } from "@/components/toaster";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
@@ -49,8 +50,16 @@ export function PaymentReceiptModal({
     fd.set("receipt", receipt);
     start(async () => {
       const res = await recordLeadPayment(target.id, fd);
-      if (res.ok) onDone(target.id);
-      else setError(res.error ?? "Xatolik");
+      if (res.ok) {
+        // Karta/QR bo'lsa to'lov hali yozilmagan — tasdiq kutilmoqda
+        toast(
+          res.pending
+            ? "Karta egasi tasdig'i kutilmoqda — to'lov hali yozilmadi"
+            : "To'lov qabul qilindi",
+          res.pending ? "info" : "success",
+        );
+        onDone(target.id);
+      } else setError(res.error ?? "Xatolik");
     });
   }
 

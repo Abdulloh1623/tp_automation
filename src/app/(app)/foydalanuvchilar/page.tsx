@@ -31,6 +31,7 @@ export default async function UsersPage() {
       dailyLeadTarget: true,
       shift: true,
       isActive: true,
+      cardVerifier: true,
     },
   });
 

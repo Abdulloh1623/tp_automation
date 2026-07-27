@@ -198,31 +198,53 @@ left on device`, keyingi kuni taqsimot recovery mode'ga urilgan).
 
 ```bash
 df -h /                                   # 100% bo'lsa — sabab shu
-docker system df                          # image/konteyner/volume/log hajmi
-sudo du -sh /var/lib/docker/containers/*  # konteyner loglari
-docker compose exec worker du -sh /app/backups /app/uploads
+docker system df                          # image/konteyner/volume/log hajmi (RECLAIMABLE ustuni!)
 docker compose logs postgres | grep -i "no space left"
+docker compose exec worker du -sh /app/backups /app/uploads
+# DIQQAT: /var/lib/docker root'niki — glob'ni sudo ICHIDA ochish kerak,
+# aks holda "No such file or directory" chiqadi:
+sudo sh -c 'du -sh /var/lib/docker/containers/* | sort -h | tail'
 ```
 
 Tozalash (xavfsiz tartibda):
 
 ```bash
-docker system prune -af                   # ishlatilmayotgan image/konteyner
+./scripts/docker-gc.sh                    # eski reliz image'lari (odatda eng katta manba)
 docker compose exec worker sh -c 'ls -1t /app/backups | tail -n +8 | xargs -r -I{} rm -rf /app/backups/{}'
-sudo truncate -s 0 /var/lib/docker/containers/*/*-json.log   # eski loglar
+sudo sh -c 'truncate -s 0 /var/lib/docker/containers/*/*-json.log'
+docker system prune -af                   # eng oxirgi chora: ishlatilmayotgan HAMMA image
 ```
+
+> `docker system prune -af` ishlab turgan konteynerlarga tegmaydi, lekin **rollback
+> uchun saqlangan eski image'larni ham o'chiradi** — ular GHCR'da qolgani uchun
+> `rollback.sh` kerak bo'lsa qayta tortadi (biroz sekinroq).
 
 Disk bo'shagach postgres o'zi tiklanadi; tiklanmasa `docker compose restart postgres`
 va logda `database system is ready to accept connections` ni kuting.
 
 Diskni to'ldiradigan odatiy manbalar va ularning cheklovi:
 
-| Manba | Cheklov |
-| --- | --- |
-| Konteyner loglari | `logging: json-file, max-size 10m × 3` (compose'da) |
-| Kunlik backup | 14 kun (`KEEP`, `lib/backup.ts`); cheklar **hard link** bilan (nusxa emas) |
-| Pre-deploy dump | oxirgi 14 ta (`scripts/deploy-pull.sh`) |
-| Eski image'lar | oxirgi 8 reliz (`scripts/deploy-pull.sh`) |
+| Manba | Odatdagi hajm | Cheklov |
+| --- | --- | --- |
+| **Eski reliz image'lari** | **~1.5 GB × har deploy** | oxirgi 3 ta (`scripts/docker-gc.sh`) |
+| Konteyner loglari | o'sib boradi | `json-file, max-size 10m × 3` (compose) |
+| Kunlik backup | ~270 MB | 14 kun (`KEEP`, `lib/backup.ts`); cheklar **hard link** |
+| Pre-deploy dump | kichik | oxirgi 14 ta (`scripts/deploy-pull.sh`) |
+
+> 2026-07-26 hodisasida diskni aynan **image'lar** to'ldirgan: 23 ta reliz = 34 GB
+> (38 GB diskda). Sabab — deploy qo'lda (`docker compose pull && up -d`) qilinganda
+> `deploy-pull.sh` dagi tozalash umuman ishlamagan.
+
+### Image tozalashni cron'ga qo'ying (bir marta, deploy usulidan mustaqil)
+
+```bash
+crontab -e
+# quyidagi qatorni qo'shing:
+17 4 * * * /home/ubuntu/tp_automation/scripts/docker-gc.sh >> /home/ubuntu/docker-gc.log 2>&1
+```
+
+Qo'lda ham ishlatsa bo'ladi: `./scripts/docker-gc.sh` (yoki `KEEP=5 ./scripts/docker-gc.sh`).
+O'chirilgan reliz kerak bo'lsa `rollback.sh` uni GHCR'dan qayta tortadi.
 
 ### Keyin: xotira (OOM)
 

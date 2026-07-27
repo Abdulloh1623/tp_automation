@@ -67,18 +67,10 @@ sudo -E docker compose up -d
 printf '%s\t%s\n' "${SHA}" "$(date '+%F %T')" | cat - .deploy-history 2>/dev/null | head -20 > .deploy-history.tmp
 mv .deploy-history.tmp .deploy-history
 
-# Dangling (tegsiz) qatlamlarni tozalash — teg'langan SHA image'lar saqlanadi
-sudo docker image prune -f >/dev/null 2>&1 || true
-
-# Eski app image'larini tozalash — har deploy yangi SHA-tag image tortadi va u
-# TEGLI bo'lgani uchun `image prune -f` uni o'chirmaydi → cheksiz yig'ilib disk
-# to'ldiradi. Joriy + oxirgi (KEEP-1) relizni saqlab (rollback uchun yetarli),
-# qolganini o'chiramiz. `docker images` yangidan-eskiga tartiblaydi; ishlab
-# turgan image'ni `rmi` o'chira olmaydi (xatoni yutamiz — xavfsiz).
-KEEP=8
-sudo docker images --format '{{.Repository}}:{{.Tag}}' "${IMAGE_REPO}" \
-  | grep -v ':<none>$' \
-  | tail -n +$((KEEP + 1)) \
-  | xargs -r sudo docker rmi >/dev/null 2>&1 || true
+# Eski image'larni tozalash — yagona manba: scripts/docker-gc.sh (u host cron'da
+# ham ishlaydi, chunki deploy qo'lda `docker compose pull && up -d` bilan
+# qilinganda bu skript umuman chaqirilmaydi — 2026-07-26 da disk shundan to'lgan).
+# KEEP=3: joriy + 2 orqaga qaytish; eskisi kerak bo'lsa rollback.sh GHCR'dan tortadi.
+KEEP=3 "$(dirname "$0")/docker-gc.sh" || true
 
 echo "$(date '+%F %T') — deployed ${SHA}"

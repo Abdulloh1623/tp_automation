@@ -13,8 +13,68 @@ IMAGE_REPO="ghcr.io/abdulloh1623/tp_automation"
 # Joriy (deploydan oldingi) SHA — pre-deploy dump'ni shu bilan nomlaymiz
 OLD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 
+# --- Kod/config o'zgarishlari (KOD emas — kod image'da) ---------------------
+git pull --rebase --autostash origin main --quiet || true
+
+# Serverdagi HEAD = deploy.yml ${{ github.sha }} image tegi bilan bir xil
+SHA="$(git rev-parse HEAD)"
+TAG="${IMAGE_REPO}:${SHA}"
+
+# --- TEZ CHIQISH: deploy qiladigan narsa yo'q bo'lsa ------------------------
+# Bu skript cron'da HAR 3 DAQIQADA ishlaydi. Ilgari u har safar pre-deploy
+# pg_dump qilar, .deploy-history ga qator qo'shar va `up -d` chaqirardi —
+# ya'ni kuniga ~480 ta keraksiz dump, va rollback tarixi bir soatlik bir xil
+# SHA bilan to'lib, ma'nosini yo'qotardi.
+#
+# Ikki shart bajarilsa hech narsa qilmaymiz: (1) ishlab turgan image kutilgan
+# tegga teng, (2) barcha xizmatlar ko'tarilgan. Ikkinchi shart muhim — eski
+# skriptning har 3 daqiqadagi `up -d` si tasodifan "o'z-o'zini tiklash" vazifasini
+# ham bajarardi (to'xtab qolgan xizmatni qaytarardi); uni yo'qotmaymiz.
+NEEDS_DEPLOY=0
+CID="$(sudo docker compose ps -q app 2>/dev/null | head -1)"
+RUNNING_IMAGE=""
+[ -n "${CID}" ] && RUNNING_IMAGE="$(sudo docker inspect --format '{{.Config.Image}}' "${CID}" 2>/dev/null || echo "")"
+[ "${RUNNING_IMAGE}" = "${TAG}" ] || NEEDS_DEPLOY=1
+
+RUNNING_SERVICES=" $(sudo docker compose ps --services --status running 2>/dev/null | tr '\n' ' ') "
+for svc in postgres app worker caddy; do
+  case "${RUNNING_SERVICES}" in
+    *" ${svc} "*) ;;
+    *) echo "$(date '+%F %T') — '${svc}' ishlamayapti, ko'taramiz"; NEEDS_DEPLOY=1 ;;
+  esac
+done
+
+[ "${NEEDS_DEPLOY}" = "1" ] || exit 0
+
+# Faqat xizmat tushib qolgan bo'lsa (image o'zgarmagan) — dump/tarixsiz ko'taramiz
+if [ "${RUNNING_IMAGE}" = "${TAG}" ]; then
+  export TP_IMAGE="${TAG}"
+  sudo -E docker compose up -d
+  exit 0
+fi
+
+echo "$(date '+%F %T') — yangi reliz: ${SHA:0:12} (oldingi: ${OLD_SHA:0:12})"
+
+# --- Joy bo'shatish (pull'DAN OLDIN) ---------------------------------------
+# ATAYLAB shu yerda: tozalash oxirida turganda disk to'lib qolsa `docker compose
+# pull` yiqilardi, `set -e` skriptni to'xtatardi va tozalash HECH QACHON
+# ishlamasdi — ya'ni eng kerakli paytda o'chiq bo'lardi (2026-07-26 hodisasi:
+# 23 ta eski image 34 GB, disk 100%, postgres halokati).
+KEEP=3 "$(dirname "$0")/docker-gc.sh" || true
+
+# Bu ishga tushirish uchun tegni muhitga beramiz (compose shundan o'qiydi).
+# .env ga YOZMAYMIZ — hali image mavjudligiga ishonchimiz yo'q.
+export TP_IMAGE="${TAG}"
+
+# --- Aynan shu SHA image'ni tortamiz (latest EMAS) -------------------------
+# CI hali tugamagan bo'lsa bu yiqiladi va skript to'xtaydi — 3 daqiqadan keyingi
+# cron qayta uradi. Shuning uchun pre-deploy dump PULL'DAN KEYIN turadi:
+# qurilmagan image uchun bekorga dump olinmasin.
+sudo -E docker compose pull --quiet
+
 # --- Pre-deploy DB backup (postgres ishlab turgan bo'lsa) -------------------
-# Postgres tushib qolmagan bo'lsa (birinchi deploy emas) — rollback uchun dump.
+# Postgres tushib qolmagan bo'lsa — rollback uchun dump. Endi faqat HAQIQIY
+# deployda olinadi, ya'ni oxirgi 14 ta dump = oxirgi 14 ta reliz.
 if sudo docker compose ps --status running postgres 2>/dev/null | grep -q postgres; then
   # POSTGRES_USER / POSTGRES_DB ni .env dan olamiz (tirnoqlarni olib tashlab)
   PG_USER="$(sed -n 's/^POSTGRES_USER=//p' .env | tr -d '"' | head -1)"
@@ -31,20 +91,6 @@ if sudo docker compose ps --status running postgres 2>/dev/null | grep -q postgr
 else
   echo "Postgres ishlamayapti — pre-deploy backup o'tkazib yuborildi (ehtimol birinchi deploy)."
 fi
-
-# --- Kod/config o'zgarishlari (KOD emas — kod image'da) ---------------------
-git pull --rebase --autostash origin main --quiet || true
-
-# Serverdagi HEAD = deploy.yml ${{ github.sha }} image tegi bilan bir xil
-SHA="$(git rev-parse HEAD)"
-TAG="${IMAGE_REPO}:${SHA}"
-
-# Bu ishga tushirish uchun tegni muhitga beramiz (compose shundan o'qiydi).
-# .env ga YOZMAYMIZ — hali image mavjudligiga ishonchimiz yo'q.
-export TP_IMAGE="${TAG}"
-
-# --- Aynan shu SHA image'ni tortamiz (latest EMAS) -------------------------
-sudo -E docker compose pull --quiet
 
 # --- TP_IMAGE ni .env ga upsert (persist) ----------------------------------
 # ATAYLAB pull'DAN KEYIN: agar image hali qurilmagan bo'lsa (CI tugamagan),
@@ -64,13 +110,9 @@ sudo -E docker compose up -d
 
 # --- Rollback tarixi (eng yangi tepada) — oxirgi 20 ta ---------------------
 # Format (TAB bilan): <sha>\t<sana vaqt>[\t(rollback)] — SHA birinchi ustun.
+# Faqat haqiqiy deployda yoziladi (tez chiqish yuqorida) — shu sabab 2-qator
+# ROSTDAN ham oldingi reliz bo'ladi va rollback.sh unga qaytara oladi.
 printf '%s\t%s\n' "${SHA}" "$(date '+%F %T')" | cat - .deploy-history 2>/dev/null | head -20 > .deploy-history.tmp
 mv .deploy-history.tmp .deploy-history
-
-# Eski image'larni tozalash — yagona manba: scripts/docker-gc.sh (u host cron'da
-# ham ishlaydi, chunki deploy qo'lda `docker compose pull && up -d` bilan
-# qilinganda bu skript umuman chaqirilmaydi — 2026-07-26 da disk shundan to'lgan).
-# KEEP=3: joriy + 2 orqaga qaytish; eskisi kerak bo'lsa rollback.sh GHCR'dan tortadi.
-KEEP=3 "$(dirname "$0")/docker-gc.sh" || true
 
 echo "$(date '+%F %T') — deployed ${SHA}"

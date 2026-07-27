@@ -55,12 +55,17 @@ fi
 
 echo "$(date '+%F %T') — yangi reliz: ${SHA:0:12} (oldingi: ${OLD_SHA:0:12})"
 
-# --- Joy bo'shatish (pull'DAN OLDIN) ---------------------------------------
-# ATAYLAB shu yerda: tozalash oxirida turganda disk to'lib qolsa `docker compose
-# pull` yiqilardi, `set -e` skriptni to'xtatardi va tozalash HECH QACHON
-# ishlamasdi — ya'ni eng kerakli paytda o'chiq bo'lardi (2026-07-26 hodisasi:
-# 23 ta eski image 34 GB, disk 100%, postgres halokati).
-KEEP=3 "$(dirname "$0")/docker-gc.sh" || true
+# --- Eski image'lar HAR DOIM tozalanadi ------------------------------------
+# `trap ... EXIT`: deploy muvaffaqiyatli tugasa ham, o'rtada yiqilsa ham
+# (pull xatosi, migratsiya xatosi, disk to'la) tozalash BAJARILADI. Ilgari
+# tozalash skript oxirida turgani uchun aynan xato bo'lgan holatlarda —
+# ya'ni eng kerakli paytda — ishlamasdi va image'lar yig'ilib borardi.
+GC="$(dirname "$0")/docker-gc.sh"
+trap '"${GC}" || true' EXIT
+
+# Pull'dan OLDIN ham chaqiramiz — yangi image uchun joy bo'shatib beradi
+# (disk to'la bo'lsa pull umuman ishlamaydi).
+"${GC}" || true
 
 # Bu ishga tushirish uchun tegni muhitga beramiz (compose shundan o'qiydi).
 # .env ga YOZMAYMIZ — hali image mavjudligiga ishonchimiz yo'q.

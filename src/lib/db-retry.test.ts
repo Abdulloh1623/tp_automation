@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { withDbRetry } from "./db-retry";
+import { describe, it, expect, vi } from "vitest";
+import { withDbRetry, withDbJobRetry } from "./db-retry";
 
 const transient = () => ({ code: "P1017", message: "Server has closed the connection" });
 
@@ -53,5 +53,57 @@ describe("withDbRetry", () => {
       ),
     ).rejects.toMatchObject({ code: "P1017" });
     expect(calls).toBe(2);
+  });
+
+  it("kechikish factor bo'yicha o'sadi va onRetry xabar beradi", async () => {
+    const delays: number[] = [];
+    let calls = 0;
+    const r = await withDbRetry(
+      async () => {
+        calls++;
+        if (calls < 4) throw transient();
+        return "ok";
+      },
+      5,
+      1,
+      { factor: 2, onRetry: (_attempt, delay) => delays.push(delay) },
+    );
+    expect(r).toBe("ok");
+    expect(delays).toEqual([1, 2, 4]);
+  });
+
+  it("maxDelayMs kechikishni cheklaydi", async () => {
+    const delays: number[] = [];
+    let calls = 0;
+    await withDbRetry(
+      async () => {
+        calls++;
+        if (calls < 4) throw transient();
+        return "ok";
+      },
+      5,
+      1,
+      { factor: 10, maxDelayMs: 5, onRetry: (_a, d) => delays.push(d) },
+    );
+    expect(delays).toEqual([1, 5, 5]);
+  });
+});
+
+describe("withDbJobRetry", () => {
+  it("baza tiklanish rejimidan chiqqach ish bajariladi", async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      const p = withDbJobRetry(async () => {
+        calls++;
+        if (calls < 3) throw new Error("FATAL: the database system is in recovery mode");
+        return "taqsimlandi";
+      });
+      await vi.advanceTimersByTimeAsync(30_000);
+      await expect(p).resolves.toBe("taqsimlandi");
+      expect(calls).toBe(3);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

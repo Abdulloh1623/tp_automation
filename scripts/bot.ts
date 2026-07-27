@@ -15,6 +15,7 @@ import { sendDailyReminders, sendOperatorReminders } from "../src/lib/reminders"
 import { distributeLeadsCore } from "../src/lib/leads-distribution";
 import { runSlaCheck } from "../src/lib/sla";
 import { reportError } from "../src/lib/error-report";
+import { withDbJobRetry } from "../src/lib/db-retry";
 
 const TZ = "Asia/Tashkent";
 
@@ -22,10 +23,24 @@ function log(...args: unknown[]) {
   console.log(new Date().toISOString(), ...args);
 }
 
+/**
+ * Cron ishini o'tkinchi DB uzilishiga chidamli qiladi: postgres halokatdan
+ * tiklanayotgan bo'lsa (masalan OOM'dan keyin) ish yo'qolmasin — ~1 daqiqagacha
+ * kutib qayta uriniladi.
+ */
+function withRetry<T>(job: string, fn: () => Promise<T>): Promise<T> {
+  return withDbJobRetry(fn, (attempt, delay, err) =>
+    log(
+      `${job}: baza javob bermadi (${err instanceof Error ? err.message.split("\n")[0] : err})` +
+        ` — ${delay}ms dan keyin qayta urinish #${attempt}`,
+    ),
+  );
+}
+
 /** Hisobot albomini quradi va kanalga yuboradi; xato bo'lsa matnga qaytadi. */
 async function sendReport(kind: ReportKind) {
   try {
-    const album = await buildReportAlbum(kind);
+    const album = await withRetry(`hisobot[${kind}]`, () => buildReportAlbum(kind));
     const res = await sendAlbumToChannel(album.images);
     if (res.ok) {
       log(`hisobot[${kind}] albom →`, res.mode, `${album.images.length} rasm, ok`);
@@ -41,7 +56,7 @@ async function sendReport(kind: ReportKind) {
       log(`hisobot[${kind}] matn →`, t.mode, t.ok ? "ok" : t.error);
     } catch (e2) {
       log(`hisobot[${kind}] matn ham XATO:`, e2 instanceof Error ? e2.message : e2);
-      await reportError(e2, { source: "worker", path: `report/${kind}` });
+      await reportError(e2, { source: "worker", path: `report/${kind}`, notifyTransient: true });
     }
   }
 }
@@ -49,27 +64,27 @@ async function sendReport(kind: ReportKind) {
 /** Kunlik backup: DB + cheklar nusxasi + Telegram zaxira kanaliga. */
 async function runBackup() {
   try {
-    const res = await createBackup();
+    const res = await withRetry("backup", () => createBackup());
     if (res.ok) log(`backup → ${res.name} · ${res.sizeKb}KB · cheklar:${res.receipts} · Telegram:${res.telegram}`);
     else {
       log("backup XATO:", res.error);
-      await reportError(new Error(res.error ?? "backup muvaffaqiyatsiz"), { source: "worker", path: "backup" });
+      await reportError(new Error(res.error ?? "backup muvaffaqiyatsiz"), { source: "worker", path: "backup", notifyTransient: true });
     }
   } catch (e) {
     log("backup XATO:", e instanceof Error ? e.message : e);
-    await reportError(e, { source: "worker", path: "backup" });
+    await reportError(e, { source: "worker", path: "backup", notifyTransient: true });
   }
 }
 
 /** Kunlik random taqsimot: muddati kelgan lidlarni operatorlarga tasodifiy ulashadi. */
 async function runDistribute() {
   try {
-    const r = await distributeLeadsCore();
+    const r = await withRetry("taqsimot", () => distributeLeadsCore());
     if (r.error) log("taqsimot:", r.error);
     else log(`taqsimot → ${r.assigned} mijoz ${r.operators} operatorga`);
   } catch (e) {
     log("taqsimot XATO:", e instanceof Error ? e.message : e);
-    await reportError(e, { source: "worker", path: "distribute" });
+    await reportError(e, { source: "worker", path: "distribute", notifyTransient: true });
   }
 }
 
@@ -77,10 +92,10 @@ async function runDistribute() {
 async function runReminders(operatorsOnly = false) {
   try {
     if (operatorsOnly) {
-      const o = await sendOperatorReminders();
+      const o = await withRetry("eslatma[operator]", () => sendOperatorReminders());
       log(`eslatma[operator] → yuborildi:${o.sent} o'tkazildi:${o.skipped} telegramsiz:${o.noTelegram}`);
     } else {
-      const r = await sendDailyReminders();
+      const r = await withRetry("eslatma[kunlik]", () => sendDailyReminders());
       log(
         `eslatma[kunlik] → operator yuborildi:${r.operators.sent} telegramsiz:${r.operators.noTelegram}` +
           ` · boshliq:${r.managers.sent} (${r.managers.mode})`,
@@ -88,18 +103,18 @@ async function runReminders(operatorsOnly = false) {
     }
   } catch (e) {
     log("eslatma XATO:", e instanceof Error ? e.message : e);
-    await reportError(e, { source: "worker", path: "reminders" });
+    await reportError(e, { source: "worker", path: "reminders", notifyTransient: true });
   }
 }
 
 /** 3-kunlik SLA tekshiruvi: hal bo'lmagan muammo/eskalatsiyalar bo'yicha ogohlantirish. */
 async function runSla() {
   try {
-    const r = await runSlaCheck();
+    const r = await withRetry("SLA", () => runSlaCheck());
     log(`SLA → muammo:${r.tickets} eskalatsiya:${r.escalations} taklif:${r.suggestions} ogohlantirildi`);
   } catch (e) {
     log("SLA XATO:", e instanceof Error ? e.message : e);
-    await reportError(e, { source: "worker", path: "sla" });
+    await reportError(e, { source: "worker", path: "sla", notifyTransient: true });
   }
 }
 
@@ -107,13 +122,13 @@ async function runSla() {
 async function dailyRollover() {
   try {
     const todayStart = startOfTzDay(0);
-    const removed = await db.dailyLeadGrant.deleteMany({
-      where: { date: { lt: todayStart } },
-    });
+    const removed = await withRetry("kun yangilanishi", () =>
+      db.dailyLeadGrant.deleteMany({ where: { date: { lt: todayStart } } }),
+    );
     log(`kun yangilandi — eski grantlar o'chirildi: ${removed.count}`);
   } catch (e) {
     log("kun yangilanishi XATO:", e instanceof Error ? e.message : e);
-    await reportError(e, { source: "worker", path: "rollover" });
+    await reportError(e, { source: "worker", path: "rollover", notifyTransient: true });
   }
 }
 
@@ -194,7 +209,7 @@ async function main() {
 main().catch(async (e) => {
   console.error("Worker halokati:", e);
   try {
-    await reportError(e, { source: "worker", path: "main/startup" });
+    await reportError(e, { source: "worker", path: "main/startup", notifyTransient: true });
   } catch {
     // xato qayd etishning o'zi xato bersa — e'tiborsiz
   }

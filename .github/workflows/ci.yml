@@ -168,3 +168,40 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  docker-image:
+    name: Docker image (qurish + hajm)
+    runs-on: ubuntu-latest
+    # Deploy image'ni FAQAT main'ga merge'dan keyin quradi (deploy.yml), ya'ni
+    # buzuq Dockerfile PR'da ko'rinmay qolardi va merge'dan keyin deployni
+    # jimgina to'xtatib qo'yardi (serverdagi cron eski image bilan ishlayverardi).
+    # Bu job aynan shuni oldini oladi va image hajmini ham chop etadi.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Image qurish (push YO'Q)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: tp-automation:ci
+          # deploy.yml bilan bir xil GHA keshi — qayta qurish tez bo'ladi
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Hajmni ko'rsatish
+        run: |
+          SIZE=$(docker image inspect tp-automation:ci --format '{{.Size}}')
+          MB=$((SIZE / 1024 / 1024))
+          echo "Image hajmi: ${MB} MB"
+          echo "### 🐳 Docker image hajmi: **${MB} MB**" >> "$GITHUB_STEP_SUMMARY"
+          # Har deploy shu hajmni serverga tushiradi (oxirgi 2 tasi saqlanadi).
+          # 1200MB dan oshsa — nimadir keraksiz narsa image'ga tushgan.
+          if [ "$MB" -gt 1200 ]; then
+            echo "::warning::Image hajmi ${MB} MB — kutilganidan katta (>1200MB)"
+          fi

@@ -25,6 +25,7 @@ import {
   revertTaxConnection,
   deleteTaxConnection,
 } from "@/actions/soliq";
+import { DocumentLink } from "@/components/document-link";
 import { Button } from "@/components/ui/button";
 import { ClientLink } from "@/components/client-link";
 import { confirmDialog } from "@/components/confirm-dialog";
@@ -261,14 +262,28 @@ function Row({
         <Detail icon={<FileText className="h-3.5 w-3.5" />} label="Hujjatlar">
           <span className="flex flex-wrap gap-3">
             {r.certUrl && (
-              <a href={r.certUrl} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline dark:text-primary-400">
-                Guvohnoma
-              </a>
+              <DocumentLink
+                url={r.certUrl}
+                title="Guvohnoma fayli"
+                subtitle={r.restaurantName || r.fullName}
+                meta={[
+                  { label: "Guvohnoma", value: r.certificateNo },
+                  { label: "Rahbar", value: r.directorName },
+                  { label: "Telefon", value: r.phone },
+                ]}
+              />
             )}
             {r.docUrl && (
-              <a href={r.docUrl} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline dark:text-primary-400">
-                Kadastr/ijara
-              </a>
+              <DocumentLink
+                url={r.docUrl}
+                title="Kadastr/ijara hujjati"
+                subtitle={r.restaurantName || r.fullName}
+                meta={[
+                  { label: "Guvohnoma", value: r.certificateNo },
+                  { label: "Rahbar", value: r.directorName },
+                  { label: "Telefon", value: r.phone },
+                ]}
+              />
             )}
           </span>
         </Detail>

@@ -33,6 +33,7 @@ import {
 import { logout } from "@/actions/auth";
 import { Toaster } from "@/components/toaster";
 import { ConfirmDialog, confirmDialog } from "@/components/confirm-dialog";
+import { DocumentViewer } from "@/components/document-viewer";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 import { userRoleLabel } from "@/lib/constants";
@@ -352,6 +353,7 @@ export function AppShell({
 
       <Toaster />
       <ConfirmDialog />
+      <DocumentViewer />
     </div>
   );
 }

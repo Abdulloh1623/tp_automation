@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FileText, Upload, Loader2, Check } from "lucide-react";
 import { uploadHandoutFile, uploadSignedDocument } from "@/actions/inventory";
 import { documentStatusLabel } from "@/lib/constants";
+import { openDocument } from "@/components/document-viewer";
 
 /**
  * Harakatlar jurnalidagi hujjat holati katagi. PENDING_DOC bo'lsa sariq badge
@@ -34,14 +35,19 @@ export function HandoutDocCell({
 
   if (uploaded) {
     return (
-      <a
-        href={`/api/handouts/${movementId}`}
-        target="_blank"
-        rel="noopener noreferrer"
+      <button
+        type="button"
+        onClick={() =>
+          openDocument({
+            url: `/api/handouts/${movementId}`,
+            title: "Topshirish hujjati",
+            meta: [{ label: "Holat", value: documentStatusLabel(documentStatus) }],
+          })
+        }
         className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 hover:underline"
       >
         <Check className="h-3.5 w-3.5" /> {documentStatusLabel(documentStatus)} · Ko'rish
-      </a>
+      </button>
     );
   }
 

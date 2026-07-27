@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DocumentLink } from "@/components/document-link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
@@ -247,6 +248,13 @@ export async function ClientProfile({ id }: { id: string }) {
         take: 1,
       },
       taxConnections: { orderBy: { createdAt: "desc" }, take: 1 },
+      // Karta egasi tasdig'ini kutayotgan to'lovlar — hali Payment EMAS, lekin
+      // operator "kiritdim, qani u?" demasligi uchun profilda ko'rinishi kerak.
+      cardPayments: {
+        where: { status: "PENDING" },
+        orderBy: { createdAt: "desc" },
+        include: { recordedBy: { select: { name: true } } },
+      },
     },
   });
 
@@ -330,6 +338,8 @@ export async function ClientProfile({ id }: { id: string }) {
     : null;
 
   const soliqDocUrl = (p: string | null) => (p ? `/api/soliq/${p.replace(/^soliq\//, "")}` : null);
+  // Fayl PDF mi (rasm sifatida emas, iframe'da ko'rsatiladi)
+  const isPdfPath = (p: string | null) => !!p && p.toLowerCase().endsWith(".pdf");
   const soliq = client.taxConnections[0] ?? null;
 
   // Hero KPI: Biznex obuna plitkasi (rang bilan shoshilinchlik).
@@ -811,14 +821,37 @@ export async function ClientProfile({ id }: { id: string }) {
                       Geolokatsiya
                     </a>
                     {soliqDocUrl(soliq.certificatePath) && (
-                      <a href={soliqDocUrl(soliq.certificatePath)!} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline dark:text-primary-400">
-                        Guvohnoma fayli
-                      </a>
+                      <DocumentLink
+                        url={soliqDocUrl(soliq.certificatePath)!}
+                        title="Guvohnoma fayli"
+                        subtitle={client.restaurantName || client.fullName}
+                        isPdf={isPdfPath(soliq.certificatePath)}
+                        meta={[
+                          { label: "Guvohnoma", value: soliq.certificateNo },
+                          { label: "Rahbar", value: soliq.directorName },
+                          {
+                            label: "Holat",
+                            value:
+                              TAX_CONNECTION_STATUS[
+                                soliq.status as keyof typeof TAX_CONNECTION_STATUS
+                              ] ?? soliq.status,
+                          },
+                          { label: "Yuborilgan", value: formatDate(soliq.createdAt) },
+                        ]}
+                      />
                     )}
                     {soliqDocUrl(soliq.documentPath) && (
-                      <a href={soliqDocUrl(soliq.documentPath)!} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline dark:text-primary-400">
-                        Kadastr/ijara
-                      </a>
+                      <DocumentLink
+                        url={soliqDocUrl(soliq.documentPath)!}
+                        title="Kadastr/ijara hujjati"
+                        subtitle={client.restaurantName || client.fullName}
+                        isPdf={isPdfPath(soliq.documentPath)}
+                        meta={[
+                          { label: "Guvohnoma", value: soliq.certificateNo },
+                          { label: "Rahbar", value: soliq.directorName },
+                          { label: "Yuborilgan", value: formatDate(soliq.createdAt) },
+                        ]}
+                      />
                     )}
                   </div>
                 </div>
@@ -838,6 +871,44 @@ export async function ClientProfile({ id }: { id: string }) {
 
           <Section icon={ReceiptText} title="To'lov tarixi">
             <div>
+              {/* Tasdiq kutayotgan karta to'lovlari — hali hisobga olinmagan */}
+              {client.cardPayments.length > 0 && (
+                <div className="mb-3 space-y-2 rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900/50 dark:bg-amber-950/20">
+                  {client.cardPayments.map((c) => (
+                    <div key={c.id} className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <div className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                          {formatMoney(c.amount, c.currency)} — karta egasi tasdig&apos;i kutilmoqda
+                        </div>
+                        <div className="text-xs text-amber-700/80 dark:text-amber-300/70">
+                          {formatDate(c.paidAt)}
+                          {c.recordedBy ? ` · ${c.recordedBy.name}` : ""} ·{" "}
+                          {paymentMethodLabel(c.method)}
+                        </div>
+                      </div>
+                      {c.receiptPath && (
+                        <DocumentLink
+                          variant="chip"
+                          icon="receipt"
+                          label="Chek"
+                          url={`/api/card-receipts/${c.id}`}
+                          title="Tasdiq kutayotgan chek"
+                          subtitle={client.restaurantName || client.fullName}
+                          isPdf={c.receiptMime === "application/pdf"}
+                          note={c.receiptNote}
+                          meta={[
+                            { label: "Summa", value: formatMoney(c.amount, c.currency) },
+                            { label: "Sana", value: formatDate(c.paidAt) },
+                            { label: "Usul", value: paymentMethodLabel(c.method) },
+                            { label: "Kiritdi", value: c.recordedBy?.name ?? "—" },
+                          ]}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {client.payments.length === 0 ? (
                 <p className="text-sm text-slate-400 dark:text-slate-500">To'lovlar yo'q</p>
               ) : (
@@ -864,17 +935,38 @@ export async function ClientProfile({ id }: { id: string }) {
                           )}
                         </div>
                       </div>
-                      <PaymentHistoryActions
-                        canManage={isAdmin}
-                        payment={{
-                          id: p.id,
-                          amount: p.amount,
-                          currency: p.currency,
-                          method: p.method,
-                          paidAt: p.paidAt.toISOString(),
-                          receiptNote: p.receiptNote,
-                        }}
-                      />
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {/* Chek — ilgari profildan umuman ko'rib bo'lmasdi */}
+                        {p.receiptPath && (
+                          <DocumentLink
+                            variant="chip"
+                            icon="receipt"
+                            label="Chek"
+                            url={`/api/receipts/${p.id}`}
+                            title="To'lov cheki"
+                            subtitle={client.restaurantName || client.fullName}
+                            isPdf={isPdfPath(p.receiptPath)}
+                            note={p.receiptNote}
+                            meta={[
+                              { label: "Summa", value: formatMoney(p.amount, p.currency) },
+                              { label: "Sana", value: formatDate(p.paidAt) },
+                              { label: "Usul", value: paymentMethodLabel(p.method) },
+                              { label: "Qabul qildi", value: p.recordedBy?.name ?? "—" },
+                            ]}
+                          />
+                        )}
+                        <PaymentHistoryActions
+                          canManage={isAdmin}
+                          payment={{
+                            id: p.id,
+                            amount: p.amount,
+                            currency: p.currency,
+                            method: p.method,
+                            paidAt: p.paidAt.toISOString(),
+                            receiptNote: p.receiptNote,
+                          }}
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -41,6 +41,12 @@ jobs:
       - name: Prisma client generatsiya
         run: npx prisma generate
 
+      - name: A11y backlog (informatsion)
+        run: |
+          COUNT=$(npx eslint . -f json 2>/dev/null             | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const j=JSON.parse(d);let n=0;for(const f of j)for(const m of f.messages)if((m.ruleId||'').startsWith('jsx-a11y'))n++;console.log(n)})")
+          echo "A11y ogohlantirishlari: ${COUNT}"
+          echo "### ♿ A11y backlog: **${COUNT}** ta" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Lint (ESLint)
         run: npm run lint
 
@@ -168,6 +174,17 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+      # UI ko'rikdan o'tkazish uchun: asosiy ekranlar (desktop + mobil).
+      # PR sahifasidagi "Artifacts" bo'limidan yuklab olib solishtiriladi.
+      - name: Skrinshotlarni saqlash
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: skrinshotlar
+          path: screenshots/
+          retention-days: 14
+          if-no-files-found: warn
 
   docker-image:
     name: Docker image (qurish + hajm)

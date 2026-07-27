@@ -27,6 +27,9 @@ services:
       - maintenance_work_mem=48MB
     volumes:
       - pgdata:/var/lib/postgresql/data
+    logging: &default-logging
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tp} -d ${POSTGRES_DB:-tp_automation}"]
       interval: 10s
@@ -46,6 +49,7 @@ services:
     image: ${TP_IMAGE:-ghcr.io/abdulloh1623/tp_automation:latest}
     command: npm run db:deploy
     env_file: .env
+    logging: *default-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,6 +62,7 @@ services:
     # Host portga chiqarilmaydi — Caddy (reverse proxy) ichki tarmoq orqali ulanadi.
     expose:
       - "3100"
+    logging: *default-logging
     volumes:
       - uploads:/app/uploads
     depends_on:
@@ -84,6 +89,7 @@ services:
       - "443:443"
     environment:
       DOMAIN: ${DOMAIN:?DOMAIN .env da belgilanishi shart}
+    logging: *default-logging
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -102,6 +108,7 @@ services:
     restart: unless-stopped
     command: npm run bot
     env_file: .env
+    logging: *default-logging
     volumes:
       - uploads:/app/uploads
       - backups:/app/backups
@@ -133,6 +140,7 @@ services:
       AUTOHEAL_CONTAINER_LABEL: all   # barcha healthcheckli konteynerlarni kuzatadi
       AUTOHEAL_INTERVAL: 10           # har 10 soniyada tekshiradi
       AUTOHEAL_START_PERIOD: 60       # ishga tushgach 60s kutib turadi
+    logging: *default-logging
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     deploy:

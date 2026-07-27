@@ -16,6 +16,7 @@ import { distributeLeadsCore } from "../src/lib/leads-distribution";
 import { runSlaCheck } from "../src/lib/sla";
 import { reportError } from "../src/lib/error-report";
 import { withDbJobRetry } from "../src/lib/db-retry";
+import { getDiskUsage, isDiskLow, diskWarning } from "../src/lib/disk";
 
 const TZ = "Asia/Tashkent";
 
@@ -118,6 +119,29 @@ async function runSla() {
   }
 }
 
+/**
+ * Kunlik disk tekshiruvi. Disk to'lganda postgres WAL yozolmay halokatga
+ * uchraydi ("the database system is in recovery mode") va butun tizim to'xtaydi
+ * — 2026-07-26/27 hodisasi aynan shunday bo'lgan. Shu sabab joy tugashidan
+ * OLDIN ogohlantiramiz.
+ */
+async function runDiskCheck() {
+  try {
+    const u = await getDiskUsage();
+    if (!u) return;
+    log(`disk → ${u.freeGb}GB bo'sh / ${u.totalGb}GB (band ${u.usedPct}%)`);
+    if (isDiskLow(u)) {
+      await reportError(new Error(diskWarning(u)), {
+        source: "worker",
+        path: "disk",
+        notifyTransient: true,
+      });
+    }
+  } catch (e) {
+    log("disk tekshiruvi XATO:", e instanceof Error ? e.message : e);
+  }
+}
+
 /** 00:00 kun yangilanishi: muddati o'tgan 1-kunlik lid grantlarini tozalaydi. */
 async function dailyRollover() {
   try {
@@ -187,7 +211,10 @@ async function main() {
   cron.schedule("0 8 * * *", () => runDistribute(), { timezone: TZ });
   // 3-kunlik SLA ogohlantirishi — har kuni 10:00
   cron.schedule("0 10 * * *", () => runSla(), { timezone: TZ });
-  log("Cron jadvallari o'rnatildi: taqsimot 08:00, eslatma 09:30 & 15:00, SLA 10:00, kunlik 17:30, haftalik Dush 09:00, oylik 1-kun 09:00, yangilanish 00:00, backup 03:00");
+  // Disk bo'sh joyi — ish kuni boshlanishidan oldin (07:00) va startda bir marta
+  cron.schedule("0 7 * * *", () => runDiskCheck(), { timezone: TZ });
+  log("Cron jadvallari o'rnatildi: disk 07:00, taqsimot 08:00, eslatma 09:30 & 15:00, SLA 10:00, kunlik 17:30, haftalik Dush 09:00, oylik 1-kun 09:00, yangilanish 00:00, backup 03:00");
+  void runDiskCheck();
 
   // Liveness heartbeat — Docker healthcheck shu faylning yangiligini tekshiradi.
   // .unref(): heartbeat o'zi o'lik jarayonni tirik ushlab turmasin (soxta-healthy'ni oldini oladi).

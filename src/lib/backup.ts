@@ -6,6 +6,7 @@ import { execFile } from "child_process";
 import { gzipSync } from "zlib";
 import { sendBackupToChannel } from "./telegram";
 import { backupEncryptionEnabled, encryptBackup } from "./backup-crypto";
+import { getDiskUsage } from "./disk";
 
 const ROOT = process.cwd();
 const BACKUPS_DIR = path.join(ROOT, "backups");
@@ -99,14 +100,14 @@ async function pgDump(): Promise<Buffer> {
   }
 }
 
-async function prune() {
+async function prune(keep = KEEP) {
   try {
     const entries = await fs.readdir(BACKUPS_DIR, { withFileTypes: true });
     const dirs = entries
-      .filter((e) => e.isDirectory())
+      .filter((e) => e.isDirectory() && e.name !== "pre-deploy")
       .map((e) => e.name)
       .sort();
-    for (let i = 0; i < dirs.length - KEEP; i++) {
+    for (let i = 0; i < dirs.length - keep; i++) {
       await fs.rm(path.join(BACKUPS_DIR, dirs[i]), { recursive: true, force: true });
     }
   } catch {
@@ -114,8 +115,42 @@ async function prune() {
   }
 }
 
+/**
+ * Chekni backup papkasiga bog'laydi (hard link) — nusxa OLMAYDI.
+ *
+ * Cheklar yuklangach o'zgarmaydi, shuning uchun link xavfsiz: fayl `uploads`dan
+ * o'chirilsa ham backupdagi ma'lumot saqlanadi, lekin disk joyi ikkilanmaydi.
+ * Ilgari har kunlik backup HAMMA cheklarni to'liq nusxalardi va 14 kun
+ * saqlanardi (cheklar hajmi × 14) — 2026-07-26 da diskni to'ldirgan asosiy
+ * sabab shu. Link ishlamasa (boshqa fayl tizimi — EXDEV) nusxaga qaytamiz.
+ */
+async function linkOrCopy(src: string, dest: string): Promise<void> {
+  try {
+    await fs.link(src, dest);
+  } catch {
+    await fs.copyFile(src, dest);
+  }
+}
+
 export async function createBackup(): Promise<BackupResult> {
   try {
+    // 0) Disk to'la bo'lsa yozib bo'lmaydi (va postgres ham yozolmay qoladi).
+    //    Avval eski backuplarni qattiqroq tozalaymiz; baribir joy bo'lmasa
+    //    xato qaytaramiz — xato kanaliga ogohlantirish boradi.
+    const disk = await getDiskUsage(ROOT);
+    if (disk && disk.freeGb < 1) {
+      await prune(3);
+      const after = await getDiskUsage(ROOT);
+      if (after && after.freeGb < 1) {
+        return {
+          ok: false,
+          error:
+            `Diskda joy yo'q (${after.freeGb} GB bo'sh / ${after.totalGb} GB) — backup o'tkazib yuborildi. ` +
+            `Zudlik bilan tozalang: docker system prune -af · du -sh backups uploads`,
+        };
+      }
+    }
+
     const name = stamp();
     const dir = path.join(BACKUPS_DIR, name);
     await fs.mkdir(dir, { recursive: true });
@@ -127,7 +162,7 @@ export async function createBackup(): Promise<BackupResult> {
     await fs.writeFile(path.join(dir, dumpName), gz);
     const sizeKb = Math.round(gz.length / 1024);
 
-    // 2) Cheklar nusxa
+    // 2) Cheklar — hard link (nusxa emas): disk joyi ikkilanmaydi
     let receipts = 0;
     try {
       const files = await fs.readdir(RECEIPTS_DIR);
@@ -135,7 +170,7 @@ export async function createBackup(): Promise<BackupResult> {
         const rdir = path.join(dir, "receipts");
         await fs.mkdir(rdir, { recursive: true });
         for (const f of files) {
-          await fs.copyFile(path.join(RECEIPTS_DIR, f), path.join(rdir, f));
+          await linkOrCopy(path.join(RECEIPTS_DIR, f), path.join(rdir, f));
           receipts++;
         }
       }

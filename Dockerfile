@@ -84,8 +84,14 @@ RUN npx prisma generate && rm -rf /root/.cache /root/.npm /tmp/*
 # Root'da ishlamaymiz: konteyner ichidagi biror zaiflik darhol root huquqini
 # bermasin. `uploads` va `backups` — volume mount nuqtalari, shu bois oldindan
 # yaratib, egaligini beramiz (aks holda ilova ularga yoza olmaydi).
-RUN mkdir -p /app/uploads /app/backups \
-  && chown -R node:node /app
+# DIQQAT: `chown -R node:node /app` QILMAYMIZ. Docker qatlamlari immutable —
+# faqat egalik o'zgarsa ham HAR BIR fayl yangi qatlamga qaytadan yoziladi,
+# ya'ni butun `node_modules` + `.next` ikkilanadi (o'lchandi: image 1668 MB,
+# shundan ~800 MB aynan shu nusxa). node foydalanuvchisiga faqat YOZISH kerak
+# bo'lgan kataloglar beriladi; qolganini u baribir o'qiy oladi.
+RUN mkdir -p /app/uploads /app/backups /app/.next/cache \
+  && chown node:node /app \
+  && chown -R node:node /app/uploads /app/backups /app/.next
 USER node
 
 EXPOSE 3100

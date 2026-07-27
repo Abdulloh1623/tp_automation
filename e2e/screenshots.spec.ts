@@ -58,7 +58,10 @@ for (const vp of [
       // Ro'yxatdagi birinchi mijoz nomi — profil modalini ochadi.
       // DIQQAT: `a[href^="/mijozlar/"]` ishlatmang — u "Yangi mijoz"
       // (/mijozlar/yangi) tugmasiga ham tushadi va modal ochilmaydi.
-      const firstClient = page.locator('[data-testid="client-link"]').first();
+      // `:visible` SHART — jadval (desktop) va kartalar (mobil) ikkalasi ham
+      // DOM'da bo'ladi, faqat CSS bilan yashiriladi. `:visible`siz mobil
+      // o'lchamda ko'rinmas jadval havolasi tanlanib, bosish kutib qolardi.
+      const firstClient = page.locator('[data-testid="client-link"]:visible').first();
       if ((await firstClient.count()) === 0) test.skip(true, "Mijoz yo'q (seed bo'sh)");
       await firstClient.click();
 

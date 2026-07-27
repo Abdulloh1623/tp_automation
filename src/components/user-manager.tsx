@@ -43,6 +43,8 @@ export type ManagedUser = {
   dailyLeadTarget: number;
   shift: string;
   isActive: boolean;
+  /** Karta/QR to'lovlarini tasdiqlaydi (kartaga dostupi bor) */
+  cardVerifier: boolean;
 };
 
 type Mode =
@@ -61,6 +63,7 @@ type Form = {
   telegramId: string;
   dailyLeadTarget: string;
   shift: string;
+  cardVerifier: boolean;
 };
 
 const emptyForm: Form = {
@@ -73,6 +76,7 @@ const emptyForm: Form = {
   telegramId: "",
   dailyLeadTarget: "20",
   shift: "DAY",
+  cardVerifier: false,
 };
 
 const roleTone: Record<string, "blue" | "amber" | "slate"> = {
@@ -104,6 +108,7 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
       telegramId: u.telegramId ?? "",
       dailyLeadTarget: String(u.dailyLeadTarget),
       shift: u.shift || "DAY",
+      cardVerifier: u.cardVerifier,
     });
     setError(null);
     setMode({ kind: "edit", user: u });
@@ -143,6 +148,7 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
           telegramId: form.telegramId,
           dailyLeadTarget: form.dailyLeadTarget,
           shift: form.shift,
+          cardVerifier: form.cardVerifier,
         });
       } else {
         res = await resetPassword(mode.user.id, form.password);
@@ -398,6 +404,21 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                         onChange={(e) => set("telegramId", e.target.value)}
                         placeholder="bot ruxsati uchun (ixtiyoriy)"
                       />
+                      <label className="mt-3 flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                          checked={form.cardVerifier}
+                          onChange={(e) => set("cardVerifier", e.target.checked)}
+                        />
+                        <span>
+                          Karta to&apos;lovlarini tasdiqlaydi
+                          <span className="block text-xs text-slate-500 dark:text-slate-400">
+                            Karta/QR to&apos;lovi kiritilganda chek va summa shu xodimning
+                            botiga tugmalar bilan yuboriladi. Telegram ID kerak.
+                          </span>
+                        </span>
+                      </label>
                     </div>
                   )}
                 </>

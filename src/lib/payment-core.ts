@@ -4,7 +4,7 @@
 // funksiyani ishlatadi, natijada ikkala yo'l bir xil billing/audit qoidasiga
 // bo'ysunadi.
 import { addDays } from "date-fns";
-import { revalidatePath } from "next/cache";
+import { safeRevalidate } from "@/lib/revalidate";
 import { db } from "@/lib/db";
 import { saveReceipt } from "@/lib/receipts";
 import { sendPaymentToChannel, escapeHtml } from "@/lib/telegram";
@@ -147,6 +147,9 @@ export async function processPayment(
       entity: "Client",
       entityId: clientId,
       detail: `${client.restaurantName}: ${formatMoney(amount, currency)}`,
+      // Aktyor aniq beriladi — bu funksiya worker'dan (bot tasdig'i) ham
+      // chaqiriladi, u yerda sessiya (cookie) yo'q.
+      actor: { userId: session.userId, name: session.name },
     },
   );
 
@@ -165,10 +168,10 @@ export async function processPayment(
     await sendPaymentToChannel(caption, receipt.buffer, receipt.mime);
   }
 
-  revalidatePath(`/mijozlar/${clientId}`);
-  revalidatePath("/mijozlar");
-  revalidatePath("/tolovlar");
-  revalidatePath("/");
+  safeRevalidate(`/mijozlar/${clientId}`);
+  safeRevalidate("/mijozlar");
+  safeRevalidate("/tolovlar");
+  safeRevalidate("/");
   return { ok: true, paymentId: payment.id };
 }
 

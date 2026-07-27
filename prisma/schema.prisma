@@ -34,23 +34,29 @@ model User {
   dailyLimit      Int      @default(20) // kunlik avtomatik biriktirish chegarasi (kvota)
   shift           String   @default("DAY") // ish smenasi: DAY (kunduzgi) | NIGHT (kechki) — tablo shu bo'yicha filtrlaydi
   sessionVersion  Int      @default(0) // faol sessiya versiyasi — yangi kirish eskisini bekor qiladi (bitta qurilma)
+  // Kartaga dostupi bor xodim: karta/QR to'lovlari shu odam(lar) tasdig'idan
+  // o'tadi (bot DM'iga tugmalar bilan xabar boradi). Rol emas — belgi, chunki
+  // bu huquq rol iyerarxiyasidan mustaqil (kassir ham, boshliq ham bo'lishi mumkin).
+  cardVerifier    Boolean  @default(false)
   createdAt       DateTime @default(now())
 
-  assignedClients Client[]         @relation("AssignedOperator")
-  ustaClients     Client[]         @relation("AssignedUsta")
-  specialNotes    Client[]         @relation("SpecialNoteAuthor")
-  callLogs        CallLog[]        @relation("CallLogOperator")
-  editedCallLogs  CallLog[]        @relation("CallLogEditor")
-  payments        Payment[]
-  tickets         Ticket[]               @relation("TicketOperator")
-  ustaTickets     Ticket[]               @relation("TicketUsta")
-  staffTickets    Ticket[]               @relation("TicketStaff")
-  escalationClients Client[]             @relation("EscalationStaff")
-  dailyGrants     DailyLeadGrant[]
-  passwordResets  PasswordResetRequest[]
-  notifications   NotificationRecipient[]
-  pendingPayments PendingPayment[]       @relation("PendingPaymentResolver")
-  faqEntries      FaqEntry[]             @relation("FaqAuthor")
+  assignedClients      Client[]                @relation("AssignedOperator")
+  ustaClients          Client[]                @relation("AssignedUsta")
+  specialNotes         Client[]                @relation("SpecialNoteAuthor")
+  callLogs             CallLog[]               @relation("CallLogOperator")
+  editedCallLogs       CallLog[]               @relation("CallLogEditor")
+  payments             Payment[]
+  tickets              Ticket[]                @relation("TicketOperator")
+  ustaTickets          Ticket[]                @relation("TicketUsta")
+  staffTickets         Ticket[]                @relation("TicketStaff")
+  escalationClients    Client[]                @relation("EscalationStaff")
+  dailyGrants          DailyLeadGrant[]
+  passwordResets       PasswordResetRequest[]
+  notifications        NotificationRecipient[]
+  pendingPayments      PendingPayment[]        @relation("PendingPaymentResolver")
+  faqEntries           FaqEntry[]              @relation("FaqAuthor")
+  cardPaymentsRecorded PendingCardPayment[]    @relation("CardPaymentRecorder")
+  cardPaymentsResolved PendingCardPayment[]    @relation("CardPaymentResolver")
 }
 
 // FAQ — bilim bazasi. Istalgan xodim (OPERATOR/MANAGER/ADMIN) yangi savol/muammo
@@ -58,14 +64,14 @@ model User {
 // server action'da tekshiriladi). `details` va `solution` — cheklangan markdown
 // (qalin, kursiv, havola, rasm/skrinshot); xavfsiz render lib/markdown.tsx da.
 model FaqEntry {
-  id         String   @id @default(cuid())
-  question   String // savol/muammo sarlavhasi (oddiy matn — qidiriladi, akkordeon boshi)
-  details    String? // ixtiyoriy muammo tafsiloti (markdown — skrinshot/havola)
-  solution   String // yechim (markdown — skrinshot/havola/qalin/kursiv)
+  id          String   @id @default(cuid())
+  question    String // savol/muammo sarlavhasi (oddiy matn — qidiriladi, akkordeon boshi)
+  details     String? // ixtiyoriy muammo tafsiloti (markdown — skrinshot/havola)
+  solution    String // yechim (markdown — skrinshot/havola/qalin/kursiv)
   createdById String?
-  createdBy   User?   @relation("FaqAuthor", fields: [createdById], references: [id])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdBy   User?    @relation("FaqAuthor", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([createdAt])
 }
@@ -200,15 +206,16 @@ model Client {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  payments       Payment[]
-  callLogs       CallLog[]
-  tickets        Ticket[]
-  suggestions    Suggestion[]
-  equipmentItems ClientEquipment[]
-  returnRequests EquipmentReturnRequest[]
-  taxConnections TaxConnection[]
-  phones         ClientPhone[]
-  pendingPayments PendingPayment[] @relation("PendingPaymentClient")
+  payments        Payment[]
+  callLogs        CallLog[]
+  tickets         Ticket[]
+  suggestions     Suggestion[]
+  equipmentItems  ClientEquipment[]
+  returnRequests  EquipmentReturnRequest[]
+  taxConnections  TaxConnection[]
+  phones          ClientPhone[]
+  pendingPayments PendingPayment[]         @relation("PendingPaymentClient")
+  cardPayments    PendingCardPayment[]     @relation("CardPaymentClient")
 
   @@index([status])
   @@index([nextPaymentDate])
@@ -257,32 +264,32 @@ model Payment {
 // summani kiritib tasdiqlaydi — shundan keyingina haqiqiy Payment yaratiladi.
 // Avtomatik yozilmaydi: summa xabar matnida bo'lmaydi (faqat chek rasmida).
 model PendingPayment {
-  id             String   @id @default(cuid())
+  id                String    @id @default(cuid())
   // Telegram xabar identifikatori — dublikat oldini olish kaliti.
   // Bot qayta ishga tushsa yoki xabar qayta kelsa ikkinchi yozuv yaratilmaydi.
-  tgChatId       String
-  tgMessageId    String
+  tgChatId          String
+  tgMessageId       String
   // Xabarni guruhga yuborgan xodim (ko'rsatish uchun)
-  senderName     String?
+  senderName        String?
   // Chek xabari bilan birga kelgan matn (parse qilingan manba)
-  rawText        String?
-  parsedName     String?
-  parsedPhone    String? // oxirgi 9 raqam
-  sheetNo        String? // eski Google Sheets tartib raqami — faqat izoh uchun
+  rawText           String?
+  parsedName        String?
+  parsedPhone       String? // oxirgi 9 raqam
+  sheetNo           String? // eski Google Sheets tartib raqami — faqat izoh uchun
   // Taxmin qilingan mijoz (telefon aniq mos kelsa). Operator o'zgartirishi mumkin.
   suggestedClientId String?
-  suggestedClient   Client? @relation("PendingPaymentClient", fields: [suggestedClientId], references: [id], onDelete: SetNull)
+  suggestedClient   Client?   @relation("PendingPaymentClient", fields: [suggestedClientId], references: [id], onDelete: SetNull)
   // Saqlangan chek fayli (uploads/receipts/... — Payment bilan bir xil joy)
-  receiptPath    String?
-  receiptMime    String?
+  receiptPath       String?
+  receiptMime       String?
   // Manba: TELEGRAM — bot jonli ushlagan; HISTORY — guruh eksportidan bir
   // martalik import. HISTORY yozuvlari billingni SURMAYDI (pastga qarang).
-  source         String   @default("TELEGRAM")
+  source            String    @default("TELEGRAM")
   // Chek guruhga tashlangan sana (eksportda xabar sanasi). Tarixiy importda
   // to'lovning haqiqiy sanasi shu bo'ladi — "bugun" emas.
-  occurredAt     DateTime?
+  occurredAt        DateTime?
   // --- OCR natijasi (tesseract, faqat tarixiy import) ---
-  ocrText        String?
+  ocrText           String?
   suggestedAmount   Float?
   suggestedCurrency String?
   // high — yorliqli summa topildi; low — taxmin; none — topilmadi.
@@ -292,18 +299,59 @@ model PendingPayment {
   // summasi" va "Mijozdan olinadigan" — komissiya tufayli har xil).
   // Operator tanlashi uchun JSON ro'yxat sifatida saqlanadi.
   amountCandidates  String?
-  status         String   @default("PENDING") // PENDING | CONFIRMED | REJECTED
+  status            String    @default("PENDING") // PENDING | CONFIRMED | REJECTED
   // Tasdiqlangach yaratilgan to'lov
-  paymentId      String?
-  resolvedById   String?
-  resolvedBy     User?    @relation("PendingPaymentResolver", fields: [resolvedById], references: [id])
-  resolvedAt     DateTime?
-  rejectReason   String?
-  receivedAt     DateTime @default(now())
-  createdAt      DateTime @default(now())
+  paymentId         String?
+  resolvedById      String?
+  resolvedBy        User?     @relation("PendingPaymentResolver", fields: [resolvedById], references: [id])
+  resolvedAt        DateTime?
+  rejectReason      String?
+  receivedAt        DateTime  @default(now())
+  createdAt         DateTime  @default(now())
 
   @@unique([tgChatId, tgMessageId])
   @@index([status, receivedAt])
+}
+
+/// Karta/QR to'lovi — kartaga dostupi bor xodim tasdiqlaguncha kutish navbati.
+///
+/// MUHIM: bu YOZUV HALI TO'LOV EMAS. Mijozning `nextPaymentDate`i surilmaydi,
+/// hisobotlar/analitika bunga qaramaydi. Tasdiqlangach haqiqiy `Payment`
+/// yaratiladi (`paymentId` shu yerga yoziladi) va billing o'shanda suriladi.
+model PendingCardPayment {
+  id           String    @id @default(cuid())
+  clientId     String
+  client       Client    @relation("CardPaymentClient", fields: [clientId], references: [id], onDelete: Cascade)
+  amount       Float
+  currency     String    @default("UZS")
+  // To'lov qamrovi (kun) — tasdiqlangach shu bo'yicha keyingi sana hisoblanadi
+  days         Int       @default(30)
+  method       String // CARD | QR (PAYMENT_METHOD)
+  paidAt       DateTime  @default(now())
+  receiptNote  String?
+  // Chek fayli operator yuborganda saqlanadi; tasdiqlangach Payment'ning o'z
+  // fayliga ko'chadi va bu nusxa o'chiriladi (rad etilsa ham o'chiriladi).
+  receiptPath  String?
+  receiptMime  String?
+  recordedById String?
+  recordedBy   User?     @relation("CardPaymentRecorder", fields: [recordedById], references: [id])
+  status       String    @default("PENDING") // PENDING | CONFIRMED | REJECTED
+  paymentId    String? // tasdiqlangach yaratilgan to'lov
+  resolvedById String?
+  resolvedBy   User?     @relation("CardPaymentResolver", fields: [resolvedById], references: [id])
+  resolvedAt   DateTime?
+  resolvedVia  String? // TELEGRAM | WEB
+  rejectReason String?
+  /// Tasdiqlovchilarga yuborilgan xabarlar: [{"chatId":"..","messageId":1}] —
+  /// javobdan keyin tugmalarni olib tashlab, natijani yozish uchun.
+  tgMessages   String?
+  notifiedAt   DateTime?
+  /// Oxirgi eslatma vaqti (javobsiz qolgan so'rovlar uchun kunlik ogohlantirish)
+  remindedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([status, createdAt])
+  @@index([clientId])
 }
 
 model CallLog {
@@ -329,30 +377,30 @@ model CallLog {
 }
 
 model Ticket {
-  id             String    @id @default(cuid())
-  clientId       String
-  client         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  title          String
-  type           String    @default("TECHNICAL") // TECHNICAL | FEATURE | PAYMENT | TAX
-  status         String    @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED
-  priority       String    @default("MEDIUM") // LOW | MEDIUM | HIGH
-  assignedToId   String?
-  assignedTo     User?     @relation("TicketOperator", fields: [assignedToId], references: [id])
+  id              String    @id @default(cuid())
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  title           String
+  type            String    @default("TECHNICAL") // TECHNICAL | FEATURE | PAYMENT | TAX
+  status          String    @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED
+  priority        String    @default("MEDIUM") // LOW | MEDIUM | HIGH
+  assignedToId    String?
+  assignedTo      User?     @relation("TicketOperator", fields: [assignedToId], references: [id])
   // Muammoni hal qiluvchi biriktiruv — polimorf: joyida (usta) yoki online (xodim)
-  assigneeType   String? // USTA (joyida hal etish) | XODIM (online hal etish)
+  assigneeType    String? // USTA (joyida hal etish) | XODIM (online hal etish)
   // Integrator (usta) — boshliq muammoni biriktiradi; joyida hal etadi
-  assignedUstaId String?
-  assignedUsta   User?     @relation("TicketUsta", fields: [assignedUstaId], references: [id])
+  assignedUstaId  String?
+  assignedUsta    User?     @relation("TicketUsta", fields: [assignedUstaId], references: [id])
   // Xodim (operator/menejer/admin) — muammoni online hal etish uchun biriktiriladi
   assignedStaffId String?
-  assignedStaff  User?     @relation("TicketStaff", fields: [assignedStaffId], references: [id])
+  assignedStaff   User?     @relation("TicketStaff", fields: [assignedStaffId], references: [id])
   // Biriktirishda boshliq yozgan izoh — mas'ul xodim / usta uchun (biriktiruv bilan birga tozalanadi)
-  staffNote      String? // mas'ul xodimga izoh
-  ustaNote       String? // ustaga izoh
-  resolutionNote String?
-  createdAt      DateTime  @default(now())
-  resolvedAt     DateTime?
-  slaNotifiedAt  DateTime? // oxirgi 3-kunlik SLA ogohlantirishi yuborilgan vaqt
+  staffNote       String? // mas'ul xodimga izoh
+  ustaNote        String? // ustaga izoh
+  resolutionNote  String?
+  createdAt       DateTime  @default(now())
+  resolvedAt      DateTime?
+  slaNotifiedAt   DateTime? // oxirgi 3-kunlik SLA ogohlantirishi yuborilgan vaqt
 
   @@index([clientId])
   @@index([status])

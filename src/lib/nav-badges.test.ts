@@ -7,6 +7,8 @@ const {
   returnCount,
   suggestionCount,
   taxCount,
+  cardCount,
+  userFindFirst,
 } = vi.hoisted(() => ({
   notifCount: vi.fn(),
   clientCount: vi.fn(),
@@ -14,6 +16,8 @@ const {
   returnCount: vi.fn(),
   suggestionCount: vi.fn(),
   taxCount: vi.fn(),
+  cardCount: vi.fn(),
+  userFindFirst: vi.fn(),
 }));
 
 vi.mock("./db", () => ({
@@ -24,6 +28,8 @@ vi.mock("./db", () => ({
     equipmentReturnRequest: { count: returnCount },
     suggestion: { count: suggestionCount },
     taxConnection: { count: taxCount },
+    pendingCardPayment: { count: cardCount },
+    user: { findFirst: userFindFirst },
   },
 }));
 
@@ -37,9 +43,27 @@ beforeEach(() => {
   returnCount.mockResolvedValue(4);
   suggestionCount.mockResolvedValue(7);
   taxCount.mockResolvedValue(6);
+  cardCount.mockResolvedValue(1);
+  userFindFirst.mockResolvedValue(null); // odatda karta tasdiqlovchisi emas
 });
 
 describe("getNavBadges", () => {
+  it("karta tasdiqlovchisi — /tolovlar badge'i chiqadi", async () => {
+    userFindFirst.mockResolvedValue({ id: "u1" });
+    const b = await getNavBadges("u1", "OPERATOR");
+    expect(b["/tolovlar"]).toBe(1);
+  });
+
+  it("oddiy xodim — karta badge'i chiqmaydi", async () => {
+    const b = await getNavBadges("u2", "OPERATOR");
+    expect(b["/tolovlar"]).toBe(0);
+  });
+
+  it("ADMIN — karta badge'ini har doim ko'radi", async () => {
+    const b = await getNavBadges("a1", "ADMIN");
+    expect(b["/tolovlar"]).toBe(1);
+  });
+
   it("boshliq (MANAGER) — barcha bo'limlar sanaladi", async () => {
     const b = await getNavBadges("u1", "MANAGER");
     expect(b["/bildirishnomalar"]).toBe(2);

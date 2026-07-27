@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { splitUstaStockByCondition, sumSplits } from "@/lib/inventory-condition";
 import { requireRole } from "@/lib/auth";
 import {
   InventoryManager,
@@ -54,6 +55,15 @@ export default async function OmborPage({
       db.client.findMany({ select: { id: true, restaurantName: true } }),
     ]);
 
+  // Ustadagi uskunani yangi/ishlatilganga ajratish uchun BUTUN jurnal bo'yicha
+  // yig'indi (yuqoridagi `movements` faqat ko'rsatiladigan oxirgi 300 ta —
+  // taqsimot uchun yaramaydi). groupBy — qatorlar tortilmaydi.
+  const ustaMovAgg = await db.equipmentMovement.groupBy({
+    by: ["fromType", "fromId", "toType", "toId", "equipmentTypeId"],
+    where: { OR: [{ fromType: "USTA" }, { toType: "USTA" }] },
+    _sum: { quantity: true },
+  });
+
   const clientEquipment = await db.clientEquipment.findMany({
     where: { quantity: { gt: 0 } },
     include: { equipmentType: { select: { salePrice: true, rentalPrice: true } } },
@@ -81,15 +91,54 @@ export default async function OmborPage({
     .filter((r) => r.quantity > 0)
     .map((r) => ({ name: r.equipmentType.name, quantity: r.quantity }));
 
-  const ustaMap = new Map<string, { name: string; quantity: number }[]>();
+  const ustaMap = new Map<string, { typeId: string; name: string; quantity: number }[]>();
   for (const r of ustaRows) {
     if (r.quantity <= 0) continue;
     const arr = ustaMap.get(r.locationId) ?? [];
-    arr.push({ name: r.equipmentType.name, quantity: r.quantity });
+    arr.push({ typeId: r.equipmentTypeId, name: r.equipmentType.name, quantity: r.quantity });
     ustaMap.set(r.locationId, arr);
   }
+  // Yangi / ishlatilgan taqsimoti (lib/inventory-condition.ts — sof funksiya)
+  const condition = splitUstaStockByCondition(
+    ustaRows.map((r) => ({
+      locationId: r.locationId,
+      equipmentTypeId: r.equipmentTypeId,
+      quantity: r.quantity,
+    })),
+    ustaMovAgg.map((m) => ({
+      fromType: m.fromType,
+      fromId: m.fromId,
+      toType: m.toType,
+      toId: m.toId,
+      equipmentTypeId: m.equipmentTypeId,
+      quantity: m._sum.quantity ?? 0,
+    })),
+  );
+
   const ustaStock: UstaStock[] = ustalar
-    .map((u) => ({ ustaId: u.id, ustaName: u.name, items: ustaMap.get(u.id) ?? [] }))
+    .map((u) => {
+      const items = (ustaMap.get(u.id) ?? []).map((it) => {
+        const c = condition.get(`${u.id}|${it.typeId}`);
+        return {
+          name: it.name,
+          quantity: it.quantity,
+          fresh: c?.fresh ?? 0,
+          used: c?.used ?? 0,
+          unknown: c?.unknown ?? it.quantity,
+        };
+      });
+      return {
+        ustaId: u.id,
+        ustaName: u.name,
+        items,
+        totals: sumSplits(items.map((i) => ({
+          total: i.quantity,
+          fresh: i.fresh,
+          used: i.used,
+          unknown: i.unknown,
+        }))),
+      };
+    })
     .filter((u) => u.items.length > 0);
 
   const priceById = new Map(typesRaw.map((t) => [t.id, t.salePrice]));

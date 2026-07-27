@@ -13,6 +13,30 @@ const TRANSIENT_PRISMA_CODES = new Set([
   "P2024", // Connection pool timeout
 ]);
 
+// Xabar matni bo'yicha aniqlanadigan o'tkinchi holatlar. Postgres serverning
+// o'zi qayta ko'tarilayotganda (halokatdan keyingi tiklanish, restart, deploy)
+// Prisma KODSIZ `PrismaClientUnknownRequestError` qaytaradi — xato faqat
+// "Error in connector: ... FATAL: ..." matni ichida bo'ladi, shuning uchun
+// matn bo'yicha aniqlash shart.
+const TRANSIENT_MESSAGE_RE = new RegExp(
+  [
+    "server has closed the connection",
+    "can't reach database",
+    "connection (was |is )?(closed|reset|refused|terminated)",
+    "connection terminated unexpectedly",
+    // Postgres server holati: halokatdan keyingi tiklanish / ko'tarilish / to'xtash
+    "database system is (in recovery mode|starting up|shutting down)",
+    "database system is not yet accepting connections",
+    "terminating connection due to (administrator command|crash of another server process|unexpected postmaster exit|conflict with recovery)",
+    // Ulanish sig'imi/vaqti — qisqa muddatli bosim
+    "too many clients already",
+    "timed out fetching a new connection",
+    // Tarmoq darajasidagi soket xatolari
+    "econnreset|econnrefused|etimedout|socket hang up",
+  ].join("|"),
+  "i",
+);
+
 /**
  * Xato o'tkinchi DB-ulanish xatosimi? Prisma xato kodi yoki xabar matni
  * bo'yicha aniqlaydi (Prisma'ni import qilmasdan — edge'da ham xavfsiz).
@@ -22,7 +46,5 @@ export function isTransientDbError(error: unknown): boolean {
   const code = typeof e?.code === "string" ? e.code : "";
   if (TRANSIENT_PRISMA_CODES.has(code)) return true;
   const msg = typeof e?.message === "string" ? e.message : "";
-  return /server has closed the connection|can't reach database|connection (was |is )?(closed|reset|refused|terminated)/i.test(
-    msg,
-  );
+  return TRANSIENT_MESSAGE_RE.test(msg);
 }

@@ -18,7 +18,41 @@ export type ErrorContext = {
 };
 
 const TZ = "Asia/Tashkent";
-const WINDOW_MS = 60_000; // bir xil xato shu oraliqda takror yuborilmaydi
+// Bir xil xato shu oraliqda takror yuborilmaydi. Kritik xatolar tez-tez
+// eslatilishi kerak, oddiylari esa kanalni ko'mib tashlamasligi kerak —
+// shu sabab ikki xil oyna.
+const WINDOW_MS = 60_000;
+const NORMAL_WINDOW_MS = 15 * 60_000;
+
+export type Severity = "critical" | "normal";
+
+// Tizim ishlamay qolganini bildiruvchi xabarlar. Bular "shovqin" emas —
+// odam aralashmasa tizim to'xtaydi (2026-07-26: disk to'lgani haqidagi
+// `No space left on device` xatosi oddiy xatolar oqimida ko'zdan qochgan va
+// ertasiga postgres halokatga uchragan).
+const CRITICAL_MESSAGE_RE =
+  /no space left on device|enospc|disk (is )?full|database system is (in recovery|starting up|shutting down)|can't reach database|too many clients already|connection (was |is )?(refused|reset)|econnrefused|out of memory|heap out of memory/i;
+
+// Ish bajarilmay qolgan joylar: fon ishlari (cron), to'lov va zaxira oqimi.
+const CRITICAL_PATH_RE =
+  /^(backup|distribute|reminders|sla|rollover|disk|main\/startup)|payment|tolov|card/i;
+
+/**
+ * Xatoning muhimligi (sof funksiya — test qilinadi).
+ *
+ * KRITIK: infratuzilma yiqilgan (disk/baza/xotira) yoki rejalashtirilgan ish
+ * BAJARILMAY qolgan — bunday xato albatta ko'rinishi kerak.
+ * ODDIY: bitta so'rov/sahifa xatosi — foydalanuvchi qayta urinishi mumkin.
+ */
+export function errorSeverity(error: unknown, ctx: ErrorContext = {}): Severity {
+  const e = error as { message?: unknown } | null;
+  const msg = typeof e?.message === "string" ? e.message : "";
+  if (CRITICAL_MESSAGE_RE.test(msg)) return "critical";
+  // Worker — rejalashtirilgan ish; yiqilsa hech kim o'rniga bajarmaydi
+  if (ctx.source === "worker") return "critical";
+  if (ctx.path && CRITICAL_PATH_RE.test(ctx.path)) return "critical";
+  return "normal";
+}
 
 /**
  * Streaming SSR (React 19) paytida mijoz ulanishni uzganda Node webstreams
@@ -47,6 +81,16 @@ export function errorsChannelId(): string | null {
   );
 }
 
+/**
+ * Kritik xatolar kanali. Alohida kanal sozlanmagan bo'lsa oddiy xato kanaliga
+ * tushadi — bunday holda ular sarlavhadagi 🚨 belgisi bilan ajralib turadi.
+ */
+export function criticalChannelId(): string | null {
+  return (
+    process.env.TELEGRAM_ERRORS_CRITICAL_CHANNEL_ID?.trim() || errorsChannelId()
+  );
+}
+
 function tashkentTime(now: Date): string {
   try {
     return new Intl.DateTimeFormat("uz-UZ", {
@@ -64,13 +108,19 @@ export function formatErrorReport(error: unknown, ctx: ErrorContext, now: Date):
   const e = error instanceof Error ? error : new Error(String(error));
   const where = [ctx.source, ctx.routeType, ctx.method, ctx.path].filter(Boolean).join(" · ");
   const stack = (e.stack ?? "").split("\n").slice(0, 6).join("\n");
+  const critical = errorSeverity(error, ctx) === "critical";
   const lines = [
-    "🔴 <b>Xatolik</b> — TP Automation",
+    critical
+      ? "🚨 <b>KRITIK XATOLIK</b> — TP Automation"
+      : "🔴 <b>Xatolik</b> — TP Automation",
     `🕒 ${escapeHtml(tashkentTime(now))}`,
     where ? `📍 ${escapeHtml(where)}` : null,
     ctx.requestId ? `🔗 ${escapeHtml(ctx.requestId)}` : null,
     `❗ <b>${escapeHtml(e.name)}</b>: ${escapeHtml(e.message.slice(0, 500))}`,
     ctx.extra ? `ℹ️ ${escapeHtml(ctx.extra.slice(0, 300))}` : null,
+    // Kritik xato = tizim to'xtagan yoki ish bajarilmagan. Xabarni o'qigan odam
+    // buni darhol bilishi kerak, aks holda u oddiy xatolar oqimida yo'qoladi.
+    critical ? "⚠️ <b>Darhol tekshiring</b> — ish bajarilmagan bo'lishi mumkin." : null,
     stack ? `<pre>${escapeHtml(stack.slice(0, 1500))}</pre>` : null,
   ].filter(Boolean) as string[];
   return lines.join("\n");
@@ -111,6 +161,7 @@ export async function reportError(error: unknown, ctx: ErrorContext = {}): Promi
       method: ctx.method,
       routeType: ctx.routeType,
       requestId: ctx.requestId,
+      severity: errorSeverity(error, ctx),
     },
     "so'rov xatosi",
   );
@@ -125,8 +176,13 @@ export async function reportError(error: unknown, ctx: ErrorContext = {}): Promi
     if (process.env.NODE_ENV !== "production") return;
     if (!botToken()) return; // Telegram o'chiq — faqat konsol
     const now = Date.now();
-    if (!shouldSend(signatureOf(error, ctx), now)) return; // spam himoyasi
-    const chat = errorsChannelId();
+    const critical = errorSeverity(error, ctx) === "critical";
+    // Oddiy xatolar uzunroq oynada bir marta (kanal ko'milmasin), kritiklar —
+    // tez-tez eslatiladi.
+    if (!shouldSend(signatureOf(error, ctx), now, critical ? WINDOW_MS : NORMAL_WINDOW_MS)) {
+      return;
+    }
+    const chat = critical ? criticalChannelId() : errorsChannelId();
     if (!chat) return;
     await sendMessage(chat, formatErrorReport(error, ctx, new Date(now)));
   } catch (sendErr) {

@@ -30,8 +30,12 @@ model User {
   regions         String? // usta/xodim qoplaydigan viloyatlar — vergulli ro'yxat (ko'p viloyat)
   isActive        Boolean  @default(true)
   telegramId      String?  @unique // Telegram bot ruxsati/DM uchun
-  dailyLeadTarget Int      @default(20) // kunlik lid soni (ko'rsatkich maqsadi)
-  dailyLimit      Int      @default(20) // kunlik avtomatik biriktirish chegarasi (kvota)
+  // Operatorning kunlik lid kvotasi — YAGONA raqam. Avtomatik taqsimot shu
+  // songacha beradi, qo'lda biriktirish shu songa qarab bloklanadi, board
+  // ko'rsatkichi ham shu maxrajni ishlatadi. (Ilgari `dailyLeadTarget` alohida
+  // maydon bo'lib, ikkalasi bir-biriga zid ishlardi.) Bir kunlik qo'shimcha —
+  // `DailyLeadGrant.extraCount`.
+  dailyLimit      Int      @default(20)
   shift           String   @default("DAY") // ish smenasi: DAY (kunduzgi) | NIGHT (kechki) — tablo shu bo'yicha filtrlaydi
   sessionVersion  Int      @default(0) // faol sessiya versiyasi — yangi kirish eskisini bekor qiladi (bitta qurilma)
   // Kartaga dostupi bor xodim: karta/QR to'lovlari shu odam(lar) tasdig'idan

@@ -40,7 +40,7 @@ export type ManagedUser = {
   regions: string | null;
   phone: string | null;
   telegramId: string | null;
-  dailyLeadTarget: number;
+  dailyLimit: number;
   shift: string;
   isActive: boolean;
   /** Karta/QR to'lovlarini tasdiqlaydi (kartaga dostupi bor) */
@@ -61,7 +61,7 @@ type Form = {
   regions: string[];
   phone: string;
   telegramId: string;
-  dailyLeadTarget: string;
+  dailyLimit: string;
   shift: string;
   cardVerifier: boolean;
 };
@@ -74,7 +74,7 @@ const emptyForm: Form = {
   regions: [],
   phone: "",
   telegramId: "",
-  dailyLeadTarget: "20",
+  dailyLimit: "20",
   shift: "DAY",
   cardVerifier: false,
 };
@@ -106,7 +106,7 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
       regions: parseRegions(u.regions, u.region),
       phone: u.phone ?? "",
       telegramId: u.telegramId ?? "",
-      dailyLeadTarget: String(u.dailyLeadTarget),
+      dailyLimit: String(u.dailyLimit),
       shift: u.shift || "DAY",
       cardVerifier: u.cardVerifier,
     });
@@ -136,7 +136,7 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
           role: form.role,
           regions: form.regions,
           phone: form.phone,
-          dailyLeadTarget: form.dailyLeadTarget,
+          dailyLimit: form.dailyLimit,
           shift: form.shift,
         });
       } else if (mode.kind === "edit") {
@@ -146,7 +146,7 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
           regions: form.regions,
           phone: form.phone,
           telegramId: form.telegramId,
-          dailyLeadTarget: form.dailyLeadTarget,
+          dailyLimit: form.dailyLimit,
           shift: form.shift,
           cardVerifier: form.cardVerifier,
         });
@@ -212,7 +212,7 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                   {parseRegions(u.regions, u.region).join(", ") || "—"}
                 </td>
                 <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-300">
-                  {u.role === "OPERATOR" ? u.dailyLeadTarget : "—"}
+                  {u.role === "OPERATOR" ? u.dailyLimit : "—"}
                 </td>
                 <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-300">
                   {u.telegramId ? "✓" : "—"}
@@ -369,14 +369,17 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="target">Kunlik lid</Label>
+                      <Label htmlFor="dailyLimit">Kunlik lid kvotasi</Label>
                       <Input
-                        id="target"
+                        id="dailyLimit"
                         type="number"
                         min={0}
-                        value={form.dailyLeadTarget}
-                        onChange={(e) => set("dailyLeadTarget", e.target.value)}
+                        value={form.dailyLimit}
+                        onChange={(e) => set("dailyLimit", e.target.value)}
                       />
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        Avtomatik taqsimot shu songacha beradi
+                      </p>
                     </div>
                   </div>
                   {form.role === "OPERATOR" && (

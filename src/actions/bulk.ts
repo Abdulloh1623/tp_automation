@@ -364,7 +364,9 @@ async function commitStaff(records: StaffRec[]): Promise<CommitState> {
         region: r.regions[0] ?? null,
         regions: r.regions.length ? r.regions.join(",") : null,
         shift: r.shift,
-        dailyLeadTarget: r.dailyLeadTarget,
+        // Shablondagi "Kunlik lid rejasi" ustuni — endi yagona kvota maydoniga
+        // yoziladi (import kaliti mavjud fayllar buzilmasin uchun o'zgarmadi).
+        dailyLimit: r.dailyLeadTarget,
       },
     });
     created++;

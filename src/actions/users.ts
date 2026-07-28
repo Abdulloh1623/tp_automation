@@ -23,7 +23,7 @@ const baseSchema = z.object({
   role: z.string(),
   phone: z.string().optional(),
   telegramId: z.string().optional(),
-  dailyLeadTarget: z.coerce.number().int().min(0).default(20),
+  dailyLimit: z.coerce.number().int().min(0).default(20),
   shift: z.string().optional(),
   // Kartaga dostupi bor xodim — karta/QR to'lovlarini u tasdiqlaydi
   cardVerifier: z.coerce.boolean().default(false),
@@ -52,7 +52,7 @@ export async function createUser(input: {
   role: string;
   regions?: string[];
   phone?: string;
-  dailyLeadTarget?: number | string;
+  dailyLimit?: number | string;
   shift?: string;
 }): Promise<UserActionState> {
   const admin = await requireAdmin();
@@ -86,7 +86,7 @@ export async function createUser(input: {
         role: parsed.data.role,
         ...regionData(input.regions),
         phone: clean(parsed.data.phone),
-        dailyLeadTarget: parsed.data.dailyLeadTarget,
+        dailyLimit: parsed.data.dailyLimit,
         shift: normShift(parsed.data.shift),
       },
     });
@@ -110,7 +110,7 @@ export async function updateUser(
     regions?: string[];
     phone?: string;
     telegramId?: string;
-    dailyLeadTarget?: number | string;
+    dailyLimit?: number | string;
     shift?: string;
     cardVerifier?: boolean;
   },
@@ -141,7 +141,7 @@ export async function updateUser(
         ...regionData(input.regions),
         phone: clean(parsed.data.phone),
         telegramId: clean(parsed.data.telegramId),
-        dailyLeadTarget: parsed.data.dailyLeadTarget,
+        dailyLimit: parsed.data.dailyLimit,
         shift: normShift(parsed.data.shift),
         cardVerifier: parsed.data.cardVerifier,
         ...(roleChanged ? { sessionVersion: { increment: 1 } } : {}),

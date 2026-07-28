@@ -4,7 +4,6 @@ import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import {
   ACTIVE_STAGES,
-  LEAD_LIMITS,
   NO_CONTACT_STAGES,
   USER_SHIFT,
   leadProfileLabel,
@@ -28,6 +27,10 @@ export type DistributeResult = {
   floor?: number;
   /** Tugagan smenadan bo'shatib olingan (tegilmagan) lidlar soni. */
   released?: number;
+  /** Bugungi qo'shimcha lid grantlari (bot orqali berilgan) jami. */
+  granted?: number;
+  /** Umumiy bo'sh sig'im — operatorlar kvotasi minus band joylar. */
+  capacity?: number;
   /** Qaysi smena uchun taqsimlandi (bo'sh — barcha operatorlarga). */
   shift?: UserShift;
   shiftLabel?: string;
@@ -66,7 +69,7 @@ function shuffle(ids: string[]): void {
 export async function distributeLeadsCore(shift?: UserShift): Promise<DistributeResult> {
   const operators = await db.user.findMany({
     where: { role: "OPERATOR", isActive: true, ...(shift ? { shift } : {}) },
-    select: { id: true },
+    select: { id: true, dailyLimit: true },
   });
   if (operators.length === 0) {
     return {
@@ -154,9 +157,21 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
     free.push(c);
   }
 
+  // Bugungi qo'shimcha lidlar — boshliq botdan "+N lid" berganda yoziladi
+  // (`DailyLeadGrant`). Ilgari bu jadval hech kim tomonidan o'qilmasdi, ya'ni
+  // tugma tasdiq berardi-yu, natija bermasdi.
+  const grantRows = await db.dailyLeadGrant.findMany({
+    where: { date: startOfTzDay(0), userId: { in: operators.map((o) => o.id) } },
+    select: { userId: true, extraCount: true },
+  });
+  const grants = new Map(grantRows.map((g) => [g.userId, g.extraCount]));
+  const granted = grantRows.reduce((s, g) => s + g.extraCount, 0);
+
+  // Kvota har operatorning O'ZINIKI (`User.dailyLimit`) + bugungi qo'shimcha,
+  // ishlangan lidlar esa shu kvotani band qiladi.
   const slots = operators.map((o) => ({
     id: o.id,
-    cap: Math.max(0, LEAD_LIMITS.daily - (locked.get(o.id) ?? 0)),
+    cap: Math.max(0, o.dailyLimit + (grants.get(o.id) ?? 0) - (locked.get(o.id) ?? 0)),
   }));
   const capacity = slots.reduce((sum, o) => sum + o.cap, 0);
 
@@ -205,10 +220,11 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
   await logAudit("Lidlar kunlik taqsimlandi", {
     entity: "Client",
     detail:
-      `${assigned} mijoz → ${operators.length} operator (limit ${LEAD_LIMITS.daily}/op)` +
+      `${assigned} mijoz → ${operators.length} operator (sig'im ${capacity})` +
       (shiftLabel ? ` · smena: ${shiftLabel}` : "") +
       ` · fokus: ${label}${active.todayOnly ? " (faqat bugunga)" : ""} · ` +
       `majburiy: ${floorRows.length} · egasida qoldi: ${kept}` +
+      (granted ? ` · qo'shimcha grant: +${granted}` : "") +
       (released ? ` · tugagan smenadan olindi: ${released}` : "") +
       ` · navbatda: ${unassigned.length}`,
   });
@@ -218,6 +234,8 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
     kept,
     floor: floorRows.length,
     released,
+    granted,
+    capacity,
     shift,
     shiftLabel,
     profile: active.id,

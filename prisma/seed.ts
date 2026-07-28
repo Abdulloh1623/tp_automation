@@ -56,7 +56,7 @@ async function main() {
       role: "OPERATOR",
       phone: "+998 90 111 11 11",
       region: "Toshkent",
-      dailyLeadTarget: 20,
+      dailyLimit: 20,
     },
   });
 
@@ -68,7 +68,7 @@ async function main() {
       role: "OPERATOR",
       phone: "+998 90 222 22 22",
       region: "Samarqand",
-      dailyLeadTarget: 20,
+      dailyLimit: 20,
     },
   });
 

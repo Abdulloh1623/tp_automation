@@ -28,7 +28,7 @@ export default async function UsersPage() {
       regions: true,
       phone: true,
       telegramId: true,
-      dailyLeadTarget: true,
+      dailyLimit: true,
       shift: true,
       isActive: true,
       cardVerifier: true,

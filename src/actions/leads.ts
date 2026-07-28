@@ -1,6 +1,6 @@
 "use server";
 
-import { startOfDay, endOfDay } from "date-fns";
+import { addDays, startOfDay, endOfDay } from "date-fns";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { guardRole } from "@/lib/auth";
@@ -9,11 +9,12 @@ import { logAudit } from "@/lib/audit";
 import { computeNextPaymentDate } from "@/lib/billing";
 import { tzDayKey } from "@/lib/tz";
 import { autoEscalationTarget, escalationStagePatch, shouldEscalate } from "@/lib/escalation";
-import { computeNextContact } from "@/lib/recall-rules";
+import { capForNewClient, computeNextContact } from "@/lib/recall-rules";
 import { getRecallSettings } from "@/lib/settings";
 
 const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
 import {
+  ACTIVE_STAGES,
   LEAD_OUTCOME,
   LEAD_STAGE,
   MISSED_OUTCOMES,
@@ -150,9 +151,8 @@ export async function finishDay(
   });
 
   const today = new Date();
-  // Qayta aloqa oraliqlari admin sozlamasidan (natija bo'yicha) — standartlar
-  // eski qotib qolgan qiymatlarni aynan takrorlaydi.
-  const { rules } = await getRecallSettings();
+  // Qayta aloqa oraliqlari va yangi-mijoz cheklovi admin sozlamasidan.
+  const { rules, policy } = await getRecallSettings();
 
   for (const lead of leads) {
     const target = lead.pendingStage as string;
@@ -166,7 +166,7 @@ export async function finishDay(
     }
 
     // Keyingi aloqa sanasi — operator tanlagan NATIJAga qarab.
-    const nextContactDate = outcome
+    let nextContactDate = outcome
       ? computeNextContact(
           outcome,
           { nextPaymentDate: paymentPatch ?? lead.nextPaymentDate },
@@ -175,10 +175,27 @@ export async function finishDay(
         )
       : null;
 
-    // Otkaz/o'chirilgan (workflow'dan chiqqan) — mijoz nofaol bo'ladi, churn
-    // vaqti yoziladi va biriktiruv bo'shatiladi (moliya + qarzdorlik oqimidan chiqadi).
+    // Yangi mijoz (o'rnatilganiga bir necha oy bo'lmagan) bilan aloqa siyrak
+    // bo'lib ketmasin — oraliq chegaraga tortiladi.
+    nextContactDate = capForNewClient(
+      nextContactDate,
+      { contractDate: lead.contractDate, createdAt: lead.createdAt },
+      policy,
+      today,
+    );
+
+    // Himoya: lid operator taxtasida qolgan bo'lsa, sanasiz qoldirmaymiz.
+    // Sanasiz + faol bosqich = har kuni ro'yxatda paydo bo'lish. Bu, masalan,
+    // "Yo'naltirildi" tanlangan-u, eskalatsiyaga o'tmagan holatni qoplaydi.
+    if (!nextContactDate && (ACTIVE_STAGES as string[]).includes(target)) {
+      nextContactDate = addDays(today, 1);
+    }
+
+    // Otkaz — mijoz nofaol bo'ladi, churn vaqti yoziladi va biriktiruv
+    // bo'shatiladi (moliya + qarzdorlik oqimidan chiqadi). "O'chirib qo'ydi"
+    // bunga KIRMAYDI: mijozni qaytarib olishga urinamiz, u faol qoladi.
     const churnPatch =
-      target === "REFUSED" || target === "DEACTIVATED"
+      target === "REFUSED"
         ? { status: "INACTIVE", deactivatedAt: new Date(), assignedToId: null }
         : {};
 

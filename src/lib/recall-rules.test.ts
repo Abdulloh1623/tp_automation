@@ -4,6 +4,7 @@ import {
   DEFAULT_LOAD_POLICY,
   DEFAULT_RECALL_RULES,
   autoDailyLimit,
+  capForNewClient,
   computeNextContact,
   mergeLoadPolicy,
   mergeRecallRules,
@@ -18,42 +19,124 @@ describe("DEFAULT_RECALL_RULES", () => {
     for (const o of ALL_OUTCOMES) expect(DEFAULT_RECALL_RULES[o], o).toBeDefined();
   });
 
-  it("standartlar eski qotib qolgan qiymatlarni takrorlaydi", () => {
-    expect(DEFAULT_RECALL_RULES.NO_ANSWER).toEqual({ mode: "DAYS", days: 1 });
-    expect(DEFAULT_RECALL_RULES.CALL_LATER).toEqual({ mode: "DAYS", days: 2 });
-    expect(DEFAULT_RECALL_RULES.NO_PROBLEM).toEqual({ mode: "DAYS", days: 4 });
-    expect(DEFAULT_RECALL_RULES.WILL_PAY_TOMORROW).toEqual({ mode: "DAYS", days: 1 });
-    expect(DEFAULT_RECALL_RULES.WILL_PAY.mode).toBe("PAYMENT_DATE");
-    expect(DEFAULT_RECALL_RULES.REFUSED.mode).toBe("NONE");
+  it("standartlar kelishilgan jadvalga mos", () => {
+    // Ertasi kuni qayta bog'lanish
+    for (const o of ["NO_ANSWER", "PHONE_OFF", "BUSY", "CALL_LATER", "WILL_PAY",
+      "WILL_PAY_TOMORROW", "HAS_ISSUE", "RESOLVED", "DEACTIVATED"] as const) {
+      expect(DEFAULT_RECALL_RULES[o], o).toEqual({ mode: "DAYS", days: 1 });
+    }
+    // 3 kundan so'ng
+    for (const o of ["NO_PROBLEM", "SUGGESTION", "PAID"] as const) {
+      expect(DEFAULT_RECALL_RULES[o], o).toEqual({ mode: "DAYS", days: 3 });
+    }
+    // To'lov kuni yaqin bo'lsa o'sha kuni, uzoq bo'lsa 3 kundan keyin
+    expect(DEFAULT_RECALL_RULES.PAYMENT_REMINDED).toEqual({
+      mode: "PAYMENT_OR_DAYS",
+      days: 3,
+    });
+    // Boshqa oqimga o'tadiganlar
+    for (const o of ["FORWARDED", "RETURN_EQUIPMENT", "REFUSED"] as const) {
+      expect(DEFAULT_RECALL_RULES[o].mode, o).toBe("NONE");
+    }
   });
 });
 
 describe("computeNextContact", () => {
   it("KUN rejimi — bugundan N kun keyin", () => {
-    const d = computeNextContact("CALL_LATER", noPayment, DEFAULT_RECALL_RULES, NOW);
-    expect(d!.getTime()).toBe(NOW.getTime() + 2 * DAY);
+    const d = computeNextContact("NO_PROBLEM", noPayment, DEFAULT_RECALL_RULES, NOW);
+    expect(d!.getTime()).toBe(NOW.getTime() + 3 * DAY);
   });
 
   it("TO'LOV SANASI rejimi — mijozning to'lov sanasi", () => {
+    const rules = mergeRecallRules({ PAID: { mode: "PAYMENT_DATE", days: 30 } });
     const pay = new Date("2026-08-15T00:00:00.000Z");
-    const d = computeNextContact("WILL_PAY", { nextPaymentDate: pay }, DEFAULT_RECALL_RULES, NOW);
+    const d = computeNextContact("PAID", { nextPaymentDate: pay }, rules, NOW);
     expect(d).toEqual(pay);
   });
 
   it("to'lov sanasi yo'q bo'lsa — zaxira kun ishlatiladi", () => {
-    const d = computeNextContact("WILL_PAY", noPayment, DEFAULT_RECALL_RULES, NOW);
+    const rules = mergeRecallRules({ PAID: { mode: "PAYMENT_DATE", days: 30 } });
+    const d = computeNextContact("PAID", noPayment, rules, NOW);
+    expect(d!.getTime()).toBe(NOW.getTime() + 30 * DAY);
+  });
+
+  it("KUN YOKI TO'LOV — to'lov kuni yaqin bo'lsa o'sha kun olinadi", () => {
+    const pay = new Date(NOW.getTime() + 1 * DAY);
+    const d = computeNextContact(
+      "PAYMENT_REMINDED",
+      { nextPaymentDate: pay },
+      DEFAULT_RECALL_RULES,
+      NOW,
+    );
+    expect(d).toEqual(pay);
+  });
+
+  it("KUN YOKI TO'LOV — to'lov kuni uzoq bo'lsa 3 kun olinadi", () => {
+    const pay = new Date(NOW.getTime() + 20 * DAY);
+    const d = computeNextContact(
+      "PAYMENT_REMINDED",
+      { nextPaymentDate: pay },
+      DEFAULT_RECALL_RULES,
+      NOW,
+    );
     expect(d!.getTime()).toBe(NOW.getTime() + 3 * DAY);
   });
 
-  it("ALOQA YO'Q — sana qo'yilmaydi", () => {
+  it("ALOQA YO'Q — sana qo'yilmaydi (boshqa oqimga o'tadi)", () => {
     expect(computeNextContact("REFUSED", noPayment, DEFAULT_RECALL_RULES, NOW)).toBeNull();
-    expect(computeNextContact("HAS_ISSUE", noPayment, DEFAULT_RECALL_RULES, NOW)).toBeNull();
+    expect(computeNextContact("FORWARDED", noPayment, DEFAULT_RECALL_RULES, NOW)).toBeNull();
+    expect(computeNextContact("RETURN_EQUIPMENT", noPayment, DEFAULT_RECALL_RULES, NOW)).toBeNull();
+  });
+
+  it("muammo bor / o'chirib qo'ydi — ertasi kuni bog'lanamiz", () => {
+    for (const o of ["HAS_ISSUE", "DEACTIVATED"] as const) {
+      const d = computeNextContact(o, noPayment, DEFAULT_RECALL_RULES, NOW);
+      expect(d!.getTime(), o).toBe(NOW.getTime() + 1 * DAY);
+    }
   });
 
   it("admin kiritgan qiymat standartni almashtiradi", () => {
     const rules = mergeRecallRules({ NO_ANSWER: { mode: "DAYS", days: 7 } });
     const d = computeNextContact("NO_ANSWER", noPayment, rules, NOW);
     expect(d!.getTime()).toBe(NOW.getTime() + 7 * DAY);
+  });
+});
+
+describe("capForNewClient (yangi mijoz oralig'i)", () => {
+  const policy = { newClientMonths: 3, newClientMaxDays: 3 };
+  const newClient = { contractDate: new Date(NOW.getTime() - 30 * DAY), createdAt: NOW };
+  const oldClient = { contractDate: new Date(NOW.getTime() - 300 * DAY), createdAt: NOW };
+
+  it("yangi mijozning uzoq oralig'i chegaraga tortiladi", () => {
+    const far = new Date(NOW.getTime() + 30 * DAY);
+    const d = capForNewClient(far, newClient, policy, NOW);
+    expect(d!.getTime()).toBe(NOW.getTime() + 3 * DAY);
+  });
+
+  it("yangi mijozning yaqin oralig'i tegilmaydi (1 kun 3 ga cho'zilmaydi)", () => {
+    const soon = new Date(NOW.getTime() + 1 * DAY);
+    expect(capForNewClient(soon, newClient, policy, NOW)).toEqual(soon);
+  });
+
+  it("eski mijozga qo'llanmaydi", () => {
+    const far = new Date(NOW.getTime() + 30 * DAY);
+    expect(capForNewClient(far, oldClient, policy, NOW)).toEqual(far);
+  });
+
+  it("otkaz/uskuna qaytarish (sana yo'q) tegilmaydi", () => {
+    expect(capForNewClient(null, newClient, policy, NOW)).toBeNull();
+  });
+
+  it("shartnoma sanasi yo'q bo'lsa createdAt bo'yicha", () => {
+    const far = new Date(NOW.getTime() + 30 * DAY);
+    const d = capForNewClient(far, { contractDate: null, createdAt: NOW }, policy, NOW);
+    expect(d!.getTime()).toBe(NOW.getTime() + 3 * DAY);
+  });
+
+  it("qoida o'chirilgan bo'lsa (0 oy) tegilmaydi", () => {
+    const far = new Date(NOW.getTime() + 30 * DAY);
+    const off = { newClientMonths: 0, newClientMaxDays: 3 };
+    expect(capForNewClient(far, newClient, off, NOW)).toEqual(far);
   });
 });
 

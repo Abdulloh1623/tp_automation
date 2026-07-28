@@ -49,6 +49,16 @@ const POLICY_FIELDS: {
     label: "Eskalatsiya chegarasi (marta)",
     hint: "Shuncha marta ketma-ket ko'tarilmasa — avtomatik eskalatsiyaga (yoki 29$ bo'lsa otkazga).",
   },
+  {
+    key: "newClientMonths",
+    label: "Yangi mijoz muddati (oy)",
+    hint: "O'rnatilganiga shundan kam bo'lgan mijoz \"yangi\" hisoblanadi. 0 — qoida o'chiq.",
+  },
+  {
+    key: "newClientMaxDays",
+    label: "Yangi mijoz oralig'i (kun)",
+    hint: "Yangi mijoz bilan aloqa shundan siyrak bo'lmaydi (otkaz va uskuna qaytarishdan tashqari).",
+  },
 ];
 
 export function RecallSettingsForm({

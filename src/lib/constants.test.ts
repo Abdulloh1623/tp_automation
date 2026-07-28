@@ -4,6 +4,7 @@ import {
   LEAD_STAGE,
   OUTCOME_TO_STAGE,
   ACTIVE_STAGES,
+  NO_CONTACT_STAGES,
   LEAD_LIMITS,
   MISSED_OUTCOMES,
   normalizeRegion,
@@ -25,9 +26,16 @@ describe("OUTCOME_TO_STAGE — yaxlitlik", () => {
   it("uskuna qaytarish → RETURNING", () => {
     expect(OUTCOME_TO_STAGE.RETURN_EQUIPMENT).toBe("RETURNING");
   });
-  it("yo'naltirildi/muammo → boshliq navbatiga (ESCALATED)", () => {
+  it("yo'naltirildi → boshliq navbatiga (ESCALATED)", () => {
     expect(OUTCOME_TO_STAGE.FORWARDED).toBe("ESCALATED");
-    expect(OUTCOME_TO_STAGE.HAS_ISSUE).toBe("ESCALATED");
+  });
+  it("muammo bor → operatorda qoladi (ISSUE_OPEN), eskalatsiyaga o'tmaydi", () => {
+    expect(OUTCOME_TO_STAGE.HAS_ISSUE).toBe("ISSUE_OPEN");
+    expect(ACTIVE_STAGES).toContain("ISSUE_OPEN");
+  });
+  it("o'chirib qo'ydi — qaytarib olishga urinamiz, taxtada qoladi", () => {
+    expect(ACTIVE_STAGES).toContain("DEACTIVATED");
+    expect(NO_CONTACT_STAGES).toEqual(["REFUSED"]);
   });
 });
 

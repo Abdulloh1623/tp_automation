@@ -192,7 +192,8 @@ export const LEAD_STAGE = {
   NO_ANSWER: "Ko'tarmadi",
   LATER: "Keyinroq",
   AWAITING_PAYMENT: "To'lov kutilmoqda",
-  FOLLOW_UP: "Kuzatuv (4 kun)", // "muammo yo'q" — 4 kundan so'ng qayta aloqa
+  FOLLOW_UP: "Kuzatuv", // "muammo yo'q" — oraliq /sozlamalar da
+  ISSUE_OPEN: "Muammo ochiq", // ticket ochilgan, operator o'zi kuzatadi
   ESCALATED: "Eskalatsiya navbati", // boshliq ko'rigida, ustaga biriktirilmoqda
   FORWARDED: "Ustada (yo'naltirilgan)",
   RETURNING: "Uskuna qaytarilmoqda", // boshliqning qaytarish navbatida
@@ -203,22 +204,23 @@ export const LEAD_STAGE = {
 export type LeadStage = keyof typeof LEAD_STAGE;
 
 // Kunlik ish ro'yxatida ko'rinadigan (faol) bo'limlar tartibi.
-// ESCALATED (boshliq navbati) va FORWARDED (ustada) operator boardidan chiqadi.
+// ESCALATED (boshliq navbati), FORWARDED (ustada) va RETURNING (qaytarish
+// navbati) operator boardidan chiqadi — u yerda o'z jarayoni bilan yuriladi.
+// DEACTIVATED (dasturni o'chirib qo'ygan) esa QOLADI: mijozni qaytarib olishga
+// urinamiz, shuning uchun u ham kunlik ro'yxatga tushadi.
 export const ACTIVE_STAGES: LeadStage[] = [
   "NEW",
   "NO_ANSWER",
   "LATER",
   "AWAITING_PAYMENT",
   "FOLLOW_UP",
+  "ISSUE_OPEN",
+  "DEACTIVATED",
 ];
 
-// Aloqa qilinmaydigan (workflow'dan chiqqan) bosqichlar — otkaz qilgan yoki
-// o'chirilgan mijozlar. Qarzdor bo'lsa ham kunlik ishga/taqsimotga/eslatmaga
-// CHIQMAYDI (TP xodimlari ular bilan qayta gaplashmaydi).
-export const NO_CONTACT_STAGES: LeadStage[] = ["REFUSED", "DEACTIVATED"];
-
-// "Muammo yo'q" natijasidan keyin qayta aloqa oralig'i (kun).
-export const FOLLOW_UP_DAYS = 4;
+// Aloqa qilinmaydigan (workflow'dan butunlay chiqqan) bosqich — faqat OTKAZ.
+// Qarzdor bo'lsa ham kunlik ishga/taqsimotga/eslatmaga CHIQMAYDI.
+export const NO_CONTACT_STAGES: LeadStage[] = ["REFUSED"];
 
 // Xodim tanlaydigan qo'ng'iroq natijasi
 export const LEAD_OUTCOME = {
@@ -251,9 +253,12 @@ export const OUTCOME_TO_STAGE: Record<LeadOutcome, LeadStage> = {
   WILL_PAY_TOMORROW: "AWAITING_PAYMENT",
   PAYMENT_REMINDED: "AWAITING_PAYMENT",
   FORWARDED: "ESCALATED", // boshliq navbatiga (avval boshliqqa)
-  HAS_ISSUE: "ESCALATED",
-  NO_PROBLEM: "FOLLOW_UP", // muammo yo'q — 4 kundan so'ng qayta aloqa (finishDay)
-  SUGGESTION: "FOLLOW_UP", // taklif — muammo yo'q, lid ham 4 kundan so'ng qayta aloqa
+  // "Muammo bor" — Muammolar bo'limiga ticket ochiladi, LEKIN lid operatorda
+  // qoladi va kelishilgan oraliqda o'zi kuzatadi (eskalatsiya faqat
+  // "Yo'naltirildi" orqali bo'ladi).
+  HAS_ISSUE: "ISSUE_OPEN",
+  NO_PROBLEM: "FOLLOW_UP", // oraliq /sozlamalar da
+  SUGGESTION: "FOLLOW_UP",
   PAID: "RESOLVED",
   RESOLVED: "RESOLVED",
   RETURN_EQUIPMENT: "RETURNING", // boshliqning qaytarish navbatiga

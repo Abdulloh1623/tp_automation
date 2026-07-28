@@ -472,14 +472,16 @@ export async function startBot(): Promise<void> {
     await ctx.answerCallbackQuery();
     await ctx.reply("Qaysi hisobot?", {
       reply_markup: new InlineKeyboard()
-        .text("Kunlik", "report:daily")
+        .text("☀️ Kunduzgi smena", "report:shift-day")
+        .text("🌙 Kechki smena", "report:shift-night")
+        .row()
         .text("Haftalik", "report:weekly")
         .text("Oylik", "report:monthly")
         .row()
         .text("⬅️ Orqaga", "menu"),
     });
   });
-  bot.callbackQuery(/^report:(daily|weekly|monthly)$/, async (ctx) => {
+  bot.callbackQuery(/^report:(shift-day|shift-night|weekly|monthly)$/, async (ctx) => {
     const kind = ctx.match![1] as ReportKind;
     await ctx.answerCallbackQuery();
     await ctx.reply("⏳ Hisobot tayyorlanmoqda...");

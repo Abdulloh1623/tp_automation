@@ -16,6 +16,7 @@ import { sendDailyReminders, sendOperatorReminders } from "../src/lib/reminders"
 import { distributeLeadsCore } from "../src/lib/leads-distribution";
 import { runSlaCheck } from "../src/lib/sla";
 import { runSilentChurnCheck } from "../src/lib/silent-churn-alert";
+import { syncBiznex, biznexConfigured } from "../src/lib/biznex-sync";
 import { remindStaleCardRequests } from "../src/lib/card-payment";
 import { reportError } from "../src/lib/error-report";
 import { withDbJobRetry } from "../src/lib/db-retry";
@@ -134,6 +135,28 @@ async function runSla() {
 }
 
 /**
+ * Biznex obuna holatini mijozlarga ko'chirish. Jim churn ro'yxati shu flaglarga
+ * tayanadi, shuning uchun ogohlantirishdan OLDIN (06:00) yangilanadi.
+ * Biznex sozlanmagan bo'lsa — jimgina o'tkazib yuboriladi (lokal/dev).
+ */
+async function runBiznexSync() {
+  if (!biznexConfigured()) {
+    log("biznex sinxronizatsiyasi → o'tkazildi (BIZNEX_API_URL/TOKEN yo'q)");
+    return;
+  }
+  try {
+    const r = await withRetry("biznex", () => syncBiznex());
+    log(
+      `biznex → ${r.checked} tekshirildi · ${r.updated} yangilandi · ` +
+        `${r.notFound} topilmadi · ${r.skipped} o'tkazildi`,
+    );
+  } catch (e) {
+    log("biznex XATO:", e instanceof Error ? e.message : e);
+    await reportError(e, { source: "worker", path: "biznex-sync", notifyTransient: true });
+  }
+}
+
+/**
  * Jim churn: Biznex obunasi tugagan, lekin CRM'da faol turgan mijozlar bo'yicha
  * boshliqlarga kunlik ogohlantirish (SLA kabi — bartaraf bo'lmaguncha har kuni).
  */
@@ -228,6 +251,13 @@ async function main() {
     return;
   }
 
+  if (argv.includes("--biznex")) {
+    log("Qo'lda Biznex sinxronizatsiyasi");
+    await runBiznexSync();
+    await db.$disconnect();
+    return;
+  }
+
   log("Worker ishga tushdi.");
   log("Telegram:", telegramEnabled() ? "token bor" : "TOKEN YO'Q", "· kanal:", channelId() ?? "yo'q (log rejimi)");
 
@@ -257,12 +287,15 @@ async function main() {
   cron.schedule("0 18 * * *", () => runDistribute("NIGHT"), { timezone: TZ });
   // 3-kunlik SLA ogohlantirishi — har kuni 10:00
   cron.schedule("0 10 * * *", () => runSla(), { timezone: TZ });
+  // Biznex obuna flaglari — jim churn ogohlantirishidan oldin yangilansin (06:00)
+  cron.schedule("0 6 * * *", () => runBiznexSync(), { timezone: TZ });
   // Jim churn — SLA'dan keyin (10:15), boshliqlar ish kunini boshlaganda
   cron.schedule("15 10 * * *", () => runSilentChurn(), { timezone: TZ });
   // Disk bo'sh joyi — ish kuni boshlanishidan oldin (07:00) va startda bir marta
   cron.schedule("0 7 * * *", () => runDiskCheck(), { timezone: TZ });
   log(
-    "Cron jadvallari o'rnatildi: disk 07:00, taqsimot 08:00 (kunduzgi) & 18:00 (kechki)," +
+    "Cron jadvallari o'rnatildi: biznex 06:00, disk 07:00," +
+      " taqsimot 08:00 (kunduzgi) & 18:00 (kechki)," +
       " eslatma 09:30 & 15:00, SLA 10:00, jim churn 10:15," +
       " kechki smena 09:30, kunduzgi smena 17:30, haftalik Dush 09:00, oylik 1-kun 09:00," +
       " yangilanish 00:00, backup 03:00",

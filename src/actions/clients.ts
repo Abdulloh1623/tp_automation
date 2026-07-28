@@ -9,6 +9,7 @@ import { resolveAssignee } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { normalizeRegion } from "@/lib/constants";
 import { computeNextPaymentDate } from "@/lib/billing";
+import { getRecallSettings } from "@/lib/settings";
 import {
   clientStatusEnum,
   currencyEnum,
@@ -608,13 +609,19 @@ export async function bulkAssignOperator(
     // Kvota nazorati — faqat OPERATOR uchun. Limit to'lgan bo'lsa oddiy biriktirish bloklanadi;
     // limitdan tashqari biriktirish uchun `assignExtraClient` (Qo'shimcha biriktirish) ishlatiladi.
     if (op.role === "OPERATOR") {
+      // Kvota avtomatik (`dailyLimit = null`) bo'lsa — siyosatdagi eng ko'p
+      // chegara ishlatiladi: avtomatik son kun davomida o'zgarib turadi,
+      // qo'lda biriktirishni esa qat'iy va oldindan aytiladigan chegara
+      // to'sishi kerak.
+      const { policy } = await getRecallSettings();
+      const limit = op.dailyLimit ?? policy.maxPerOperator;
       const activeCount = await db.client.count({
         where: { assignedToId: operatorId, status: "ACTIVE" },
       });
-      if (activeCount >= op.dailyLimit) {
+      if (activeCount >= limit) {
         return {
           ok: false,
-          error: `Limit to'ldi (${activeCount}/${op.dailyLimit}). "Qo'shimcha biriktirish"dan foydalaning.`,
+          error: `Limit to'ldi (${activeCount}/${limit}). "Qo'shimcha biriktirish"dan foydalaning.`,
         };
       }
     }
@@ -667,7 +674,9 @@ export async function assignExtraClient(
   await logAudit("Qo'shimcha biriktirish (limitdan tashqari)", {
     entity: "Client",
     entityId: clientId,
-    detail: `${client.restaurantName} → ${op.name} (${activeCount + 1}/${op.dailyLimit}, limit chetlab o'tildi)`,
+    detail:
+      `${client.restaurantName} → ${op.name} ` +
+      `(${activeCount + 1}/${op.dailyLimit ?? "avto"}, limit chetlab o'tildi)`,
   });
 
   revalidatePath("/tablo");

@@ -4,6 +4,12 @@ import {
   isLeadProfileId,
   type LeadProfileId,
 } from "@/lib/constants";
+import {
+  mergeLoadPolicy,
+  mergeRecallRules,
+  type LoadPolicy,
+  type RecallRules,
+} from "@/lib/recall-rules";
 import { tzDayKey } from "@/lib/tz";
 
 // Global kalit-qiymat sozlamalar (AppSetting): `statsResetAt` va kunlik fokus.
@@ -11,6 +17,8 @@ import { tzDayKey } from "@/lib/tz";
 const STATS_RESET_KEY = "statsResetAt";
 const LEAD_PROFILE_KEY = "leadPriorityProfile";
 const LEAD_PROFILE_OVERRIDE_KEY = "leadPriorityOverride";
+const RECALL_RULES_KEY = "leadRecallRules";
+const LOAD_POLICY_KEY = "leadLoadPolicy";
 
 /**
  * Tablo (jonli taxta) ko'rsatkichlari shu sanadan boshlab hisoblanadi. null =
@@ -35,6 +43,52 @@ export async function setStatsResetAt(at: Date): Promise<void> {
 /** Chegarani olib tashlaydi (butun tarix qayta hisobga olinadi). */
 export async function clearStatsResetAt(): Promise<void> {
   await db.appSetting.deleteMany({ where: { key: STATS_RESET_KEY } });
+}
+
+// --- Qayta aloqa qoidalari va kunlik yuklama siyosati ---
+
+function parseJson(value: string | undefined): unknown {
+  if (!value) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null; // buzuq qiymat — standartlar ishlaydi
+  }
+}
+
+export type RecallSettings = { rules: RecallRules; policy: LoadPolicy };
+
+/**
+ * Admin kiritgan qoidalar + kunlik yuklama chegaralari. Sozlanmagan (yoki
+ * buzuq) qiymatlar standartga tushadi, ya'ni sahifa hech qachon bo'sh qolmaydi.
+ */
+export async function getRecallSettings(): Promise<RecallSettings> {
+  const rows = await db.appSetting.findMany({
+    where: { key: { in: [RECALL_RULES_KEY, LOAD_POLICY_KEY] } },
+  });
+  const byKey = new Map(rows.map((r) => [r.key, r.value]));
+  return {
+    rules: mergeRecallRules(parseJson(byKey.get(RECALL_RULES_KEY))),
+    policy: mergeLoadPolicy(parseJson(byKey.get(LOAD_POLICY_KEY))),
+  };
+}
+
+export async function setRecallRules(rules: RecallRules): Promise<void> {
+  const value = JSON.stringify(rules);
+  await db.appSetting.upsert({
+    where: { key: RECALL_RULES_KEY },
+    create: { key: RECALL_RULES_KEY, value },
+    update: { value },
+  });
+}
+
+export async function setLoadPolicy(policy: LoadPolicy): Promise<void> {
+  const value = JSON.stringify(policy);
+  await db.appSetting.upsert({
+    where: { key: LOAD_POLICY_KEY },
+    create: { key: LOAD_POLICY_KEY, value },
+    update: { value },
+  });
 }
 
 // --- Kunlik fokus (lid ustuvorlik profili) ---

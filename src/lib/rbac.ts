@@ -33,6 +33,7 @@ const ROUTE_ROLES: { prefix: string; roles: Role[] }[] = [
   { prefix: "/audit", roles: ["ADMIN"] },
   { prefix: "/import", roles: ["ADMIN"] }, // eski manzil — /malumotlar ga yo'naltiradi
   { prefix: "/malumotlar", roles: ["ADMIN"] },
+  { prefix: "/sozlamalar", roles: ["ADMIN"] },
   { prefix: "/profil", roles: ["ADMIN", "MANAGER", "OPERATOR"] },
   { prefix: "/bildirishnomalar", roles: ["ADMIN", "MANAGER", "OPERATOR"] },
   // FAQ — barcha xodim o'qiydi va qo'sha oladi; tahrir/o'chirish faqat ADMIN

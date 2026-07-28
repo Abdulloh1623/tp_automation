@@ -28,6 +28,7 @@ const PAGES: { path: string; name: string }[] = [
   { path: "/ombor", name: "ombor" },
   { path: "/muammolar", name: "muammolar" },
   { path: "/hisobot", name: "hisobot" },
+  { path: "/sozlamalar", name: "sozlamalar" },
 ];
 
 for (const vp of [

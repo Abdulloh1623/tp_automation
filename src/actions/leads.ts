@@ -1,6 +1,6 @@
 "use server";
 
-import { addDays, startOfDay, endOfDay } from "date-fns";
+import { startOfDay, endOfDay } from "date-fns";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { guardRole } from "@/lib/auth";
@@ -9,10 +9,11 @@ import { logAudit } from "@/lib/audit";
 import { computeNextPaymentDate } from "@/lib/billing";
 import { tzDayKey } from "@/lib/tz";
 import { autoEscalationTarget, escalationStagePatch, shouldEscalate } from "@/lib/escalation";
+import { computeNextContact } from "@/lib/recall-rules";
+import { getRecallSettings } from "@/lib/settings";
 
 const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
 import {
-  FOLLOW_UP_DAYS,
   LEAD_OUTCOME,
   LEAD_STAGE,
   MISSED_OUTCOMES,
@@ -149,45 +150,30 @@ export async function finishDay(
   });
 
   const today = new Date();
+  // Qayta aloqa oraliqlari admin sozlamasidan (natija bo'yicha) — standartlar
+  // eski qotib qolgan qiymatlarni aynan takrorlaydi.
+  const { rules } = await getRecallSettings();
 
   for (const lead of leads) {
     const target = lead.pendingStage as string;
+    const outcome = lead.lastOutcome as LeadOutcome | null;
 
-    // Keyingi aloqa sanasini tizim holatga qarab belgilaydi
-    let nextContactDate: Date | null;
     // Hal bo'lgan (obuna faol) mijozning to'lov sanasi bo'sh qolsa — shartnoma
     // sanasidan hisoblaymiz, faol mijoz hech qachon to'lov sanasisiz qolmasin.
     let paymentPatch: Date | undefined;
-    switch (target) {
-      case "NO_ANSWER":
-        nextContactDate = addDays(today, 1); // ertaga qayta urinish
-        break;
-      case "LATER":
-        nextContactDate = addDays(today, 2); // keyinroq
-        break;
-      case "FOLLOW_UP":
-        nextContactDate = addDays(today, FOLLOW_UP_DAYS); // "muammo yo'q" — 4 kundan so'ng
-        break;
-      case "AWAITING_PAYMENT":
-        nextContactDate =
-          lead.lastOutcome === "WILL_PAY_TOMORROW"
-            ? addDays(today, 1) // ertaga to'lov qiladi
-            : lead.nextPaymentDate ?? addDays(today, 3);
-        break;
-      case "FORWARDED":
-        nextContactDate = addDays(today, 1); // usta tez ko'rib chiqsin
-        break;
-      case "RESOLVED":
-        if (lead.status === "ACTIVE" && !lead.nextPaymentDate) {
-          paymentPatch = computeNextPaymentDate(lead.contractDate ?? lead.createdAt);
-          nextContactDate = paymentPatch;
-        } else {
-          nextContactDate = lead.nextPaymentDate ?? null;
-        }
-        break;
-      default: // DEACTIVATED yoki noma'lum
-        nextContactDate = null;
+    if (target === "RESOLVED" && lead.status === "ACTIVE" && !lead.nextPaymentDate) {
+      paymentPatch = computeNextPaymentDate(lead.contractDate ?? lead.createdAt);
     }
+
+    // Keyingi aloqa sanasi — operator tanlagan NATIJAga qarab.
+    const nextContactDate = outcome
+      ? computeNextContact(
+          outcome,
+          { nextPaymentDate: paymentPatch ?? lead.nextPaymentDate },
+          rules,
+          today,
+        )
+      : null;
 
     // Otkaz/o'chirilgan (workflow'dan chiqqan) — mijoz nofaol bo'ladi, churn
     // vaqti yoziladi va biriktiruv bo'shatiladi (moliya + qarzdorlik oqimidan chiqadi).
@@ -357,8 +343,10 @@ export async function saveLeadCell(
     else break;
   }
 
-  // 3 marta ketma-ket ko'tarilmasa — avtomatik eskalatsiyaga (yoki 29$ bo'lsa otkazga).
-  const escalate = shouldEscalate(consecutiveMissed);
+  // Belgilangan marta ketma-ket ko'tarilmasa — avtomatik eskalatsiyaga (yoki
+  // 29$ bo'lsa otkazga). Chegara admin sozlamasidan (`/sozlamalar`).
+  const { policy } = await getRecallSettings();
+  const escalate = shouldEscalate(consecutiveMissed, policy.escalationThreshold);
   let pendingStage: string;
   if (escalate) {
     const client = await db.client.findUnique({

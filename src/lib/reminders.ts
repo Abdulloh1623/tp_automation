@@ -31,7 +31,7 @@ export type ReminderSummary = {
 export async function buildOperatorReminder(
   operatorId: string,
   operatorName: string,
-  dailyLimit: number,
+  dailyLimit: number | null,
 ): Promise<string | null> {
   const now = new Date();
   const todayStart = startOfDay(now);
@@ -89,7 +89,12 @@ export async function buildOperatorReminder(
     lines.push("");
   }
 
-  lines.push(`Kunlik norma: ${dailyLimit} ta gaplashish. Omad! 💪`);
+  // Kvota avtomatik bo'lsa (dailyLimit = null) — bugungi ro'yxatning o'zi norma.
+  lines.push(
+    dailyLimit != null
+      ? `Kunlik norma: ${dailyLimit} ta gaplashish. Omad! 💪`
+      : `Bugungi ro'yxat: ${callbacks.length} ta. Omad! 💪`,
+  );
   return lines.join("\n");
 }
 
@@ -168,7 +173,9 @@ export async function buildManagerSummary(): Promise<string> {
     "",
     "<b>Bugun gaplashildi</b> (xodimning kunlik kvotasidan):",
     ...operators.map(
-      (o) => `• ${escapeHtml(o.name)}: ${talkedByOp.get(o.id) ?? 0} / ${o.dailyLimit}`,
+      (o) =>
+        `• ${escapeHtml(o.name)}: ${talkedByOp.get(o.id) ?? 0}` +
+        (o.dailyLimit != null ? ` / ${o.dailyLimit}` : ""),
     ),
   ];
   return lines.join("\n");

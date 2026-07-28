@@ -18,6 +18,7 @@ import {
   Activity,
   UserCog,
   ScrollText,
+  SlidersHorizontal,
   LogOut,
   Building2,
   CircleUser,
@@ -97,6 +98,7 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/foydalanuvchilar", label: "Foydalanuvchilar", icon: UserCog, roles: ["ADMIN"] },
       { href: "/audit", label: "Audit", icon: ScrollText, roles: ["ADMIN"] },
       { href: "/malumotlar", label: "Ma'lumotlar", icon: Database, roles: ["ADMIN"] },
+      { href: "/sozlamalar", label: "Sozlamalar", icon: SlidersHorizontal, roles: ["ADMIN"] },
     ],
   },
   {

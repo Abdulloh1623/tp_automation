@@ -174,7 +174,7 @@ describe("resolveStaff", () => {
     if (r.status === "ok") {
       expect(r.record.role).toBe("OPERATOR");
       expect(r.record.username).toBe("asadbek");
-      expect(r.record.dailyLeadTarget).toBe(20);
+      expect(r.record.dailyLeadTarget).toBeNull(); // bo'sh ustun = avtomatik
       expect(r.record.shift).toBe("DAY");
     }
   });

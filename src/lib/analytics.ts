@@ -20,12 +20,39 @@ import { currentShift, shiftRange } from "@/lib/shift";
 export type Shift = UserShift;
 export { currentShift, shiftRange };
 
+/**
+ * Operatorning BUGUNGI lid ro'yxati mezoni — `/lidlar` sahifasi bilan AYNAN
+ * bir xil: faol bosqichdagi muddati kelganlar + bugun ishlangan (pendingStage)
+ * + qarzdorlar. Kunlik kvota avtomatik bo'lganda (`User.dailyLimit = null`)
+ * ko'rsatkich maxraji ham shu ro'yxatning soni bo'ladi.
+ */
+export function dailyLeadWhere(now: Date) {
+  const todayStart = startOfDay(now);
+  const todayEnd = endOfDay(now);
+  return {
+    assignedToId: { not: null },
+    stage: { notIn: [...NO_CONTACT_STAGES] },
+    status: { not: "INACTIVE" },
+    OR: [
+      {
+        stage: { in: [...ACTIVE_STAGES] },
+        OR: [
+          { pendingStage: { not: null } },
+          { nextContactDate: null },
+          { nextContactDate: { lte: todayEnd } },
+        ],
+      },
+      { status: "ACTIVE", nextPaymentDate: { lt: todayStart } },
+    ],
+  };
+}
+
 export type OperatorStat = {
   id: string;
   name: string;
   dayShift: boolean;
   assigned: number;
-  dailyLimit: number; // kunlik biriktirish kvotasi (tahrirlanadi)
+  dailyLimit: number | null; // qat'iy kvota; null = avtomatik
   // Kunlik lid jarayoni (tablo asosiy ko'rsatkichi):
   target: number; // bugungi lidlar (biriktirilgan kunlik ro'yxat) — maxraj
   todayProcessed: number; // ishlangan lidlar (bugun natija yozilgan distinct mijoz) — surat
@@ -115,22 +142,7 @@ export async function getAnalytics(shift?: Shift): Promise<Analytics> {
       // Operatorlarning BUGUNGI lid ro'yxati (maxraj) — /lidlar bilan bir xil mezon:
       // faol bosqichdagi muddati kelganlar + bugun ishlangan (pendingStage) + qarzdorlar.
       db.client.findMany({
-        where: {
-          assignedToId: { not: null },
-          stage: { notIn: [...NO_CONTACT_STAGES] },
-          status: { not: "INACTIVE" },
-          OR: [
-            {
-              stage: { in: [...ACTIVE_STAGES] },
-              OR: [
-                { pendingStage: { not: null } },
-                { nextContactDate: null },
-                { nextContactDate: { lte: todayEnd } },
-              ],
-            },
-            { status: "ACTIVE", nextPaymentDate: { lt: todayStart } },
-          ],
-        },
+        where: dailyLeadWhere(now),
         select: { id: true, assignedToId: true },
       }),
     ]);
@@ -288,7 +300,7 @@ export async function getOperatorDailyStats(
   const now = new Date();
   const todayStart = startOfDay(now);
 
-  const [user, assigned, logs] = await Promise.all([
+  const [user, assigned, logs, dueToday] = await Promise.all([
     db.user.findUnique({
       where: { id: userId },
       select: { name: true, dailyLimit: true },
@@ -298,6 +310,7 @@ export async function getOperatorDailyStats(
       where: { operatorId: userId, calledAt: { gte: todayStart } },
       select: { result: true },
     }),
+    db.client.count({ where: { ...dailyLeadWhere(now), assignedToId: userId } }),
   ]);
 
   let successful = 0;
@@ -310,7 +323,8 @@ export async function getOperatorDailyStats(
     assigned,
     attempted: logs.length,
     successful,
-    target: user?.dailyLimit ?? 0,
+    // Kvota avtomatik bo'lsa maxraj = bugun berilgan lidlar soni.
+    target: user?.dailyLimit ?? dueToday,
   };
 }
 
@@ -338,7 +352,7 @@ export async function getOperatorActivity(): Promise<ActivityFeed> {
   const now = new Date();
   const todayStart = startOfDay(now);
 
-  const [operators, todayLogs, lastLogs] = await Promise.all([
+  const [operators, todayLogs, lastLogs, dueGroups] = await Promise.all([
     db.user.findMany({
       where: { role: "OPERATOR", isActive: true },
       select: { id: true, name: true, dailyLimit: true },
@@ -353,7 +367,10 @@ export async function getOperatorActivity(): Promise<ActivityFeed> {
       where: { operatorId: { not: null } },
       _max: { calledAt: true },
     }),
+    db.client.groupBy({ by: ["assignedToId"], where: dailyLeadWhere(now), _count: true }),
   ]);
+  const dueByOp = new Map<string, number>();
+  for (const g of dueGroups) if (g.assignedToId) dueByOp.set(g.assignedToId, g._count);
 
   type Acc = { attempted: number; successful: number };
   const byOp = new Map<string, Acc>();
@@ -381,7 +398,7 @@ export async function getOperatorActivity(): Promise<ActivityFeed> {
       name: o.name,
       attempted: a.attempted,
       successful: a.successful,
-      target: o.dailyLimit,
+      target: o.dailyLimit ?? (dueByOp.get(o.id) ?? 0),
       lastActiveAt: last ? last.toISOString() : null,
     };
   });

@@ -9,10 +9,16 @@ export const ESCALATION_STAGES = ["ESCALATED", "FORWARDED"] as const;
 /**
  * Ketma-ket ko'tarilmagan (kun bo'yicha sanalgan) qo'ng'iroqlar soniga qarab
  * mijoz avtomatik eskalatsiyaga o'tishi kerakmi. Chegara `>=` — ya'ni aynan
- * `ESCALATION_THRESHOLD`-ketma-ket ko'tarilmaganda ishga tushadi.
+ * `threshold`-ketma-ket ko'tarilmaganda ishga tushadi.
+ *
+ * `threshold` admin sozlamasidan keladi (`/sozlamalar`); berilmasa kodagi
+ * standart ishlatiladi.
  */
-export function shouldEscalate(consecutiveMissed: number): boolean {
-  return consecutiveMissed >= ESCALATION_THRESHOLD;
+export function shouldEscalate(
+  consecutiveMissed: number,
+  threshold: number = ESCALATION_THRESHOLD,
+): boolean {
+  return consecutiveMissed >= threshold;
 }
 
 export function isEscalationStage(stage: string | null | undefined): boolean {

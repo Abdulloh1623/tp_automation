@@ -14,7 +14,8 @@ import {
 } from "@/lib/constants";
 import { allocateByProfile, splitByCapacity } from "@/lib/distribute-util";
 import { classifyLead, isFloorLead, overdueDays } from "@/lib/lead-segments";
-import { getActiveLeadProfile } from "@/lib/settings";
+import { autoDailyLimit } from "@/lib/recall-rules";
+import { getActiveLeadProfile, getRecallSettings } from "@/lib/settings";
 import { currentShift } from "@/lib/shift";
 import { startOfTzDay } from "@/lib/tz";
 
@@ -31,6 +32,10 @@ export type DistributeResult = {
   granted?: number;
   /** Umumiy bo'sh sig'im — operatorlar kvotasi minus band joylar. */
   capacity?: number;
+  /** Avtomatik hisoblangan kunlik kvota (dailyLimit qo'yilmaganlar uchun). */
+  autoLimit?: number;
+  /** Ro'yxat kam bo'lgani uchun oldinga tortilgan (muddati kelmagan) lidlar. */
+  pulled?: number;
   /** Qaysi smena uchun taqsimlandi (bo'sh — barcha operatorlarga). */
   shift?: UserShift;
   shiftLabel?: string;
@@ -39,6 +44,21 @@ export type DistributeResult = {
   todayOnly?: boolean;
   error?: string;
 };
+
+/** Hovuz uchun kerakli ustunlar — segmentlash va saralash shularga tayanadi. */
+const POOL_SELECT = {
+  id: true,
+  assignedToId: true,
+  pendingStage: true,
+  stage: true,
+  createdAt: true,
+  nextPaymentDate: true,
+  nextContactDate: true,
+  lastContactedAt: true,
+  missedCallCount: true,
+  monthlyAmount: true,
+  currency: true,
+} as const;
 
 /** Fisher–Yates — segment ichida navbat tasodifiy bo'lsin (operatorlar teng sharoitda). */
 function shuffle(ids: string[]): void {
@@ -85,6 +105,12 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
   const now = new Date();
   const active = await getActiveLeadProfile(now);
   const order = profileOrder(active.id);
+  const { policy } = await getRecallSettings();
+
+  // Qarzdor bilan bugun gaplashilgan bo'lsa, ertaga qayta ko'rsatmaymiz —
+  // aks holda qarzdorlar har kuni qaytib kelib butun ro'yxatni egallardi
+  // (ularning kirishi `nextContactDate` ga bog'liq emas).
+  const debtorSince = new Date(now.getTime() - policy.debtorCooldownDays * 86400000);
 
   const pool = await db.client.findMany({
     where: {
@@ -100,22 +126,11 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
         {
           nextPaymentDate: { lt: startOfDay(now) },
           stage: { notIn: NO_CONTACT_STAGES as unknown as string[] },
+          OR: [{ lastContactedAt: null }, { lastContactedAt: { lt: debtorSince } }],
         },
       ],
     },
-    select: {
-      id: true,
-      assignedToId: true,
-      pendingStage: true,
-      stage: true,
-      createdAt: true,
-      nextPaymentDate: true,
-      nextContactDate: true,
-      lastContactedAt: true,
-      missedCallCount: true,
-      monthlyAmount: true,
-      currency: true,
-    },
+    select: { ...POOL_SELECT },
   });
 
   // Bugun tegilgan lidlar — qayta taqsimlanmaydi, egasida qoladi va uning
@@ -167,11 +182,38 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
   const grants = new Map(grantRows.map((g) => [g.userId, g.extraCount]));
   const granted = grantRows.reduce((s, g) => s + g.extraCount, 0);
 
-  // Kvota har operatorning O'ZINIKI (`User.dailyLimit`) + bugungi qo'shimcha,
-  // ishlangan lidlar esa shu kvotani band qiladi.
+  // Kunlik kvota: `dailyLimit` qo'yilgan bo'lsa — o'sha, aks holda AVTOMATIK
+  // (bugungi ro'yxat operatorlarga teng bo'linadi, siyosat chegaralari ichida).
+  const auto = autoDailyLimit(free.length, operators.length, policy);
+  const limitOf = (o: { dailyLimit: number | null }) => o.dailyLimit ?? auto;
+
+  // Ro'yxat kam bo'lsa — muddati eng yaqin lidlarni oldinga tortamiz, operator
+  // bo'sh o'tirmasin. Faqat AVTOMATIK rejimda ma'noga ega.
+  const wanted = operators.reduce((s, o) => s + limitOf(o), 0);
+  let pulled = 0;
+  if (free.length < wanted) {
+    const extra = await db.client.findMany({
+      where: {
+        status: "ACTIVE",
+        stage: { in: ACTIVE_STAGES as unknown as string[] },
+        nextContactDate: { gt: endOfDay(now) },
+        id: { notIn: free.map((c) => c.id) },
+      },
+      orderBy: { nextContactDate: "asc" },
+      take: wanted - free.length,
+      select: { ...POOL_SELECT },
+    });
+    // Boshqa smenaning (hali ishlayotgan) lidini tortib olmaymiz.
+    const usable = extra.filter(
+      (c) => !(shift && c.assignedToId && shiftOf.get(c.assignedToId) === other && !otherEnded),
+    );
+    free.push(...usable);
+    pulled = usable.length;
+  }
+
   const slots = operators.map((o) => ({
     id: o.id,
-    cap: Math.max(0, o.dailyLimit + (grants.get(o.id) ?? 0) - (locked.get(o.id) ?? 0)),
+    cap: Math.max(0, limitOf(o) + (grants.get(o.id) ?? 0) - (locked.get(o.id) ?? 0)),
   }));
   const capacity = slots.reduce((sum, o) => sum + o.cap, 0);
 
@@ -225,6 +267,8 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
       ` · fokus: ${label}${active.todayOnly ? " (faqat bugunga)" : ""} · ` +
       `majburiy: ${floorRows.length} · egasida qoldi: ${kept}` +
       (granted ? ` · qo'shimcha grant: +${granted}` : "") +
+      (pulled ? ` · oldinga tortildi: ${pulled}` : "") +
+      ` · avto kvota: ${auto}` +
       (released ? ` · tugagan smenadan olindi: ${released}` : "") +
       ` · navbatda: ${unassigned.length}`,
   });
@@ -236,6 +280,8 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
     released,
     granted,
     capacity,
+    autoLimit: auto,
+    pulled,
     shift,
     shiftLabel,
     profile: active.id,

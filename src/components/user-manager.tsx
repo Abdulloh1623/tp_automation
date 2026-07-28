@@ -40,7 +40,7 @@ export type ManagedUser = {
   regions: string | null;
   phone: string | null;
   telegramId: string | null;
-  dailyLimit: number;
+  dailyLimit: number | null;
   shift: string;
   isActive: boolean;
   /** Karta/QR to'lovlarini tasdiqlaydi (kartaga dostupi bor) */
@@ -74,7 +74,7 @@ const emptyForm: Form = {
   regions: [],
   phone: "",
   telegramId: "",
-  dailyLimit: "20",
+  dailyLimit: "", // bo'sh = avtomatik
   shift: "DAY",
   cardVerifier: false,
 };
@@ -106,7 +106,7 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
       regions: parseRegions(u.regions, u.region),
       phone: u.phone ?? "",
       telegramId: u.telegramId ?? "",
-      dailyLimit: String(u.dailyLimit),
+      dailyLimit: u.dailyLimit == null ? "" : String(u.dailyLimit),
       shift: u.shift || "DAY",
       cardVerifier: u.cardVerifier,
     });
@@ -212,7 +212,7 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                   {parseRegions(u.regions, u.region).join(", ") || "—"}
                 </td>
                 <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-300">
-                  {u.role === "OPERATOR" ? u.dailyLimit : "—"}
+                  {u.role === "OPERATOR" ? (u.dailyLimit ?? "Avto") : "—"}
                 </td>
                 <td className="px-4 py-3 text-center text-slate-600 dark:text-slate-300">
                   {u.telegramId ? "✓" : "—"}
@@ -374,11 +374,12 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                         id="dailyLimit"
                         type="number"
                         min={0}
+                        placeholder="Avtomatik"
                         value={form.dailyLimit}
                         onChange={(e) => set("dailyLimit", e.target.value)}
                       />
                       <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        Avtomatik taqsimot shu songacha beradi
+                        Bo&apos;sh qoldiring — dastur kunlik sonni o&apos;zi hisoblaydi
                       </p>
                     </div>
                   </div>

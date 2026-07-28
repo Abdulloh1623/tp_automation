@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import type { ReportKind } from "@/lib/reports";
 
 const KINDS: { key: ReportKind; label: string }[] = [
-  { key: "daily", label: "Kunlik" },
+  { key: "shift-day", label: "Kunduzgi smena" },
+  { key: "shift-night", label: "Kechki smena" },
   { key: "weekly", label: "Haftalik" },
   { key: "monthly", label: "Oylik" },
 ];

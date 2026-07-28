@@ -9,6 +9,7 @@ import cron from "node-cron";
 import { db } from "../src/lib/db";
 import { sendToChannel, sendAlbumToChannel, telegramEnabled, channelId } from "../src/lib/telegram";
 import { buildReport, buildReportAlbum, type ReportKind, startOfTzDay } from "../src/lib/reports";
+import { SHIFT_REPORT } from "../src/lib/constants";
 import { createBackup } from "../src/lib/backup";
 import { startBot } from "../src/lib/bot";
 import { sendDailyReminders, sendOperatorReminders } from "../src/lib/reminders";
@@ -164,7 +165,7 @@ async function main() {
   const argv = process.argv.slice(2);
   const sendIdx = argv.indexOf("--send");
   if (sendIdx !== -1) {
-    const kind = (argv[sendIdx + 1] as ReportKind) || "daily";
+    const kind = (argv[sendIdx + 1] as ReportKind) || "shift-day";
     log(`Qo'lda yuborish: ${kind}`);
     await sendReport(kind);
     await db.$disconnect();
@@ -202,8 +203,18 @@ async function main() {
   log("Worker ishga tushdi.");
   log("Telegram:", telegramEnabled() ? "token bor" : "TOKEN YO'Q", "· kanal:", channelId() ?? "yo'q (log rejimi)");
 
-  // Rejalashtirilgan hisobotlar (Asia/Tashkent)
-  cron.schedule("30 17 * * *", () => sendReport("daily"), { timezone: TZ });
+  // Rejalashtirilgan hisobotlar (Asia/Tashkent). Kunlik hisobot ikki smenaga
+  // bo'lingan — vaqtlar `SHIFT_REPORT` dan olinadi (hisobot oynasi bilan bitta manba).
+  cron.schedule(
+    `${SHIFT_REPORT.DAY.sendMinute} ${SHIFT_REPORT.DAY.sendHour} * * *`,
+    () => sendReport("shift-day"),
+    { timezone: TZ },
+  );
+  cron.schedule(
+    `${SHIFT_REPORT.NIGHT.sendMinute} ${SHIFT_REPORT.NIGHT.sendHour} * * *`,
+    () => sendReport("shift-night"),
+    { timezone: TZ },
+  );
   cron.schedule("0 9 * * 1", () => sendReport("weekly"), { timezone: TZ });
   cron.schedule("0 9 1 * *", () => sendReport("monthly"), { timezone: TZ });
   cron.schedule("0 0 * * *", () => dailyRollover(), { timezone: TZ });
@@ -217,7 +228,11 @@ async function main() {
   cron.schedule("0 10 * * *", () => runSla(), { timezone: TZ });
   // Disk bo'sh joyi — ish kuni boshlanishidan oldin (07:00) va startda bir marta
   cron.schedule("0 7 * * *", () => runDiskCheck(), { timezone: TZ });
-  log("Cron jadvallari o'rnatildi: disk 07:00, taqsimot 08:00, eslatma 09:30 & 15:00, SLA 10:00, kunlik 17:30, haftalik Dush 09:00, oylik 1-kun 09:00, yangilanish 00:00, backup 03:00");
+  log(
+    "Cron jadvallari o'rnatildi: disk 07:00, taqsimot 08:00, eslatma 09:30 & 15:00, SLA 10:00," +
+      " kechki smena 09:30, kunduzgi smena 17:30, haftalik Dush 09:00, oylik 1-kun 09:00," +
+      " yangilanish 00:00, backup 03:00",
+  );
   void runDiskCheck();
 
   // Liveness heartbeat — Docker healthcheck shu faylning yangiligini tekshiradi.

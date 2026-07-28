@@ -39,6 +39,23 @@ export function startOfTzMonth(): Date {
   return new Date(s.getTime() - TZ_MIN * 60000);
 }
 
+/**
+ * UTC+5 bo'yicha belgilangan soat:daqiqa (real UTC instant). `daysAgo=0` — bugun.
+ * Smena hisobotlarining oyna chegaralari shu orqali hisoblanadi.
+ */
+export function tzTimeAt(hour: number, minute = 0, daysAgo = 0, now = new Date()): Date {
+  const s = new Date(now.getTime() + TZ_MIN * 60000);
+  s.setUTCDate(s.getUTCDate() - daysAgo);
+  s.setUTCHours(hour, minute, 0, 0);
+  return new Date(s.getTime() - TZ_MIN * 60000);
+}
+
+/** UTC+5 bo'yicha "HH:MM". */
+export function tzTimeLabel(d: Date): string {
+  const s = new Date(d.getTime() + TZ_MIN * 60000);
+  return `${String(s.getUTCHours()).padStart(2, "0")}:${String(s.getUTCMinutes()).padStart(2, "0")}`;
+}
+
 /** UTC+5 bo'yicha "DD.MM.YYYY". */
 export function tzDateLabel(d = new Date()): string {
   const s = new Date(d.getTime() + TZ_MIN * 60000);

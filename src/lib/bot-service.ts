@@ -126,7 +126,7 @@ export async function setDailyTarget(
   }
   const u = await db.user.findUnique({ where: { id: userId } });
   if (!u) return { ok: false, error: "Xodim topilmadi" };
-  await db.user.update({ where: { id: userId }, data: { dailyLeadTarget: Math.round(target) } });
+  await db.user.update({ where: { id: userId }, data: { dailyLimit: Math.round(target) } });
   await audit(actor, "Kunlik lid soni o'zgartirildi (bot)", `${u.name}: ${Math.round(target)}`);
   return { ok: true, info: `${u.name} uchun kunlik lid: ${Math.round(target)}` };
 }
@@ -149,5 +149,10 @@ export async function grantExtraLeads(
     update: { extraCount: n, createdById: actor.id },
   });
   await audit(actor, "1 kunlik qo'shimcha lid (bot)", `${u.name}: +${n}`);
-  return { ok: true, info: `${u.name} uchun bugun +${n} lid` };
+  // Grant keyingi taqsimotda qo'llanadi (cron 08:00/18:00 yoki qo'lda
+  // «Taqsimotni qayta yurgizish») — foydalanuvchi darhol o'zgarish kutmasin.
+  return {
+    ok: true,
+    info: `${u.name} uchun bugun +${n} lid.\nKeyingi taqsimotda qo'llanadi — darhol kerak bo'lsa «🛠 Xizmat → 🔄 Taqsimotni qayta yurgizish».`,
+  };
 }

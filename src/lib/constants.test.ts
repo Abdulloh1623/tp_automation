@@ -49,8 +49,8 @@ describe("MISSED_OUTCOMES", () => {
 });
 
 describe("LEAD_LIMITS", () => {
-  it("6 ish kuni: kunlik 50, hafta 300, oy 1300", () => {
-    expect(LEAD_LIMITS).toEqual({ daily: 50, weekly: 300, monthly: 1300 });
+  it("hafta 300, oy 1300 (kunlik kvota User.dailyLimit da)", () => {
+    expect(LEAD_LIMITS).toEqual({ weekly: 300, monthly: 1300 });
   });
 });
 

@@ -6,7 +6,7 @@ import { startOfDay, endOfDay } from "date-fns";
 import { db } from "@/lib/db";
 import { sendMessage, sendToChannel, escapeHtml } from "@/lib/telegram";
 import { formatMoney, formatPhone } from "@/lib/utils";
-import { ACTIVE_STAGES, LEAD_LIMITS, NO_CONTACT_STAGES, leadOutcomeLabel } from "@/lib/constants";
+import { ACTIVE_STAGES, NO_CONTACT_STAGES, leadOutcomeLabel } from "@/lib/constants";
 
 type Money = { USD: number; UZS: number };
 function money2(m: Money): string {
@@ -31,6 +31,7 @@ export type ReminderSummary = {
 export async function buildOperatorReminder(
   operatorId: string,
   operatorName: string,
+  dailyLimit: number,
 ): Promise<string | null> {
   const now = new Date();
   const todayStart = startOfDay(now);
@@ -88,7 +89,7 @@ export async function buildOperatorReminder(
     lines.push("");
   }
 
-  lines.push(`Kunlik norma: ${LEAD_LIMITS.daily} ta gaplashish. Omad! 💪`);
+  lines.push(`Kunlik norma: ${dailyLimit} ta gaplashish. Omad! 💪`);
   return lines.join("\n");
 }
 
@@ -96,7 +97,7 @@ export async function buildOperatorReminder(
 export async function sendOperatorReminders(): Promise<ReminderSummary["operators"]> {
   const operators = await db.user.findMany({
     where: { role: "OPERATOR", isActive: true },
-    select: { id: true, name: true, telegramId: true },
+    select: { id: true, name: true, telegramId: true, dailyLimit: true },
   });
 
   let sent = 0,
@@ -107,7 +108,7 @@ export async function sendOperatorReminders(): Promise<ReminderSummary["operator
       noTelegram++;
       continue;
     }
-    const msg = await buildOperatorReminder(op.id, op.name);
+    const msg = await buildOperatorReminder(op.id, op.name, op.dailyLimit);
     if (!msg) {
       skipped++;
       continue;
@@ -140,7 +141,7 @@ export async function buildManagerSummary(): Promise<string> {
       db.client.count({ where: { status: "ACTIVE", missedCallCount: { gte: 3 } } }),
       db.user.findMany({
         where: { role: "OPERATOR", isActive: true },
-        select: { id: true, name: true },
+        select: { id: true, name: true, dailyLimit: true },
         orderBy: { name: "asc" },
       }),
       db.callLog.groupBy({
@@ -165,8 +166,10 @@ export async function buildManagerSummary(): Promise<string> {
     `🆕 Biriktirilmagan mijoz: <b>${unassigned}</b>`,
     `📦 Kutilayotgan uskuna qaytarish: <b>${pendingReturns}</b>`,
     "",
-    `<b>Bugun gaplashildi</b> (limit ${LEAD_LIMITS.daily}):`,
-    ...operators.map((o) => `• ${escapeHtml(o.name)}: ${talkedByOp.get(o.id) ?? 0}`),
+    "<b>Bugun gaplashildi</b> (xodimning kunlik kvotasidan):",
+    ...operators.map(
+      (o) => `• ${escapeHtml(o.name)}: ${talkedByOp.get(o.id) ?? 0} / ${o.dailyLimit}`,
+    ),
   ];
   return lines.join("\n");
 }

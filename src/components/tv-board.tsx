@@ -179,7 +179,7 @@ export function TvBoard({
           <h1 className="text-3xl font-black tracking-tight lg:text-5xl">TP TEXNIK XIZMAT</h1>
           <p className="mt-1 text-base text-amber-300 lg:text-xl">
             {shift === "DAY" ? "Kunduzgi smena (09:00–18:00)" : "Kechki smena (18:00–09:00)"} · jonli
-            natijalar · limit {LEAD_LIMITS.daily}/kun
+            natijalar
           </p>
           {/* Smena tanlagich — sukut bo'yicha joriy real-time smena */}
           <div className="mt-3 inline-flex rounded-xl border border-white/15 bg-white/5 p-1 text-sm">

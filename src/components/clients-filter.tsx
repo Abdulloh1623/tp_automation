@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { Search, AlertTriangle } from "lucide-react";
+import { Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -22,7 +22,6 @@ export function ClientsFilter({
   const pathname = usePathname();
   const params = useSearchParams();
   const [q, setQ] = useState(params.get("q") ?? "");
-  const notFoundOnly = params.get("biznex") === "not_found";
 
   // Qidiruvni debounce bilan URL'ga yozish (yozayotganda avtomatik).
   // URL bilan solishtiramiz — mount'da yoki tashqi yangilanishda navigatsiya qilmaymiz
@@ -103,22 +102,18 @@ export function ClientsFilter({
             </Select>
           </div>
         )}
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">Biznex</label>
-          <button
-            type="button"
-            aria-pressed={notFoundOnly}
-            onClick={() => setParam("biznex", notFoundOnly ? "" : "not_found")}
-            className={
-              "inline-flex h-10 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors " +
-              (notFoundOnly
-                ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
-                : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800")
-            }
+        <div className="w-52">
+          <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
+            Biznex
+          </label>
+          <Select
+            defaultValue={params.get("biznex") ?? ""}
+            onChange={(e) => setParam("biznex", e.target.value)}
           >
-            <AlertTriangle className="h-4 w-4" />
-            Biznex-da topilmaganlar
-          </button>
+            <option value="">Barchasi</option>
+            <option value="not_found">Biznex-da topilmagan</option>
+            <option value="silent_churn">Obunasi tugagan (faol turibdi)</option>
+          </Select>
         </div>
       </div>
     </Card>

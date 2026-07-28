@@ -1,7 +1,7 @@
 import { endOfDay, startOfDay, addDays } from "date-fns";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
-import { ACTIVE_STAGES } from "@/lib/constants";
+import { ACTIVE_STAGES, NO_CONTACT_STAGES } from "@/lib/constants";
 import { getRecallSettings } from "@/lib/settings";
 import { RecallSettingsForm } from "@/components/recall-settings-form";
 import { tzDayKey } from "@/lib/tz";
@@ -32,7 +32,7 @@ export default async function SettingsPage() {
           },
           {
             nextPaymentDate: { lt: startOfDay(now) },
-            stage: { notIn: ["REFUSED", "DEACTIVATED"] },
+            stage: { notIn: [...NO_CONTACT_STAGES] },
           },
         ],
       },

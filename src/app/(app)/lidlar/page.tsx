@@ -97,6 +97,17 @@ export default async function LeadsPage({
   const order = profileOrder(focus.id);
   const segmentRank = new Map(order.map((s, i) => [s.segment, i]));
 
+  // "To'lov qiladi" degan mijozdan bugun chek kelganmi — taxtadagi belgi shunga
+  // qarab o'chadi (kun oxirida chek bo'lmasa sana ertangi kunga suriladi).
+  const paidTodayRows = leadsRaw.length
+    ? await db.payment.findMany({
+        where: { paidAt: { gte: todayStart }, clientId: { in: leadsRaw.map((c) => c.id) } },
+        select: { clientId: true },
+        distinct: ["clientId"],
+      })
+    : [];
+  const paidToday = new Set(paidTodayRows.map((p) => p.clientId));
+
   const leads: LeadRow[] = leadsRaw.map((c) => {
     // Kun bo'yicha eng so'nggi yozuv (bir kun = bir katak)
     const byDay = new Map<string, LeadHistory>();
@@ -124,6 +135,8 @@ export default async function LeadsPage({
       id: c.id,
       segment: classifyLead(c, order, now),
       mustCall: isFloorLead(c, now),
+      // Bugun "to'lov qiladi" deyilgan, ammo chek hali kelmagan
+      awaitingReceipt: todayEntry?.result === "WILL_PAY" && !paidToday.has(c.id),
       overdue,
       overdueDays,
       restaurantName: c.restaurantName,

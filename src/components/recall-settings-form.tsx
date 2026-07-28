@@ -141,25 +141,32 @@ export function RecallSettingsForm({
             <div className="mb-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
               Kelgusi kunlar yuklamasi (rejalashtirilgan qayta aloqalar)
             </div>
-            <div className="flex items-end gap-1">
-              {forecast.map((f) => (
-                <div key={f.day} className="flex flex-1 flex-col items-center gap-1">
-                  <div
-                    title={`${f.day}: ${f.count} ta`}
-                    className={
-                      "w-full rounded-t " +
-                      (f.count > capacity
-                        ? "bg-amber-400 dark:bg-amber-500"
-                        : "bg-primary-400 dark:bg-primary-600")
-                    }
-                    style={{ height: `${Math.max(2, Math.round((f.count / maxBar) * 56))}px` }}
-                  />
-                  <span className="text-[10px] tabular-nums text-slate-400 dark:text-slate-500">
-                    {f.day.slice(8)}
-                  </span>
-                </div>
-              ))}
-            </div>
+            {forecast.every((f) => f.count === 0) ? (
+              <p className="rounded-lg border border-dashed border-slate-200 p-3 text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                Kelgusi {forecast.length} kunga rejalashtirilgan qayta aloqa yo&apos;q — grafik
+                operatorlar natija yozgan sari to&apos;la boshlaydi.
+              </p>
+            ) : (
+              <div className="flex items-end gap-1">
+                {forecast.map((f) => (
+                  <div key={f.day} className="flex flex-1 flex-col items-center gap-1">
+                    <div
+                      title={`${f.day}: ${f.count} ta`}
+                      className={
+                        "w-full rounded-t " +
+                        (f.count > capacity
+                          ? "bg-amber-400 dark:bg-amber-500"
+                          : "bg-primary-400 dark:bg-primary-600")
+                      }
+                      style={{ height: `${Math.max(2, Math.round((f.count / maxBar) * 56))}px` }}
+                    />
+                    <span className="text-[10px] tabular-nums text-slate-400 dark:text-slate-500">
+                      {f.day.slice(8)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
             <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
               Sariq ustun — sig&apos;imdan oshgan kun. Oraliqlarni o&apos;zgartirsangiz bu
               grafik darhol emas, mijozlar bilan gaplashilgan sari o&apos;zgaradi.

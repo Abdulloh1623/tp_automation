@@ -12,6 +12,7 @@ import { LEAD_OUTCOME, type LeadOutcome } from "@/lib/constants";
 export const RECALL_MODE = {
   DAYS: "Kun hisobida",
   PAYMENT_DATE: "To'lov sanasida",
+  PAYMENT_OR_DAYS: "Kun yoki to'lov sanasi (qaysi yaqin)",
   NONE: "Qayta aloqa yo'q",
 } as const;
 export type RecallMode = keyof typeof RECALL_MODE;
@@ -22,7 +23,11 @@ export function recallModeLabel(m: string): string {
 
 export type RecallRule = {
   mode: RecallMode;
-  /** `DAYS` uchun — necha kundan keyin; `PAYMENT_DATE` uchun — zaxira qiymat. */
+  /**
+   * `DAYS` — necha kundan keyin;
+   * `PAYMENT_DATE` — to'lov sanasi bo'lmasa zaxira qiymat;
+   * `PAYMENT_OR_DAYS` — shu kun bilan to'lov sanasidan QAYSI YAQINI olinadi.
+   */
   days: number;
 };
 
@@ -42,28 +47,28 @@ export const DEFAULT_RECALL_RULES: RecallRules = {
   NO_ANSWER: { mode: "DAYS", days: 1 },
   PHONE_OFF: { mode: "DAYS", days: 1 },
   BUSY: { mode: "DAYS", days: 1 },
-  CALL_LATER: { mode: "DAYS", days: 2 },
-  WILL_PAY: { mode: "PAYMENT_DATE", days: 3 },
+  CALL_LATER: { mode: "DAYS", days: 1 },
+  // Chek qo'shilmasa ertaga. Bugungi taxtada "chek kutilmoqda" belgisi turadi.
+  WILL_PAY: { mode: "DAYS", days: 1 },
   WILL_PAY_TOMORROW: { mode: "DAYS", days: 1 },
-  PAYMENT_REMINDED: { mode: "PAYMENT_DATE", days: 3 },
+  // To'lov kuni 3 kundan uzoq bo'lsa 3 kundan keyin, aks holda to'lov kunida.
+  PAYMENT_REMINDED: { mode: "PAYMENT_OR_DAYS", days: 3 },
   FORWARDED: { mode: "NONE", days: 0 }, // boshliq eskalatsiya navbatiga
-  HAS_ISSUE: { mode: "NONE", days: 0 }, // boshliq eskalatsiya navbatiga
-  NO_PROBLEM: { mode: "DAYS", days: 4 },
-  SUGGESTION: { mode: "DAYS", days: 4 },
-  PAID: { mode: "PAYMENT_DATE", days: 30 },
-  RESOLVED: { mode: "PAYMENT_DATE", days: 30 },
+  HAS_ISSUE: { mode: "DAYS", days: 1 }, // ticket ochiladi, operator o'zi kuzatadi
+  NO_PROBLEM: { mode: "DAYS", days: 3 },
+  SUGGESTION: { mode: "DAYS", days: 3 },
+  PAID: { mode: "DAYS", days: 3 },
+  RESOLVED: { mode: "DAYS", days: 1 },
   RETURN_EQUIPMENT: { mode: "NONE", days: 0 }, // uskuna qaytarish navbatiga
   REFUSED: { mode: "NONE", days: 0 },
-  DEACTIVATED: { mode: "NONE", days: 0 },
+  DEACTIVATED: { mode: "DAYS", days: 1 }, // qaytarib olishga urinamiz
 };
 
 /** Operator taxtasidan chiqib ketadigan (boshqa oqimga o'tadigan) natijalar. */
 export const OFF_BOARD_OUTCOMES: LeadOutcome[] = [
   "FORWARDED",
-  "HAS_ISSUE",
   "RETURN_EQUIPMENT",
   "REFUSED",
-  "DEACTIVATED",
 ];
 
 export const ALL_OUTCOMES = Object.keys(LEAD_OUTCOME) as LeadOutcome[];
@@ -74,7 +79,7 @@ export function leadOutcomeLabelSafe(key: string): string {
 }
 
 function isMode(v: unknown): v is RecallMode {
-  return v === "DAYS" || v === "PAYMENT_DATE" || v === "NONE";
+  return v === "DAYS" || v === "PAYMENT_DATE" || v === "PAYMENT_OR_DAYS" || v === "NONE";
 }
 
 /**
@@ -111,10 +116,37 @@ export function computeNextContact(
 ): Date | null {
   const rule = rules[outcome] ?? DEFAULT_RECALL_RULES[outcome];
   if (!rule || rule.mode === "NONE") return null;
+  const byDays = addDays(now, rule.days);
   if (rule.mode === "PAYMENT_DATE") {
-    return client.nextPaymentDate ?? addDays(now, rule.days);
+    return client.nextPaymentDate ?? byDays;
   }
-  return addDays(now, rule.days);
+  if (rule.mode === "PAYMENT_OR_DAYS") {
+    // To'lov kuni yaqin bo'lsa — o'sha kuni; uzoq bo'lsa — `days` dan keyin.
+    if (!client.nextPaymentDate) return byDays;
+    return client.nextPaymentDate < byDays ? client.nextPaymentDate : byDays;
+  }
+  return byDays;
+}
+
+/**
+ * Yangi mijoz (o'rnatilganiga `newClientMonths` dan kam) bilan aloqa siyrak
+ * bo'lib ketmasin: hisoblangan sana `newClientMaxDays` dan uzoq bo'lsa,
+ * shu chegaraga tortiladi. Natija `null` bo'lsa (otkaz, uskuna qaytarish,
+ * eskalatsiya) — tegilmaydi, mijoz allaqachon boshqa oqimda.
+ */
+export function capForNewClient(
+  next: Date | null,
+  client: { contractDate: Date | null; createdAt: Date },
+  policy: Pick<LoadPolicy, "newClientMonths" | "newClientMaxDays">,
+  now: Date = new Date(),
+): Date | null {
+  if (!next) return null;
+  if (policy.newClientMonths <= 0 || policy.newClientMaxDays <= 0) return next;
+  const installed = client.contractDate ?? client.createdAt;
+  const ageDays = (now.getTime() - installed.getTime()) / 86400000;
+  if (ageDays > policy.newClientMonths * 30) return next;
+  const cap = addDays(now, policy.newClientMaxDays);
+  return next > cap ? cap : next;
 }
 
 // --- Kunlik yuklama siyosati ---
@@ -128,6 +160,10 @@ export type LoadPolicy = {
   debtorCooldownDays: number;
   /** Necha marta ketma-ket ko'tarmasa eskalatsiyaga o'tsin. */
   escalationThreshold: number;
+  /** Mijoz shu oydan yosh bo'lsa "yangi" hisoblanadi (0 = qoida o'chirilgan). */
+  newClientMonths: number;
+  /** Yangi mijoz bilan aloqa oralig'i shundan oshmasin (kun). */
+  newClientMaxDays: number;
 };
 
 export const DEFAULT_LOAD_POLICY: LoadPolicy = {
@@ -135,6 +171,8 @@ export const DEFAULT_LOAD_POLICY: LoadPolicy = {
   maxPerOperator: 50,
   debtorCooldownDays: 3,
   escalationThreshold: 3,
+  newClientMonths: 3,
+  newClientMaxDays: 3,
 };
 
 export const LOAD_POLICY_BOUNDS = {
@@ -142,6 +180,8 @@ export const LOAD_POLICY_BOUNDS = {
   maxPerOperator: { min: 1, max: 500 },
   debtorCooldownDays: { min: 0, max: 90 },
   escalationThreshold: { min: 1, max: 20 },
+  newClientMonths: { min: 0, max: 24 },
+  newClientMaxDays: { min: 0, max: 90 },
 } as const;
 
 export function mergeLoadPolicy(raw: unknown): LoadPolicy {

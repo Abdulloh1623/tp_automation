@@ -102,6 +102,7 @@ const leadStageTone: Record<string, BadgeTone> = {
   LATER: "amber",
   AWAITING_PAYMENT: "amber",
   FOLLOW_UP: "green",
+  ISSUE_OPEN: "amber",
   ESCALATED: "red",
   FORWARDED: "slate",
   RETURNING: "amber",

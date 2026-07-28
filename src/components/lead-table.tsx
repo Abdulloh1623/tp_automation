@@ -63,6 +63,8 @@ export type LeadRow = {
   segment: LeadSegment;
   /** Majburiy: bugunga va'da berilgan yoki eski qarzdor (fokusdan qat'i nazar). */
   mustCall: boolean;
+  /** Bugun "to'lov qiladi" deyilgan, chek hali kelmagan — bugun qayta tekshiring. */
+  awaitingReceipt: boolean;
   overdue: boolean;
   overdueDays: number;
   restaurantName: string;
@@ -130,6 +132,14 @@ function SegmentTags({ row }: { row: LeadRow }) {
           className="inline-flex shrink-0 items-center rounded-full bg-primary-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
         >
           Majburiy
+        </span>
+      )}
+      {row.awaitingReceipt && (
+        <span
+          title="Mijoz bugun to'lov qilaman dedi — chek hali kelmadi. Kun yakunlanganda chek bo'lmasa, ertangi kunga suriladi."
+          className="inline-flex shrink-0 items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+        >
+          Chek kutilmoqda
         </span>
       )}
       {row.segment !== "OTHERS" && (

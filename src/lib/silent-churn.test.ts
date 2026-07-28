@@ -45,8 +45,7 @@ describe("getSilentChurn", () => {
     const where = m.clientFindMany.mock.calls[0][0].where;
     expect(where.status).toBe("ACTIVE");
     expect(where.biznexStatus).toEqual({ in: [...SILENT_CHURN_STATUSES] });
-    expect(where.stage.notIn).toContain("REFUSED");
-    expect(where.stage.notIn).toContain("DEACTIVATED");
+    expect(where.stage.notIn).toEqual(["REFUSED"]);
   });
 
   it("NOT_FOUND jim churn hisoblanmaydi (bu ma'lumot sifati muammosi)", () => {

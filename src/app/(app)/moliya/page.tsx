@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Wallet,
   TrendingDown,
@@ -5,8 +6,10 @@ import {
   UserMinus,
   AlertTriangle,
   Users,
+  EyeOff,
 } from "lucide-react";
 import { requireRole } from "@/lib/auth";
+import { getSilentChurn } from "@/lib/silent-churn";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarList } from "@/components/bar-list";
 import { LineChart, MonthlyFlowChart } from "@/components/finance-charts";
@@ -71,7 +74,7 @@ function Kpi({
 
 export default async function FinancePage() {
   await requireRole(["ADMIN", "MANAGER"]);
-  const fin = await getFinanceOverview(12);
+  const [fin, silent] = await Promise.all([getFinanceOverview(12), getSilentChurn(10)]);
 
   const hasUsd = fin.months.some((m) => m.mrr.USD > 0);
   const hasUzs = fin.months.some((m) => m.mrr.UZS > 0);
@@ -132,6 +135,56 @@ export default async function FinancePage() {
           tone={fin.newThisMonth - fin.lostThisMonth >= 0 ? "emerald" : "red"}
         />
       </div>
+
+      {/* Jim churn — obunasi tugagan, lekin CRM'da faol turgan mijozlar */}
+      {silent.count > 0 && (
+        <Card className="border-amber-200 dark:border-amber-900">
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="flex items-center gap-2">
+                <EyeOff className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                Jim churn — {silent.count} mijoz
+              </CardTitle>
+              <Link
+                href="/mijozlar?biznex=silent_churn"
+                className="text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
+              >
+                Ro'yxatni ochish →
+              </Link>
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Biznex&apos;da obunasi tugagan, lekin CRM&apos;da hali faol turibdi — MRR
+              xavf ostida: <b>{money2(silent.atRisk)}</b>
+            </p>
+          </CardHeader>
+          <CardContent className="pt-3">
+            <ul className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+              {silent.clients.map((c) => (
+                <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <Link
+                    href={`/mijozlar/${c.id}`}
+                    className="font-medium text-slate-900 hover:text-primary-600 hover:underline dark:text-slate-100 dark:hover:text-primary-400"
+                  >
+                    {c.restaurantName || "(nomsiz)"}
+                  </Link>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {c.operatorName ?? "biriktirilmagan"}
+                    {c.region ? ` · ${c.region}` : ""}
+                  </span>
+                  <span className="tabular-nums text-slate-600 dark:text-slate-300">
+                    {formatMoney(c.monthlyAmount, c.currency)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {silent.count > silent.clients.length && (
+              <p className="pt-2 text-xs text-slate-400 dark:text-slate-500">
+                …va yana {silent.count - silent.clients.length} ta
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* MRR trend */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

@@ -15,6 +15,7 @@ import { startBot } from "../src/lib/bot";
 import { sendDailyReminders, sendOperatorReminders } from "../src/lib/reminders";
 import { distributeLeadsCore } from "../src/lib/leads-distribution";
 import { runSlaCheck } from "../src/lib/sla";
+import { runSilentChurnCheck } from "../src/lib/silent-churn-alert";
 import { remindStaleCardRequests } from "../src/lib/card-payment";
 import { reportError } from "../src/lib/error-report";
 import { withDbJobRetry } from "../src/lib/db-retry";
@@ -133,6 +134,21 @@ async function runSla() {
 }
 
 /**
+ * Jim churn: Biznex obunasi tugagan, lekin CRM'da faol turgan mijozlar bo'yicha
+ * boshliqlarga kunlik ogohlantirish (SLA kabi — bartaraf bo'lmaguncha har kuni).
+ */
+async function runSilentChurn() {
+  try {
+    const r = await withRetry("jim churn", () => runSilentChurnCheck());
+    if (r.count === 0) log("jim churn → yo'q");
+    else log(`jim churn → ${r.count} mijoz · boshliq:${r.notified} · Telegram:${r.telegram}`);
+  } catch (e) {
+    log("jim churn XATO:", e instanceof Error ? e.message : e);
+    await reportError(e, { source: "worker", path: "silent-churn", notifyTransient: true });
+  }
+}
+
+/**
  * Kunlik disk tekshiruvi. Disk to'lganda postgres WAL yozolmay halokatga
  * uchraydi ("the database system is in recovery mode") va butun tizim to'xtaydi
  * — 2026-07-26/27 hodisasi aynan shunday bo'lgan. Shu sabab joy tugashidan
@@ -241,11 +257,13 @@ async function main() {
   cron.schedule("0 18 * * *", () => runDistribute("NIGHT"), { timezone: TZ });
   // 3-kunlik SLA ogohlantirishi — har kuni 10:00
   cron.schedule("0 10 * * *", () => runSla(), { timezone: TZ });
+  // Jim churn — SLA'dan keyin (10:15), boshliqlar ish kunini boshlaganda
+  cron.schedule("15 10 * * *", () => runSilentChurn(), { timezone: TZ });
   // Disk bo'sh joyi — ish kuni boshlanishidan oldin (07:00) va startda bir marta
   cron.schedule("0 7 * * *", () => runDiskCheck(), { timezone: TZ });
   log(
     "Cron jadvallari o'rnatildi: disk 07:00, taqsimot 08:00 (kunduzgi) & 18:00 (kechki)," +
-      " eslatma 09:30 & 15:00, SLA 10:00," +
+      " eslatma 09:30 & 15:00, SLA 10:00, jim churn 10:15," +
       " kechki smena 09:30, kunduzgi smena 17:30, haftalik Dush 09:00, oylik 1-kun 09:00," +
       " yangilanish 00:00, backup 03:00",
   );

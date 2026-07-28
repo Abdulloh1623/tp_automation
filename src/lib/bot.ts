@@ -5,7 +5,15 @@ import { RateLimiter } from "./rate-limit";
 import { Bot, InlineKeyboard, type Context } from "grammy";
 import { botToken, receiptsGroupId } from "./telegram";
 import { intakeReceiptFile, intakeReceiptText } from "./receipt-intake-service";
-import { userRoleLabel } from "./constants";
+import {
+  userRoleLabel,
+  LEAD_PRIORITY_PROFILES,
+  isLeadProfileId,
+  leadProfileLabel,
+  type LeadProfileId,
+} from "./constants";
+import { getActiveLeadProfile, setLeadProfile } from "./settings";
+import { logAudit } from "./audit";
 import { buildReport, buildReportAlbum, startOfTzDay, type ReportKind } from "./reports";
 import { distributeLeadsCore } from "./leads-distribution";
 import { sendDailyReminders } from "./reminders";
@@ -307,6 +315,7 @@ export async function startBot(): Promise<void> {
   function opsMenu(): InlineKeyboard {
     return new InlineKeyboard()
       .text("📊 Holat", "ops_status").row()
+      .text("🎯 Bugungi fokus", "ops_focus").row()
       .text("🔄 Taqsimotni qayta yurgizish", "ops_distribute").row()
       .text("🔔 Eslatmalarni yuborish", "ops_remind").row()
       .text("💾 Backup olish", "ops_backup").row()
@@ -316,6 +325,12 @@ export async function startBot(): Promise<void> {
   /** Xizmat amallari faqat ADMIN uchun. */
   function opsAllowed(ctx: Context): boolean {
     return (ctx as Context & { actor?: Actor }).actor?.role === "ADMIN";
+  }
+
+  /** Audit muallifi — botda sessiya (cookie) yo'q, aktyorni aniq uzatamiz. */
+  function actorOf(ctx: Context): { userId?: string; name?: string } {
+    const a = (ctx as Context & { actor?: Actor }).actor;
+    return { userId: a?.id, name: a?.name };
   }
 
   bot.callbackQuery("ops", async (ctx) => {
@@ -354,6 +369,51 @@ export async function startBot(): Promise<void> {
     );
   });
 
+  // 🎯 Bugungi fokus — admin telefondan turib kunlik ustuvorlikni almashtiradi.
+  // Bot orqali tanlov FAQAT BUGUNGA qo'yiladi (tezkor qaror); doimiy profilni
+  // o'zgartirish web'da (/lidlar) qilinadi.
+  bot.callbackQuery("ops_focus", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    if (!opsAllowed(ctx)) return;
+    const active = await getActiveLeadProfile();
+    const kb = new InlineKeyboard();
+    for (const id of Object.keys(LEAD_PRIORITY_PROFILES) as LeadProfileId[]) {
+      kb.text(
+        `${id === active.id ? "✅ " : ""}${LEAD_PRIORITY_PROFILES[id].label}`,
+        `ops_focus_set:${id}`,
+      ).row();
+    }
+    kb.text("⬅️ Orqaga", "ops");
+    await ctx.reply(
+      `🎯 <b>Bugungi fokus</b>: ${escapeHtml(leadProfileLabel(active.id))}` +
+        (active.todayOnly ? " <i>(faqat bugunga)</i>" : "") +
+        `\n<i>${escapeHtml(LEAD_PRIORITY_PROFILES[active.id].hint)}</i>\n\n` +
+        "Yangi fokus faqat bugunga qo'yiladi — ertaga doimiy profil qaytadi.",
+      { parse_mode: "HTML", reply_markup: kb },
+    );
+  });
+
+  bot.callbackQuery(/^ops_focus_set:(.+)$/, async (ctx) => {
+    await ctx.answerCallbackQuery();
+    if (!opsAllowed(ctx)) return;
+    const id = ctx.match?.[1];
+    if (!isLeadProfileId(id)) {
+      await ctx.reply("⚠️ Noma'lum fokus profili");
+      return;
+    }
+    await setLeadProfile(id, true);
+    await logAudit("Kunlik fokus o'zgartirildi (bot)", {
+      entity: "AppSetting",
+      detail: `${leadProfileLabel(id)} (faqat bugunga)`,
+      actor: actorOf(ctx),
+    });
+    await ctx.reply(
+      `✅ Bugungi fokus: <b>${escapeHtml(leadProfileLabel(id))}</b>\n` +
+        "Kuchga kirishi uchun «🔄 Taqsimotni qayta yurgizish»ni bosing.",
+      { parse_mode: "HTML", reply_markup: opsMenu() },
+    );
+  });
+
   bot.callbackQuery("ops_distribute", async (ctx) => {
     await ctx.answerCallbackQuery({ text: "Taqsimot boshlandi…" });
     if (!opsAllowed(ctx)) return;
@@ -362,7 +422,9 @@ export async function startBot(): Promise<void> {
       await ctx.reply(
         r.error
           ? `⚠️ Taqsimot: ${escapeHtml(r.error)}`
-          : `✅ Taqsimot tugadi: <b>${r.assigned}</b> mijoz ${r.operators} operatorga`,
+          : `✅ Taqsimot tugadi: <b>${r.assigned}</b> mijoz ${r.operators} operatorga\n` +
+            `🎯 Fokus: ${escapeHtml(r.profileLabel ?? "-")}${r.todayOnly ? " (faqat bugunga)" : ""}` +
+            ` · majburiy: ${r.floor ?? 0} · egasida qoldi: ${r.kept ?? 0}`,
         { parse_mode: "HTML" },
       );
     } catch (e) {

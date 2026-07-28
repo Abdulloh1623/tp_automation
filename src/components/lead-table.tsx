@@ -38,7 +38,9 @@ import {
 import {
   LEAD_OUTCOME,
   leadOutcomeLabel,
+  leadSegmentLabel,
   leadStageLabel,
+  type LeadSegment,
 } from "@/lib/constants";
 import { formatMoney, formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 import { tzDayKey } from "@/lib/tz";
@@ -57,6 +59,10 @@ export type LeadHistory = {
 
 export type LeadRow = {
   id: string;
+  /** Kunlik fokus segmenti — "nega bu lid menda" savoliga javob. */
+  segment: LeadSegment;
+  /** Majburiy: bugunga va'da berilgan yoki eski qarzdor (fokusdan qat'i nazar). */
+  mustCall: boolean;
   overdue: boolean;
   overdueDays: number;
   restaurantName: string;
@@ -99,6 +105,46 @@ const OUTCOME_CELL: Record<string, string> = {
 // Restoran nomi bo'sh (to'ldirilmagan) mijozlar uchun bosiladigan yorliq
 function leadName(r: LeadRow): string {
   return r.restaurantName.trim() || "(nomsiz)";
+}
+
+const SEGMENT_TONE: Record<LeadSegment, string> = {
+  DEBTOR_OLD: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
+  DEBTOR: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+  DUE_SOON: "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300",
+  AWAITING_PAYMENT: "bg-primary-100 text-primary-700 dark:bg-primary-950 dark:text-primary-300",
+  NEW: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+  NO_ANSWER_2X: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
+  FOLLOW_UP: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
+  HIGH_VALUE: "bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300",
+  SILENT: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+  OTHERS: "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
+};
+
+/** "Nega bu lid bugun menda" — kunlik fokus segmenti va majburiy belgisi. */
+function SegmentTags({ row }: { row: LeadRow }) {
+  return (
+    <>
+      {row.mustCall && (
+        <span
+          title="Bugunga qayta-aloqa va'da qilingan yoki eski qarzdor — fokusdan qat'i nazar aloqaga chiqiladi"
+          className="inline-flex shrink-0 items-center rounded-full bg-primary-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
+        >
+          Majburiy
+        </span>
+      )}
+      {row.segment !== "OTHERS" && (
+        <span
+          title="Kunlik fokus segmenti"
+          className={
+            "inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium " +
+            SEGMENT_TONE[row.segment]
+          }
+        >
+          {leadSegmentLabel(row.segment)}
+        </span>
+      )}
+    </>
+  );
 }
 
 type Modal =
@@ -720,6 +766,9 @@ function JoriyTable({
                     </button>
                   )}
                 </div>
+                <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                  <SegmentTags row={r} />
+                </div>
                 <div className="text-xs text-slate-500 dark:text-slate-400">{r.fullName}</div>
               </td>
               <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{r.region ?? "—"}</td>
@@ -874,6 +923,9 @@ function JoriyTable({
                     <Bell className="h-3 w-3" />
                   </button>
                 )}
+              </div>
+              <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                <SegmentTags row={r} />
               </div>
               <div className="text-xs text-slate-500 dark:text-slate-400">{r.fullName}</div>
             </div>

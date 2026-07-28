@@ -8,6 +8,7 @@ import { ClientsFilter } from "@/components/clients-filter";
 import { ClientsTable, type ClientRow } from "@/components/clients-table";
 import { CLIENT_STATUS, REGIONS } from "@/lib/constants";
 import { countDuplicateGroups } from "@/lib/duplicates-data";
+import { SILENT_CHURN_STATUSES } from "@/lib/silent-churn";
 
 type SearchParams = Promise<{
   q?: string;
@@ -64,8 +65,14 @@ export default async function ClientsPage({
   where.stage = { not: "REFUSED" };
   if (assigned === "__none__") where.assignedToId = null;
   else if (assigned) where.assignedToId = assigned;
-  // "Biznex-da topilmaganlar" — fon skripti (`npm run sync-biznex`) qo'ygan flag.
+  // Biznex flaglari — fon skripti (`npm run sync-biznex`) qo'yadi.
+  // `not_found` — telefon bo'yicha moslik topilmadi (ma'lumot sifati);
+  // `silent_churn` — obunasi tugagan, lekin CRM'da hali faol (MRR xavf ostida).
   if (biznex === "not_found") where.biznexStatus = "NOT_FOUND";
+  else if (biznex === "silent_churn") {
+    where.biznexStatus = { in: [...SILENT_CHURN_STATUSES] };
+    where.status = "ACTIVE";
+  }
 
   // Uchta mustaqil so'rov parallel; mijozlar ro'yxati esa `total`ga bog'liq
   // (sahifa raqami cheklanadi), shuning uchun undan keyin ketadi.

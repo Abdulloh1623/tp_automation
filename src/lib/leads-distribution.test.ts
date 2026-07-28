@@ -10,6 +10,7 @@ const {
   getActiveLeadProfile,
   currentShift,
   grantFindMany,
+  getRecallSettings,
 } = vi.hoisted(() => ({
   userFindMany: vi.fn(),
   clientFindMany: vi.fn(),
@@ -19,6 +20,7 @@ const {
   getActiveLeadProfile: vi.fn(),
   currentShift: vi.fn(),
   grantFindMany: vi.fn(),
+  getRecallSettings: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -30,7 +32,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("@/lib/audit", () => ({ logAudit }));
-vi.mock("@/lib/settings", () => ({ getActiveLeadProfile }));
+vi.mock("@/lib/settings", () => ({ getActiveLeadProfile, getRecallSettings }));
 vi.mock("@/lib/shift", () => ({ currentShift }));
 
 import { distributeLeadsCore } from "./leads-distribution";
@@ -68,11 +70,40 @@ function assignedIds() {
     .flatMap((c) => c[0].where.id.in as string[]);
 }
 
+/**
+ * Hovuzni o'rnatadi. Taqsimot ikki xil so'rov yuboradi: (1) bugungi hovuz,
+ * (2) "oldinga tortish" uchun muddati kelmaganlar (`nextContactDate.gt`).
+ * Mock `where` ni hisobga olmasa, ikkinchi so'rov birinchisini takrorlab
+ * dublikat yasardi — shuning uchun ularni ajratamiz.
+ */
+function setPool(rows: unknown[], upcoming: unknown[] = []) {
+  clientFindMany.mockImplementation(
+    ({ where, take }: { where?: Record<string, unknown>; take?: number }) => {
+      const isUpcoming = !!(where?.nextContactDate as { gt?: Date } | undefined)?.gt;
+      if (!isUpcoming) return Promise.resolve(rows);
+      // Haqiqiy so'rovdagi `take` cheklovini taqlid qilamiz — oldinga tortish
+      // aynan yetishmagan songacha olishi kerak.
+      return Promise.resolve(take != null ? upcoming.slice(0, take) : upcoming);
+    },
+  );
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   callLogFindMany.mockResolvedValue([]);
   grantFindMany.mockResolvedValue([]);
   currentShift.mockReturnValue("DAY");
+  // Standart siyosat: oldinga tortish o'chirilgan (min 0) — testlar aynan
+  // berilgan hovuz ustida ishlasin.
+  getRecallSettings.mockResolvedValue({
+    rules: {},
+    policy: {
+      minPerOperator: 0,
+      maxPerOperator: 50,
+      debtorCooldownDays: 3,
+      escalationThreshold: 3,
+    },
+  });
   getActiveLeadProfile.mockResolvedValue({
     id: "BALANCED",
     todayOnly: false,
@@ -92,7 +123,7 @@ describe("distributeLeadsCore", () => {
 
   it("barcha lidlarni operatorlarga ulashadi (yo'qotishsiz)", async () => {
     userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: 50 }, { id: "op2", dailyLimit: 50 }]);
-    clientFindMany.mockResolvedValue(Array.from({ length: 5 }, (_, i) => lead(`c${i}`)));
+    setPool(Array.from({ length: 5 }, (_, i) => lead(`c${i}`)));
 
     const r = await distributeLeadsCore();
     expect(r.operators).toBe(2);
@@ -102,7 +133,7 @@ describe("distributeLeadsCore", () => {
 
   it("sig'imdan ortgani ertangi kunga qoldiriladi (assignedToId=null)", async () => {
     userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: 50 }]); // 1 operator × 50 = sig'im 50
-    clientFindMany.mockResolvedValue(Array.from({ length: 53 }, (_, i) => lead(`c${i}`)));
+    setPool(Array.from({ length: 53 }, (_, i) => lead(`c${i}`)));
 
     const r = await distributeLeadsCore();
     expect(r.assigned).toBe(50);
@@ -114,7 +145,7 @@ describe("distributeLeadsCore", () => {
 
   it("hech bir operator kunlik limitdan (50) oshmaydi", async () => {
     userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: 50 }, { id: "op2", dailyLimit: 50 }]);
-    clientFindMany.mockResolvedValue(Array.from({ length: 130 }, (_, i) => lead(`c${i}`)));
+    setPool(Array.from({ length: 130 }, (_, i) => lead(`c${i}`)));
 
     await distributeLeadsCore();
     for (const call of clientUpdateMany.mock.calls) {
@@ -136,7 +167,7 @@ describe("distributeLeadsCore", () => {
         lead(`debt${i}`, { nextPaymentDate: daysAgo(90) }),
       ),
     ];
-    clientFindMany.mockResolvedValue(pool);
+    setPool(pool);
     // Fokus "yangi mijozlar" — qarzdorlarni ataylab pastga suradi
     getActiveLeadProfile.mockResolvedValue({
       id: "NEW_CLIENTS",
@@ -154,7 +185,7 @@ describe("distributeLeadsCore", () => {
 
   it("bugunga va'da berilgan lid majburiy polga kiradi", async () => {
     userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: 50 }]);
-    clientFindMany.mockResolvedValue([
+    setPool([
       lead("promise", { nextContactDate: new Date() }),
       lead("boshqa"),
     ]);
@@ -173,7 +204,7 @@ describe("distributeLeadsCore", () => {
         lead(`new${i}`, { stage: "NEW", createdAt: daysAgo(2) }),
       ),
     ];
-    clientFindMany.mockResolvedValue(pool);
+    setPool(pool);
 
     getActiveLeadProfile.mockResolvedValue({
       id: "PAYMENT",
@@ -189,7 +220,7 @@ describe("distributeLeadsCore", () => {
     clientUpdateMany.mockImplementation(countByIds);
     callLogFindMany.mockResolvedValue([]);
     userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: 50 }]);
-    clientFindMany.mockResolvedValue(pool);
+    setPool(pool);
     getActiveLeadProfile.mockResolvedValue({
       id: "NEW_CLIENTS",
       todayOnly: false,
@@ -203,7 +234,7 @@ describe("distributeLeadsCore", () => {
 
   it("hech bir segment butunlay tushib qolmaydi (fokus = filtr emas)", async () => {
     userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: 50 }]);
-    clientFindMany.mockResolvedValue([
+    setPool([
       ...Array.from({ length: 100 }, (_, i) =>
         lead(`debt${i}`, { nextPaymentDate: daysAgo(10) }),
       ),
@@ -224,7 +255,7 @@ describe("distributeLeadsCore", () => {
 
   it("bugun ishlangan lid egasida qoladi va uning kvotasini band qiladi", async () => {
     userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: 50 }]);
-    clientFindMany.mockResolvedValue([
+    setPool([
       lead("ishlangan", { assignedToId: "op1", pendingStage: "LATER" }),
       ...Array.from({ length: 60 }, (_, i) => lead(`c${i}`)),
     ]);
@@ -240,7 +271,7 @@ describe("distributeLeadsCore", () => {
   it("bugun qo'ng'iroq qilingan lid ham egasida qoladi", async () => {
     userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: 50 }]);
     callLogFindMany.mockResolvedValue([{ clientId: "tegilgan" }]);
-    clientFindMany.mockResolvedValue([
+    setPool([
       lead("tegilgan", { assignedToId: "op1" }),
       lead("c1"),
     ]);
@@ -268,7 +299,7 @@ describe("distributeLeadsCore", () => {
       { id: "night1", shift: "NIGHT" },
       { id: "day1", shift: "DAY" },
     ]);
-    clientFindMany.mockResolvedValue([lead("c0")]);
+    setPool([lead("c0")]);
 
     const r = await distributeLeadsCore("NIGHT");
     expect(userFindMany.mock.calls[0][0].where).toMatchObject({
@@ -293,7 +324,7 @@ describe("distributeLeadsCore", () => {
       { id: "day1", shift: "DAY" },
       { id: "night1", shift: "NIGHT" },
     ]);
-    clientFindMany.mockResolvedValue([
+    setPool([
       lead("kechkida", { assignedToId: "night1" }),
       lead("bo'sh"),
     ]);
@@ -311,7 +342,7 @@ describe("distributeLeadsCore", () => {
       { id: "day1", shift: "DAY" },
       { id: "night1", shift: "NIGHT" },
     ]);
-    clientFindMany.mockResolvedValue([lead("ulgurmagan", { assignedToId: "day1" })]);
+    setPool([lead("ulgurmagan", { assignedToId: "day1" })]);
 
     const r = await distributeLeadsCore("NIGHT");
     expect(r.released).toBe(1);
@@ -325,7 +356,7 @@ describe("distributeLeadsCore", () => {
       { id: "day1", shift: "DAY" },
       { id: "night1", shift: "NIGHT" },
     ]);
-    clientFindMany.mockResolvedValue([lead("ishlangan", { assignedToId: "day1" })]);
+    setPool([lead("ishlangan", { assignedToId: "day1" })]);
 
     const r = await distributeLeadsCore("NIGHT");
     expect(r.released).toBe(0);
@@ -335,7 +366,7 @@ describe("distributeLeadsCore", () => {
 
   it("smenasiz chaqiruv eski xulqni saqlaydi (barcha operatorlar)", async () => {
     userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: 50 }]);
-    clientFindMany.mockResolvedValue([lead("c0", { assignedToId: "boshqa" })]);
+    setPool([lead("c0", { assignedToId: "boshqa" })]);
 
     const r = await distributeLeadsCore();
     expect(r.shift).toBeUndefined();
@@ -351,7 +382,7 @@ describe("distributeLeadsCore", () => {
       { id: "kam", dailyLimit: 5 },
       { id: "kop", dailyLimit: 30 },
     ]);
-    clientFindMany.mockResolvedValue(Array.from({ length: 100 }, (_, i) => lead(`c${i}`)));
+    setPool(Array.from({ length: 100 }, (_, i) => lead(`c${i}`)));
 
     const r = await distributeLeadsCore();
     expect(r.capacity).toBe(35);
@@ -369,7 +400,7 @@ describe("distributeLeadsCore", () => {
   it("bot bergan bir kunlik qo'shimcha lid kvotani oshiradi", async () => {
     userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: 10 }]);
     grantFindMany.mockResolvedValue([{ userId: "op1", extraCount: 7 }]);
-    clientFindMany.mockResolvedValue(Array.from({ length: 50 }, (_, i) => lead(`c${i}`)));
+    setPool(Array.from({ length: 50 }, (_, i) => lead(`c${i}`)));
 
     const r = await distributeLeadsCore();
     expect(r.granted).toBe(7);
@@ -379,7 +410,7 @@ describe("distributeLeadsCore", () => {
 
   it("grant faqat BUGUNGI kunga va shu operatorlarga so'raladi", async () => {
     userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: 10 }]);
-    clientFindMany.mockResolvedValue([lead("c0")]);
+    setPool([lead("c0")]);
     await distributeLeadsCore();
     const where = grantFindMany.mock.calls[0][0].where;
     expect(where.userId).toEqual({ in: ["op1"] });
@@ -390,7 +421,7 @@ describe("distributeLeadsCore", () => {
     userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: 10 }]);
     grantFindMany.mockResolvedValue([{ userId: "op1", extraCount: 5 }]);
     callLogFindMany.mockResolvedValue([{ clientId: "ishlangan" }]);
-    clientFindMany.mockResolvedValue([
+    setPool([
       lead("ishlangan", { assignedToId: "op1" }),
       ...Array.from({ length: 50 }, (_, i) => lead(`c${i}`)),
     ]);
@@ -406,7 +437,7 @@ describe("distributeLeadsCore", () => {
       { id: "nol", dailyLimit: 0 },
       { id: "op1", dailyLimit: 3 },
     ]);
-    clientFindMany.mockResolvedValue(Array.from({ length: 10 }, (_, i) => lead(`c${i}`)));
+    setPool(Array.from({ length: 10 }, (_, i) => lead(`c${i}`)));
 
     const r = await distributeLeadsCore();
     expect(r.assigned).toBe(3);
@@ -414,9 +445,103 @@ describe("distributeLeadsCore", () => {
     expect(toNol).toHaveLength(0);
   });
 
+  // --- Avtomatik kvota (dailyLimit = null) ---
+
+  /** Siyosatni almashtirish uchun qisqa yordamchi. */
+  function policy(over: Record<string, number> = {}) {
+    getRecallSettings.mockResolvedValue({
+      rules: {},
+      policy: {
+        minPerOperator: 0,
+        maxPerOperator: 50,
+        debtorCooldownDays: 3,
+        escalationThreshold: 3,
+        ...over,
+      },
+    });
+  }
+
+  it("kvota null bo'lsa — ro'yxat operatorlarga teng bo'linadi", async () => {
+    policy({ minPerOperator: 0, maxPerOperator: 100 });
+    userFindMany.mockResolvedValue([
+      { id: "op1", dailyLimit: null },
+      { id: "op2", dailyLimit: null },
+    ]);
+    setPool(Array.from({ length: 30 }, (_, i) => lead(`c${i}`)));
+
+    const r = await distributeLeadsCore();
+    expect(r.autoLimit).toBe(15); // 30 / 2
+    expect(r.assigned).toBe(30);
+  });
+
+  it("avtomatik kvota eng ko'p chegarasidan oshmaydi", async () => {
+    policy({ minPerOperator: 0, maxPerOperator: 12 });
+    userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: null }]);
+    setPool(Array.from({ length: 40 }, (_, i) => lead(`c${i}`)));
+
+    const r = await distributeLeadsCore();
+    expect(r.autoLimit).toBe(12);
+    expect(r.assigned).toBe(12);
+  });
+
+  it("ro'yxat kam bo'lsa — muddati yaqinlar oldinga tortiladi", async () => {
+    policy({ minPerOperator: 10, maxPerOperator: 50 });
+    userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: null }]);
+    setPool(
+      [lead("bugun")],
+      Array.from({ length: 20 }, (_, i) => lead(`kelasi${i}`, { nextContactDate: inDays(2) })),
+    );
+
+    const r = await distributeLeadsCore();
+    expect(r.autoLimit).toBe(10); // eng kam chegara
+    expect(r.pulled).toBe(9); // 10 - 1
+    expect(r.assigned).toBe(10);
+  });
+
+  it("eng kam chegara 0 bo'lsa hech narsa tortilmaydi", async () => {
+    policy({ minPerOperator: 0, maxPerOperator: 50 });
+    userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: null }]);
+    setPool([lead("bugun")], [lead("kelasi", { nextContactDate: inDays(2) })]);
+
+    const r = await distributeLeadsCore();
+    expect(r.pulled).toBe(0);
+    expect(r.assigned).toBe(1);
+  });
+
+  it("qat'iy kvota qo'yilgan operator avtomatikka bo'ysunmaydi", async () => {
+    policy({ minPerOperator: 0, maxPerOperator: 50 });
+    userFindMany.mockResolvedValue([
+      { id: "qatiy", dailyLimit: 3 },
+      { id: "avto", dailyLimit: null },
+    ]);
+    setPool(Array.from({ length: 40 }, (_, i) => lead(`c${i}`)));
+
+    const r = await distributeLeadsCore();
+    const byOp = new Map<string, number>();
+    for (const call of clientUpdateMany.mock.calls) {
+      const op = call[0].data.assignedToId;
+      if (op) byOp.set(op, (byOp.get(op) ?? 0) + call[0].where.id.in.length);
+    }
+    expect(byOp.get("qatiy")).toBe(3);
+    expect(byOp.get("avto")).toBe(r.autoLimit);
+  });
+
+  it("qarzdorni qayta ko'rsatish oralig'i so'rovga kiradi", async () => {
+    policy({ debtorCooldownDays: 5 });
+    userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: null }]);
+    setPool([lead("c0")]);
+
+    await distributeLeadsCore();
+    const debtorClause = clientFindMany.mock.calls[0][0].where.OR[1];
+    expect(debtorClause.OR).toEqual([
+      { lastContactedAt: null },
+      { lastContactedAt: { lt: expect.any(Date) } },
+    ]);
+  });
+
   it("taqsimotdan keyin audit yoziladi (fokus nomi bilan)", async () => {
     userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: 50 }]);
-    clientFindMany.mockResolvedValue([lead("c0")]);
+    setPool([lead("c0")]);
     await distributeLeadsCore();
     expect(logAudit).toHaveBeenCalledTimes(1);
     expect(logAudit.mock.calls[0][1].detail).toContain("Muvozanat");

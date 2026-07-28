@@ -340,7 +340,7 @@ type StaffRec = {
   phone: string | null;
   regions: string[];
   shift: string;
-  dailyLeadTarget: number;
+  dailyLeadTarget: number | null;
 };
 
 async function commitStaff(records: StaffRec[]): Promise<CommitState> {

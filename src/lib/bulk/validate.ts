@@ -176,7 +176,8 @@ export type StaffRecord = {
   phone: string | null;
   regions: string[];
   shift: "DAY" | "NIGHT";
-  dailyLeadTarget: number;
+  /** Shablondagi "Kunlik lid rejasi"; bo'sh — AVTOMATIK (null). */
+  dailyLeadTarget: number | null;
 };
 
 const ROLES = ["ADMIN", "MANAGER", "OPERATOR", "INSTALLER"] as const;
@@ -242,7 +243,7 @@ export function resolveStaff(row: ParsedRow, lk: Lookups, seen: Set<string>): Ro
         .map((r) => r.trim())
         .filter(Boolean),
       shift: shiftRaw === "NIGHT" ? "NIGHT" : "DAY",
-      dailyLeadTarget: target !== null && target >= 0 ? Math.round(target) : 20,
+      dailyLeadTarget: target !== null && target >= 0 ? Math.round(target) : null,
     },
   };
 }

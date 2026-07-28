@@ -23,7 +23,11 @@ const baseSchema = z.object({
   role: z.string(),
   phone: z.string().optional(),
   telegramId: z.string().optional(),
-  dailyLimit: z.coerce.number().int().min(0).default(20),
+  // Bo'sh qoldirilsa — AVTOMATIK (null): dastur kunlik sonni o'zi hisoblaydi.
+  dailyLimit: z
+    .union([z.literal(""), z.coerce.number().int().min(0).max(500)])
+    .optional()
+    .transform((v) => (v === "" || v === undefined ? null : v)),
   shift: z.string().optional(),
   // Kartaga dostupi bor xodim — karta/QR to'lovlarini u tasdiqlaydi
   cardVerifier: z.coerce.boolean().default(false),

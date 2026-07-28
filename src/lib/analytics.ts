@@ -1,4 +1,4 @@
-import { addDays, endOfDay, startOfDay, startOfMonth, startOfWeek } from "date-fns";
+import { endOfDay, startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { db } from "@/lib/db";
 import { getStatsResetAt } from "@/lib/settings";
 import {
@@ -10,43 +10,15 @@ import {
   callResultLabel,
   clientStatusLabel,
   leadStageLabel,
+  type UserShift,
 } from "@/lib/constants";
+import { currentShift, shiftRange } from "@/lib/shift";
 
 // --- Smena (shift) oynalari ---
-// Kunduzgi: bugun 09:00 → 18:00. Kechki: 18:00 → ertasi 09:00 (yarim tunni kesib o'tadi).
-export type Shift = "DAY" | "NIGHT";
-
-const DAY_START_HOUR = 9;
-const DAY_END_HOUR = 18;
-
-/** `base` sanasining aynan shu kunidagi soatni (00 daqiqa) qaytaradi. */
-function atHour(base: Date, hour: number): Date {
-  const d = new Date(base);
-  d.setHours(hour, 0, 0, 0);
-  return d;
-}
-
-/** Berilgan vaqtdagi joriy smena: 09:00–18:00 oralig'i — kunduzgi, aks holda kechki. */
-export function currentShift(now: Date): Shift {
-  const h = now.getHours();
-  return h >= DAY_START_HOUR && h < DAY_END_HOUR ? "DAY" : "NIGHT";
-}
-
-/**
- * Smenaning [start, end) vaqt chegarasi. Kechki smena yarim tunni xavfsiz kesib o'tadi:
- * - agar hozir ertalab (00:00–09:00) bo'lsa — kechki smena kecha 18:00 dan bugun 09:00 gacha;
- * - aks holda (kunduzi/kechqurun) — bugun 18:00 dan ertaga 09:00 gacha.
- */
-export function shiftRange(shift: Shift, now: Date): { start: Date; end: Date } {
-  const nine = atHour(now, DAY_START_HOUR);
-  const eighteen = atHour(now, DAY_END_HOUR);
-  if (shift === "DAY") return { start: nine, end: eighteen };
-  // NIGHT — yarim tunni kesib o'tadi
-  if (now < nine) {
-    return { start: atHour(addDays(now, -1), DAY_END_HOUR), end: nine };
-  }
-  return { start: eighteen, end: atHour(addDays(now, 1), DAY_START_HOUR) };
-}
+// Ta'rif `lib/shift.ts` da (UTC+5 ni o'zi hisoblaydi) — bu yerda faqat
+// orqaga moslik uchun qayta eksport qilinadi.
+export type Shift = UserShift;
+export { currentShift, shiftRange };
 
 export type OperatorStat = {
   id: string;

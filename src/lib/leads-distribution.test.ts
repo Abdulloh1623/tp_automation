@@ -8,6 +8,7 @@ const {
   callLogFindMany,
   logAudit,
   getActiveLeadProfile,
+  currentShift,
 } = vi.hoisted(() => ({
   userFindMany: vi.fn(),
   clientFindMany: vi.fn(),
@@ -15,6 +16,7 @@ const {
   callLogFindMany: vi.fn(),
   logAudit: vi.fn(),
   getActiveLeadProfile: vi.fn(),
+  currentShift: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -26,6 +28,7 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/audit", () => ({ logAudit }));
 vi.mock("@/lib/settings", () => ({ getActiveLeadProfile }));
+vi.mock("@/lib/shift", () => ({ currentShift }));
 
 import { distributeLeadsCore } from "./leads-distribution";
 
@@ -65,6 +68,7 @@ function assignedIds() {
 beforeEach(() => {
   vi.clearAllMocks();
   callLogFindMany.mockResolvedValue([]);
+  currentShift.mockReturnValue("DAY");
   getActiveLeadProfile.mockResolvedValue({
     id: "BALANCED",
     todayOnly: false,
@@ -241,6 +245,96 @@ describe("distributeLeadsCore", () => {
     expect(r.kept).toBe(1);
     const all = clientUpdateMany.mock.calls.flatMap((c) => c[0].where.id.in as string[]);
     expect(all).not.toContain("tegilgan");
+  });
+
+  // --- Smena bo'yicha taqsimot ---
+
+  /** Birinchi so'rov — smena operatorlari; ikkinchisi (select.shift) — barcha operatorlar. */
+  function mockUsers(shiftOps: { id: string }[], all: { id: string; shift: string }[]) {
+    userFindMany.mockImplementation(({ select }: { select?: { shift?: boolean } }) =>
+      Promise.resolve(select?.shift ? all : shiftOps),
+    );
+  }
+
+  it("faqat berilgan smena operatorlariga taqsimlanadi", async () => {
+    mockUsers([{ id: "night1" }], [
+      { id: "night1", shift: "NIGHT" },
+      { id: "day1", shift: "DAY" },
+    ]);
+    clientFindMany.mockResolvedValue([lead("c0")]);
+
+    const r = await distributeLeadsCore("NIGHT");
+    expect(userFindMany.mock.calls[0][0].where).toMatchObject({
+      role: "OPERATOR",
+      isActive: true,
+      shift: "NIGHT",
+    });
+    expect(r.operators).toBe(1);
+    expect(assignedIds()).toEqual(["c0"]);
+  });
+
+  it("smenada faol operator yo'q — hech narsa o'zgarmaydi", async () => {
+    userFindMany.mockResolvedValue([]);
+    const r = await distributeLeadsCore("NIGHT");
+    expect(r.error).toContain("Kechki");
+    expect(clientUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("boshqa smena hali ishlayotgan bo'lsa — uning lidiga tegilmaydi", async () => {
+    currentShift.mockReturnValue("NIGHT"); // kechki smena hozir ishlayapti
+    mockUsers([{ id: "day1" }], [
+      { id: "day1", shift: "DAY" },
+      { id: "night1", shift: "NIGHT" },
+    ]);
+    clientFindMany.mockResolvedValue([
+      lead("kechkida", { assignedToId: "night1" }),
+      lead("bo'sh"),
+    ]);
+
+    const r = await distributeLeadsCore("DAY");
+    expect(r.released).toBe(0);
+    const all = clientUpdateMany.mock.calls.flatMap((c) => c[0].where.id.in as string[]);
+    expect(all).not.toContain("kechkida");
+    expect(assignedIds()).toContain("bo'sh");
+  });
+
+  it("tugagan smenaning ishlanmagan lidi joriy smenaga o'tadi", async () => {
+    currentShift.mockReturnValue("NIGHT"); // kunduzgi smena tugagan
+    mockUsers([{ id: "night1" }], [
+      { id: "day1", shift: "DAY" },
+      { id: "night1", shift: "NIGHT" },
+    ]);
+    clientFindMany.mockResolvedValue([lead("ulgurmagan", { assignedToId: "day1" })]);
+
+    const r = await distributeLeadsCore("NIGHT");
+    expect(r.released).toBe(1);
+    expect(assignedIds()).toContain("ulgurmagan");
+  });
+
+  it("tugagan smenada ISHLANGAN lid egasida qoladi (bo'shatilmaydi)", async () => {
+    currentShift.mockReturnValue("NIGHT");
+    callLogFindMany.mockResolvedValue([{ clientId: "ishlangan" }]);
+    mockUsers([{ id: "night1" }], [
+      { id: "day1", shift: "DAY" },
+      { id: "night1", shift: "NIGHT" },
+    ]);
+    clientFindMany.mockResolvedValue([lead("ishlangan", { assignedToId: "day1" })]);
+
+    const r = await distributeLeadsCore("NIGHT");
+    expect(r.released).toBe(0);
+    const all = clientUpdateMany.mock.calls.flatMap((c) => c[0].where.id.in as string[]);
+    expect(all).not.toContain("ishlangan");
+  });
+
+  it("smenasiz chaqiruv eski xulqni saqlaydi (barcha operatorlar)", async () => {
+    userFindMany.mockResolvedValue([{ id: "op1" }]);
+    clientFindMany.mockResolvedValue([lead("c0", { assignedToId: "boshqa" })]);
+
+    const r = await distributeLeadsCore();
+    expect(r.shift).toBeUndefined();
+    // Ikkinchi (smena) so'rovi umuman yuborilmaydi
+    expect(userFindMany).toHaveBeenCalledTimes(1);
+    expect(assignedIds()).toEqual(["c0"]);
   });
 
   it("taqsimotdan keyin audit yoziladi (fokus nomi bilan)", async () => {

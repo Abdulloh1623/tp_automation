@@ -424,7 +424,8 @@ export async function startBot(): Promise<void> {
           ? `⚠️ Taqsimot: ${escapeHtml(r.error)}`
           : `✅ Taqsimot tugadi: <b>${r.assigned}</b> mijoz ${r.operators} operatorga\n` +
             `🎯 Fokus: ${escapeHtml(r.profileLabel ?? "-")}${r.todayOnly ? " (faqat bugunga)" : ""}` +
-            ` · majburiy: ${r.floor ?? 0} · egasida qoldi: ${r.kept ?? 0}`,
+            ` · majburiy: ${r.floor ?? 0} · egasida qoldi: ${r.kept ?? 0}` +
+            (r.released ? ` · tugagan smenadan: ${r.released}` : ""),
         { parse_mode: "HTML" },
       );
     } catch (e) {

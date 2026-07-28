@@ -6,14 +6,17 @@ import {
   ACTIVE_STAGES,
   LEAD_LIMITS,
   NO_CONTACT_STAGES,
+  USER_SHIFT,
   leadProfileLabel,
   profileOrder,
   type LeadProfileId,
   type LeadSegment,
+  type UserShift,
 } from "@/lib/constants";
 import { allocateByProfile, splitByCapacity } from "@/lib/distribute-util";
 import { classifyLead, isFloorLead, overdueDays } from "@/lib/lead-segments";
 import { getActiveLeadProfile } from "@/lib/settings";
+import { currentShift } from "@/lib/shift";
 import { startOfTzDay } from "@/lib/tz";
 
 export type DistributeResult = {
@@ -23,6 +26,11 @@ export type DistributeResult = {
   kept?: number;
   /** Majburiy pol bo'yicha kiritilganlar soni. */
   floor?: number;
+  /** Tugagan smenadan bo'shatib olingan (tegilmagan) lidlar soni. */
+  released?: number;
+  /** Qaysi smena uchun taqsimlandi (bo'sh — barcha operatorlarga). */
+  shift?: UserShift;
+  shiftLabel?: string;
   profile?: LeadProfileId;
   profileLabel?: string;
   todayOnly?: boolean;
@@ -48,13 +56,28 @@ function shuffle(ids: string[]): void {
  *
  * Bugun allaqachon ishlangan lid (natija yozilgan yoki qo'ng'iroq qilingan)
  * EGASIDA qoladi — kun o'rtasida fokus almashsa ham operatorning ishi buzilmaydi.
+ *
+ * `shift` berilsa — faqat o'sha smenadagi operatorlarga taqsimlanadi. Bunda
+ * BOSHQA smenaning lidlari tegilmaydi, LEKIN o'sha smena allaqachon tugagan
+ * bo'lsa, uning ishlanmagan lidlari bo'shatilib joriy smenaga o'tadi (kunduzgi
+ * smena ulgurmagan lid kechqurun yana navbatga tushadi). `shift` berilmasa —
+ * eski xulq: barcha faol operatorlar.
  */
-export async function distributeLeadsCore(): Promise<DistributeResult> {
+export async function distributeLeadsCore(shift?: UserShift): Promise<DistributeResult> {
   const operators = await db.user.findMany({
-    where: { role: "OPERATOR", isActive: true },
+    where: { role: "OPERATOR", isActive: true, ...(shift ? { shift } : {}) },
     select: { id: true },
   });
-  if (operators.length === 0) return { assigned: 0, operators: 0, error: "Faol operator yo'q" };
+  if (operators.length === 0) {
+    return {
+      assigned: 0,
+      operators: 0,
+      shift,
+      error: shift
+        ? `${USER_SHIFT[shift]} smenasida faol operator yo'q`
+        : "Faol operator yo'q",
+    };
+  }
 
   const now = new Date();
   const active = await getActiveLeadProfile(now);
@@ -101,12 +124,32 @@ export async function distributeLeadsCore(): Promise<DistributeResult> {
   });
   const touched = new Set(touchedRows.map((r) => r.clientId));
 
+  // Kim qaysi smenada — boshqa smenaning lidiga tegmaslik uchun.
+  const other: UserShift | null = shift ? (shift === "DAY" ? "NIGHT" : "DAY") : null;
+  const otherEnded = other ? currentShift(now) !== other : false;
+  const shiftOf = new Map<string, string>();
+  if (other) {
+    const all = await db.user.findMany({
+      where: { role: "OPERATOR" },
+      select: { id: true, shift: true },
+    });
+    for (const o of all) shiftOf.set(o.id, o.shift);
+  }
+
   const locked = new Map<string, number>();
   const free: typeof pool = [];
+  let released = 0;
   for (const c of pool) {
+    // Bugun ishlangan lid — har doim egasida qoladi.
     if (c.assignedToId && (c.pendingStage != null || touched.has(c.id))) {
       locked.set(c.assignedToId, (locked.get(c.assignedToId) ?? 0) + 1);
       continue;
+    }
+    if (shift && c.assignedToId && shiftOf.get(c.assignedToId) === other) {
+      // Boshqa smenaning ishlanmagan lidi: o'sha smena hali ishlayotgan bo'lsa
+      // tegmaymiz; tugagan bo'lsa — bo'shatib joriy smenaga beramiz.
+      if (!otherEnded) continue;
+      released++;
     }
     free.push(c);
   }
@@ -158,18 +201,25 @@ export async function distributeLeadsCore(): Promise<DistributeResult> {
 
   const kept = [...locked.values()].reduce((s, n) => s + n, 0);
   const label = leadProfileLabel(active.id);
+  const shiftLabel = shift ? USER_SHIFT[shift] : undefined;
   await logAudit("Lidlar kunlik taqsimlandi", {
     entity: "Client",
     detail:
-      `${assigned} mijoz → ${operators.length} operator (limit ${LEAD_LIMITS.daily}/op) · ` +
-      `fokus: ${label}${active.todayOnly ? " (faqat bugunga)" : ""} · ` +
-      `majburiy: ${floorRows.length} · egasida qoldi: ${kept} · navbatda: ${unassigned.length}`,
+      `${assigned} mijoz → ${operators.length} operator (limit ${LEAD_LIMITS.daily}/op)` +
+      (shiftLabel ? ` · smena: ${shiftLabel}` : "") +
+      ` · fokus: ${label}${active.todayOnly ? " (faqat bugunga)" : ""} · ` +
+      `majburiy: ${floorRows.length} · egasida qoldi: ${kept}` +
+      (released ? ` · tugagan smenadan olindi: ${released}` : "") +
+      ` · navbatda: ${unassigned.length}`,
   });
   return {
     assigned,
     operators: operators.length,
     kept,
     floor: floorRows.length,
+    released,
+    shift,
+    shiftLabel,
     profile: active.id,
     profileLabel: label,
     todayOnly: active.todayOnly,

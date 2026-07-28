@@ -89,6 +89,22 @@ export function isUserShift(v: string): v is UserShift {
   return v === "DAY" || v === "NIGHT";
 }
 
+/**
+ * Smena hisobotlari (UTC+5). Kunlik hisobot ikkiga bo'lingan: kunduzgi smena
+ * 17:30 da yuboriladi va 09:30 dan beri bo'lgan ishni ko'rsatadi; kechki smena
+ * 09:30 da yuboriladi va kecha 17:30 dan beri.
+ *
+ * Oynalar ataylab yuborish vaqtlariga bog'langan — smenaning nominal chegarasiga
+ * (09:00/18:00) emas. Aks holda 17:30–18:00 oralig'i hech qaysi hisobotga
+ * tushmasdi; hozirgi ko'rinishda ikki oyna uzluksiz 24 soatni qoplaydi.
+ *
+ * cron jadvali ham shu yerdan quriladi (`scripts/bot.ts`) — vaqtlar bir joyda.
+ */
+export const SHIFT_REPORT = {
+  DAY: { sendHour: 17, sendMinute: 30, startHour: 9, startMinute: 30 },
+  NIGHT: { sendHour: 9, sendMinute: 30, startHour: 17, startMinute: 30 },
+} as const;
+
 // Mijoz – texnika munosabati
 export const EQUIPMENT_MODE = {
   RENTAL: "Ijara",

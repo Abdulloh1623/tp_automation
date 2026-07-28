@@ -4,15 +4,25 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { guardRole } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { ACTIVE_STAGES } from "@/lib/constants";
+import {
+  ACTIVE_STAGES,
+  isLeadProfileId,
+  leadProfileLabel,
+  type LeadProfileId,
+} from "@/lib/constants";
 import { distributeLeadsCore } from "@/lib/leads-distribution";
+import { getActiveLeadProfile, setLeadProfile } from "@/lib/settings";
 
 export type DistributeState = {
   ok?: boolean;
   assigned?: number;
   operators?: number;
+  kept?: number;
+  profileLabel?: string;
   error?: string;
 };
+
+export type FocusState = { ok: boolean; error?: string };
 
 export type ReleaseState = { ok: boolean; released?: number; error?: string };
 
@@ -69,5 +79,42 @@ export async function redistributeLeads(
 
   revalidatePath("/lidlar");
   revalidatePath("/mijozlar");
-  return { ok: true, assigned: res.assigned, operators: res.operators };
+  return {
+    ok: true,
+    assigned: res.assigned,
+    operators: res.operators,
+    kept: res.kept,
+    profileLabel: res.profileLabel,
+  };
+}
+
+/**
+ * Kunlik fokusni (lid ustuvorlik profilini) belgilaydi. Faqat ADMIN — bu
+ * butun jamoaning kunlik ish tartibini o'zgartiradi.
+ *
+ * `todayOnly` — faqat bugungi kunga; ertaga doimiy profil qaytadi. Profil
+ * o'zgarishi keyingi taqsimotdan (cron 08:00 yoki qo'lda "Qayta taqsimla")
+ * kuchga kiradi — bugun allaqachon ishlangan lidlar egasida qoladi.
+ */
+export async function setLeadFocus(
+  profile: string,
+  todayOnly: boolean,
+): Promise<FocusState> {
+  const g = await guardRole(["ADMIN"]);
+  if (!g.ok) return { ok: false, error: g.error };
+  if (!isLeadProfileId(profile)) return { ok: false, error: "Noma'lum fokus profili" };
+
+  const before = await getActiveLeadProfile();
+  await setLeadProfile(profile as LeadProfileId, todayOnly);
+
+  await logAudit("Kunlik fokus o'zgartirildi", {
+    entity: "AppSetting",
+    detail:
+      `${leadProfileLabel(before.id)} → ${leadProfileLabel(profile)}` +
+      (todayOnly ? " (faqat bugunga)" : " (doimiy)"),
+  });
+
+  revalidatePath("/lidlar");
+  revalidatePath("/analitika");
+  return { ok: true };
 }

@@ -79,14 +79,22 @@ async function runBackup() {
   }
 }
 
-/** Kunlik random taqsimot: muddati kelgan lidlarni operatorlarga tasodifiy ulashadi. */
-async function runDistribute() {
+/**
+ * Kunlik taqsimot: muddati kelgan lidlarni smena operatorlariga ulashadi.
+ * Smena berilmasa — barcha faol operatorlarga (qo'lda ishga tushirish uchun).
+ */
+async function runDistribute(shift?: "DAY" | "NIGHT") {
+  const tag = shift ? `taqsimot[${shift}]` : "taqsimot";
   try {
-    const r = await withRetry("taqsimot", () => distributeLeadsCore());
-    if (r.error) log("taqsimot:", r.error);
-    else log(`taqsimot → ${r.assigned} mijoz ${r.operators} operatorga`);
+    const r = await withRetry(tag, () => distributeLeadsCore(shift));
+    if (r.error) log(`${tag}:`, r.error);
+    else
+      log(
+        `${tag} → ${r.assigned} mijoz ${r.operators} operatorga` +
+          (r.released ? ` (tugagan smenadan olindi: ${r.released})` : ""),
+      );
   } catch (e) {
-    log("taqsimot XATO:", e instanceof Error ? e.message : e);
+    log(`${tag} XATO:`, e instanceof Error ? e.message : e);
     await reportError(e, { source: "worker", path: "distribute", notifyTransient: true });
   }
 }
@@ -187,8 +195,12 @@ async function main() {
   }
 
   if (argv.includes("--distribute")) {
-    log("Qo'lda taqsimot");
-    await runDistribute();
+    // `--distribute --shift DAY|NIGHT` — smenaga; smenasiz barcha operatorlarga.
+    const sIdx = argv.indexOf("--shift");
+    const s = sIdx >= 0 ? argv[sIdx + 1] : undefined;
+    const shift = s === "DAY" || s === "NIGHT" ? s : undefined;
+    log("Qo'lda taqsimot", shift ?? "(barcha smenalar)");
+    await runDistribute(shift);
     await db.$disconnect();
     return;
   }
@@ -222,14 +234,18 @@ async function main() {
   // Eslatmalar: ertalab to'liq (operator + boshliq), tushdan keyin operatorlarga eslatish
   cron.schedule("30 9 * * *", () => runReminders(false), { timezone: TZ });
   cron.schedule("0 15 * * *", () => runReminders(true), { timezone: TZ });
-  // Kunlik random taqsimot — ish boshlanishidan oldin (08:00)
-  cron.schedule("0 8 * * *", () => runDistribute(), { timezone: TZ });
+  // Taqsimot smena boshlanishidan oldin: kunduzgi 08:00, kechki 18:00.
+  // Kechki taqsimotda kunduzgi smena ULGURMAGAN (tegilmagan) lidlar bo'shatilib
+  // kechki smenaga o'tadi — kun oxirida ular yo'qolib qolmaydi.
+  cron.schedule("0 8 * * *", () => runDistribute("DAY"), { timezone: TZ });
+  cron.schedule("0 18 * * *", () => runDistribute("NIGHT"), { timezone: TZ });
   // 3-kunlik SLA ogohlantirishi — har kuni 10:00
   cron.schedule("0 10 * * *", () => runSla(), { timezone: TZ });
   // Disk bo'sh joyi — ish kuni boshlanishidan oldin (07:00) va startda bir marta
   cron.schedule("0 7 * * *", () => runDiskCheck(), { timezone: TZ });
   log(
-    "Cron jadvallari o'rnatildi: disk 07:00, taqsimot 08:00, eslatma 09:30 & 15:00, SLA 10:00," +
+    "Cron jadvallari o'rnatildi: disk 07:00, taqsimot 08:00 (kunduzgi) & 18:00 (kechki)," +
+      " eslatma 09:30 & 15:00, SLA 10:00," +
       " kechki smena 09:30, kunduzgi smena 17:30, haftalik Dush 09:00, oylik 1-kun 09:00," +
       " yangilanish 00:00, backup 03:00",
   );

@@ -273,7 +273,7 @@ export type OperatorDailyStats = {
   assigned: number; // biriktirilgan mijozlar (jami)
   attempted: number; // bugun urinilgan aloqalar (har qanday CallLog)
   successful: number; // bugun gaplashilgan (TALKED_RESULTS)
-  target: number; // kunlik maqsad (User.dailyLeadTarget)
+  target: number; // kunlik kvota (User.dailyLimit)
 };
 
 /**
@@ -291,7 +291,7 @@ export async function getOperatorDailyStats(
   const [user, assigned, logs] = await Promise.all([
     db.user.findUnique({
       where: { id: userId },
-      select: { name: true, dailyLeadTarget: true },
+      select: { name: true, dailyLimit: true },
     }),
     db.client.count({ where: { assignedToId: userId } }),
     db.callLog.findMany({
@@ -310,7 +310,7 @@ export async function getOperatorDailyStats(
     assigned,
     attempted: logs.length,
     successful,
-    target: user?.dailyLeadTarget ?? 0,
+    target: user?.dailyLimit ?? 0,
   };
 }
 
@@ -341,7 +341,7 @@ export async function getOperatorActivity(): Promise<ActivityFeed> {
   const [operators, todayLogs, lastLogs] = await Promise.all([
     db.user.findMany({
       where: { role: "OPERATOR", isActive: true },
-      select: { id: true, name: true, dailyLeadTarget: true },
+      select: { id: true, name: true, dailyLimit: true },
       orderBy: { name: "asc" },
     }),
     db.callLog.findMany({
@@ -381,7 +381,7 @@ export async function getOperatorActivity(): Promise<ActivityFeed> {
       name: o.name,
       attempted: a.attempted,
       successful: a.successful,
-      target: o.dailyLeadTarget,
+      target: o.dailyLimit,
       lastActiveAt: last ? last.toISOString() : null,
     };
   });

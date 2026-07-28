@@ -298,9 +298,11 @@ export const UZBEK_MONTHS = [
 // Faqat USD uchun amal qiladi; UZS mijozlar bu qoida bo'yicha tekshirilmaydi.
 export const BASE_PROGRAM_USD = 29;
 
-// Operatorning gaplashgan lidlar bo'yicha limiti (6 ish kuni: kunlik 50 → hafta 300, oy ≈1300)
+// Tablodagi hafta/oy o'lchagichlari uchun ko'rsatkich normalari.
+// KUNLIK kvota bu yerda YO'Q — u har operatorning o'ziniki (`User.dailyLimit`,
+// ustiga bir kunlik `DailyLeadGrant`). Ilgari bu yerdagi global 50 taqsimotda
+// ishlatilib, xodimning shaxsiy kvotasi (20) bilan zid kelardi.
 export const LEAD_LIMITS = {
-  daily: 50,
   weekly: 300,
   monthly: 1300,
 } as const;

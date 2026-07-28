@@ -3,7 +3,16 @@
 
 import { db } from "./db";
 import { formatMoney } from "./utils";
-import { callResultLabel, clientStatusLabel, TALKED_RESULTS } from "./constants";
+import {
+  callResultLabel,
+  clientStatusLabel,
+  leadProfileLabel,
+  profileOrder,
+  TALKED_RESULTS,
+  type LeadSegment,
+} from "./constants";
+import { getActiveLeadProfile } from "./settings";
+import { classifyLead } from "./lead-segments";
 import { paymentState } from "./payment-status";
 import { svgToPng } from "./render-image";
 import {
@@ -161,12 +170,74 @@ function snapshotLines(s: Awaited<ReturnType<typeof snapshot>>): string {
   ].join("\n");
 }
 
+/**
+ * Kunlik fokus qatori — tanlangan ustuvorlik natijaga ta'sir qildimi degan
+ * savolga javob beradi: taqsimotda nechta fokus lidi bor va nechtasi bilan
+ * haqiqatan gaplashildi. Fokus segmentlari = ulushi eng katta, jami 50% gacha
+ * (OTHERS hisobga olinmaydi — u "qolgani" degani).
+ */
+async function focusLine(): Promise<string> {
+  const active = await getActiveLeadProfile();
+  const order = profileOrder(active.id);
+
+  const focusSegments = new Set<LeadSegment>();
+  let acc = 0;
+  for (const s of [...order].sort((a, b) => b.share - a.share)) {
+    if (s.segment === "OTHERS") continue;
+    focusSegments.add(s.segment);
+    acc += s.share;
+    if (acc >= 50) break;
+  }
+
+  const assigned = await db.client.findMany({
+    where: { status: "ACTIVE", assignedToId: { not: null } },
+    select: {
+      id: true,
+      stage: true,
+      createdAt: true,
+      nextPaymentDate: true,
+      nextContactDate: true,
+      lastContactedAt: true,
+      missedCallCount: true,
+      monthlyAmount: true,
+      currency: true,
+    },
+  });
+  const now = new Date();
+  const inFocus = assigned.filter((c) => focusSegments.has(classifyLead(c, order, now)));
+
+  let talked = 0;
+  if (inFocus.length) {
+    const rows = await db.callLog.findMany({
+      where: {
+        calledAt: { gte: startOfTzDay(0) },
+        clientId: { in: inFocus.map((c) => c.id) },
+        result: { in: TALKED_RESULTS },
+      },
+      select: { clientId: true },
+      distinct: ["clientId"],
+    });
+    talked = rows.length;
+  }
+
+  return (
+    `🎯 Fokus: <b>${escapeHtml(leadProfileLabel(active.id))}</b>` +
+    (active.todayOnly ? " <i>(faqat bugunga)</i>" : "") +
+    ` — taqsimotda ${inFocus.length} ta fokus lidi, ${talked} tasi bilan gaplashildi`
+  );
+}
+
 export async function buildDailyReport(): Promise<string> {
   const start = startOfTzDay(0);
   const end = new Date();
-  const [stats, snap] = await Promise.all([gatherPeriod(start, end), snapshot()]);
+  const [stats, snap, focus] = await Promise.all([
+    gatherPeriod(start, end),
+    snapshot(),
+    focusLine(),
+  ]);
   return (
     `📊 <b>Kunlik hisobot</b> — ${tzDateLabel()}\n\n` +
+    `${focus}\n\n` +
     periodLines(stats) +
     "\n" +
     snapshotLines(snap)

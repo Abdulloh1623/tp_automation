@@ -289,6 +289,127 @@ export const LEAD_LIMITS = {
   monthly: 1300,
 } as const;
 
+// --- Kunlik fokus (lid ustuvorligi) ---
+//
+// Kunlik taqsimotda hovuz segmentlarga bo'linadi va admin tanlagan PROFIL
+// bo'yicha har operatorning kunlik kvotasi shu segmentlardan ULUSH bilan
+// to'ldiriladi. Filtr EMAS — ulush: "bugun to'lov" desa ham yangi mijoz yoki
+// kuzatuv muddati kelgan lid butunlay tushib qolmaydi.
+
+export const LEAD_SEGMENT = {
+  DEBTOR_OLD: "Eski qarzdor",
+  DEBTOR: "Qarzdor",
+  DUE_SOON: "To'lov yaqin",
+  AWAITING_PAYMENT: "Va'da bergan",
+  NEW: "Yangi mijoz",
+  NO_ANSWER_2X: "2× ko'tarmagan",
+  FOLLOW_UP: "Kuzatuv",
+  HIGH_VALUE: "Yirik mijoz",
+  SILENT: "Uzoq jim",
+  OTHERS: "Boshqalar",
+} as const;
+export type LeadSegment = keyof typeof LEAD_SEGMENT;
+
+export function leadSegmentLabel(s: string): string {
+  return LEAD_SEGMENT[s as LeadSegment] ?? s;
+}
+
+// Segment chegaralari — biznes qoidasi bir joyda.
+export const SEGMENT_RULES = {
+  debtorOldDays: 30, // shu kundan ortiq qarz — "eski qarzdor"
+  dueSoonDays: 3, // to'lovga shuncha kun qolgan (hali qarz emas)
+  newClientDays: 14, // shu kun ichida qo'shilgan mijoz — "yangi"
+  highValueUsd: 100, // oylik shu summadan yuqori — "yirik"
+  silentDays: 30, // shu kundan beri aloqa yo'q — "uzoq jim"
+  // Majburiy pol: profildan QAT'I NAZAR kunlik ro'yxatga tushadigan lidlar —
+  // (a) aynan bugunga qayta-aloqa va'da qilinganlar, (b) shu kundan ortiq qarzdorlar.
+  // Pol chegaralangan bo'lishi shart, aks holda u butun hovuzni yutib, fokus
+  // ma'nosiz bo'lib qoladi (shu bois "muddati o'tgan va'da" emas, "aynan bugun").
+  floorDebtorDays: 60,
+} as const;
+
+export type ProfileShare = { segment: LeadSegment; share: number };
+
+// Profil = segmentlarning TARTIBLANGAN ulushlari. Tartib ikki vazifani bajaradi:
+// (1) mijoz qaysi segmentga tushishi — birinchi mos kelgan segment yutadi,
+// (2) kvota to'ldirish va operator board'idagi saralash tartibi.
+// `OTHERS` har doim oxirgi va qolgan hamma narsani ushlaydi (yig'indi = 100).
+export const LEAD_PRIORITY_PROFILES = {
+  BALANCED: {
+    label: "Muvozanat",
+    hint: "Kundalik odatiy tartib — qarz, va'da, yangi mijoz aralash",
+    shares: [
+      { segment: "DEBTOR_OLD", share: 20 },
+      { segment: "DEBTOR", share: 20 },
+      { segment: "AWAITING_PAYMENT", share: 15 },
+      { segment: "NEW", share: 15 },
+      { segment: "FOLLOW_UP", share: 10 },
+      { segment: "OTHERS", share: 20 },
+    ],
+  },
+  PAYMENT: {
+    label: "To'lov yig'ish",
+    hint: "Qarzdorlar va to'lov va'da qilganlar birinchi o'rinda",
+    shares: [
+      { segment: "DEBTOR_OLD", share: 30 },
+      { segment: "DEBTOR", share: 25 },
+      { segment: "AWAITING_PAYMENT", share: 25 },
+      { segment: "DUE_SOON", share: 10 },
+      { segment: "OTHERS", share: 10 },
+    ],
+  },
+  NEW_CLIENTS: {
+    label: "Yangi mijozlar",
+    hint: "Yangi qo'shilgan mijozlar bilan tanishuv va kuzatuv",
+    shares: [
+      { segment: "NEW", share: 50 },
+      { segment: "FOLLOW_UP", share: 20 },
+      { segment: "DEBTOR_OLD", share: 10 },
+      { segment: "DEBTOR", share: 10 },
+      { segment: "OTHERS", share: 10 },
+    ],
+  },
+  REENGAGE: {
+    label: "Aloqani tiklash",
+    hint: "Uzoq gaplashilmagan va telefon ko'tarmayotgan mijozlar",
+    shares: [
+      { segment: "SILENT", share: 40 },
+      { segment: "NO_ANSWER_2X", share: 30 },
+      { segment: "DEBTOR_OLD", share: 10 },
+      { segment: "DEBTOR", share: 10 },
+      { segment: "OTHERS", share: 10 },
+    ],
+  },
+  HIGH_VALUE: {
+    label: "Yirik mijozlar",
+    hint: "Oylik to'lovi yuqori mijozlarga alohida e'tibor",
+    shares: [
+      { segment: "HIGH_VALUE", share: 50 },
+      { segment: "DEBTOR_OLD", share: 15 },
+      { segment: "DEBTOR", share: 15 },
+      { segment: "OTHERS", share: 20 },
+    ],
+  },
+} as const satisfies Record<string, { label: string; hint: string; shares: readonly ProfileShare[] }>;
+
+export type LeadProfileId = keyof typeof LEAD_PRIORITY_PROFILES;
+
+// Admin hech narsa tanlamaganda ishlaydigan profil.
+export const DEFAULT_LEAD_PROFILE: LeadProfileId = "BALANCED";
+
+export function isLeadProfileId(v: unknown): v is LeadProfileId {
+  return typeof v === "string" && v in LEAD_PRIORITY_PROFILES;
+}
+
+export function leadProfileLabel(id: string): string {
+  return isLeadProfileId(id) ? LEAD_PRIORITY_PROFILES[id].label : id;
+}
+
+/** Profil segmentlari — tartiblangan (klassifikatsiya + saralash uchun). */
+export function profileOrder(id: LeadProfileId): ProfileShare[] {
+  return LEAD_PRIORITY_PROFILES[id].shares.map((s) => ({ ...s }));
+}
+
 // Usta (dala texnigi) vazifa holati
 export const USTA_STATUS = {
   ASSIGNED: "Biriktirildi",

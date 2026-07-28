@@ -16,6 +16,21 @@ export function startOfTzDay(daysAgo = 0): Date {
   return new Date(s.getTime() - TZ_MIN * 60000);
 }
 
+/**
+ * Berilgan vaqtning UTC+5 kun boshi. `startOfTzDay` dan farqi — SOF funksiya
+ * (`Date.now()` ga tayanmaydi), shuning uchun testlarda "hozir"ni uzatsa bo'ladi.
+ */
+export function tzDayStart(d: Date): Date {
+  const s = new Date(d.getTime() + TZ_MIN * 60000);
+  s.setUTCHours(0, 0, 0, 0);
+  return new Date(s.getTime() - TZ_MIN * 60000);
+}
+
+/** `a` va `b` orasidagi to'liq UTC+5 kunlar farqi (b - a). */
+export function tzDaysBetween(a: Date, b: Date): number {
+  return Math.round((tzDayStart(b).getTime() - tzDayStart(a).getTime()) / 86400000);
+}
+
 /** UTC+5 oy boshini qaytaradi. */
 export function startOfTzMonth(): Date {
   const s = new Date(Date.now() + TZ_MIN * 60000);

@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button";
 import { LeadTable, type LeadRow, type LeadHistory } from "@/components/lead-table";
 import { OperatorProgress } from "@/components/operator-progress";
 import { getOperatorDailyStats } from "@/lib/analytics";
-import { ACTIVE_STAGES, NO_CONTACT_STAGES } from "@/lib/constants";
+import { ACTIVE_STAGES, NO_CONTACT_STAGES, profileOrder } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
 import { tzDayKey } from "@/lib/tz";
+import { getActiveLeadProfile } from "@/lib/settings";
+import { classifyLead, isFloorLead } from "@/lib/lead-segments";
+import { LeadFocusCard } from "@/components/lead-focus-card";
 
 type SearchParams = Promise<{ operator?: string }>;
 
@@ -22,13 +25,14 @@ export default async function LeadsPage({
   const { operator } = await searchParams;
   const isAdmin = session.role === "ADMIN";
   const viewerId = isAdmin && operator ? operator : session.userId;
-  const today = endOfDay(new Date());
-  const todayStart = startOfDay(new Date());
+  const now = new Date();
+  const today = endOfDay(now);
+  const todayStart = startOfDay(now);
   // Bugun — Toshkent (UTC+5) taqvim kuni, so'rov paytida hisoblanadi (modul
   // darajasida EMAS — aks holda server jarayonida sana "muzlab" qolardi).
   const todayKey = tzDayKey(new Date());
 
-  const [leadsRaw, operators, dailyStats] = await Promise.all([
+  const [leadsRaw, operators, dailyStats, focus] = await Promise.all([
     db.client.findMany({
       where: {
         assignedToId: viewerId,
@@ -85,7 +89,13 @@ export default async function LeadsPage({
         })
       : Promise.resolve([]),
     getOperatorDailyStats(viewerId),
+    getActiveLeadProfile(),
   ]);
+
+  // Kunlik fokus board'ni ham tartiblaydi: ustuvorlik faqat "kimga tegdi"ni emas,
+  // "kim birinchi qo'ng'iroq qilinadi"ni ham belgilashi kerak.
+  const order = profileOrder(focus.id);
+  const segmentRank = new Map(order.map((s, i) => [s.segment, i]));
 
   const leads: LeadRow[] = leadsRaw.map((c) => {
     // Kun bo'yicha eng so'nggi yozuv (bir kun = bir katak)
@@ -112,6 +122,8 @@ export default async function LeadsPage({
 
     return {
       id: c.id,
+      segment: classifyLead(c, order, now),
+      mustCall: isFloorLead(c, now),
       overdue,
       overdueDays,
       restaurantName: c.restaurantName,
@@ -134,6 +146,19 @@ export default async function LeadsPage({
     };
   });
 
+  // Ustuvorlik tartibi: majburiy (bugunga va'da / eski qarz) → fokus segmenti →
+  // qayta-aloqa sanasi. Operator ro'yxatni tepadan bosgani ma'qul.
+  leads.sort((a, b) => {
+    if (a.mustCall !== b.mustCall) return a.mustCall ? -1 : 1;
+    const ra = segmentRank.get(a.segment) ?? order.length;
+    const rb = segmentRank.get(b.segment) ?? order.length;
+    if (ra !== rb) return ra - rb;
+    const da = a.nextPaymentDate ?? "";
+    const db_ = b.nextPaymentDate ?? "";
+    if (da !== db_) return da < db_ ? -1 : 1;
+    return a.restaurantName.localeCompare(b.restaurantName);
+  });
+
   // Kunlik lid va qarzdorni ajratib ko'rsatamiz — jami son (75-100) chalg'ituvchi
   // edi (u kunlik lid + muddati o'tgan qarzdorlarni birga sanardi).
   const overdueCount = leads.filter((l) => l.overdue).length;
@@ -150,6 +175,8 @@ export default async function LeadsPage({
           </p>
         </div>
       </div>
+
+      <LeadFocusCard profile={focus.id} todayOnly={focus.todayOnly} canEdit={isAdmin} />
 
       <OperatorProgress initial={dailyStats} />
 

@@ -283,8 +283,14 @@ async function main() {
   // Taqsimot smena boshlanishidan oldin: kunduzgi 08:00, kechki 18:00.
   // Kechki taqsimotda kunduzgi smena ULGURMAGAN (tegilmagan) lidlar bo'shatilib
   // kechki smenaga o'tadi — kun oxirida ular yo'qolib qolmaydi.
-  cron.schedule("0 8 * * *", () => runDistribute("DAY"), { timezone: TZ });
-  cron.schedule("0 18 * * *", () => runDistribute("NIGHT"), { timezone: TZ });
+  //
+  // DUSHANBA–SHANBA (`1-6`) — yakshanbada jadval emas, kelishuv ishlaydi:
+  // o'sha kuni kim ishga chiqishini tizim oldindan bilmaydi, shuning uchun
+  // avtomatik taqsimot qilinmaydi (aks holda ro'yxat ishga chiqmaganlarga ham
+  // bo'linib, ulushi kun bo'yi o'lik qolardi). Yakshanbada operator /lidlar da
+  // "Bugun ishdaman" tugmasini bosadi (`checkInDuty`).
+  cron.schedule("0 8 * * 1-6", () => runDistribute("DAY"), { timezone: TZ });
+  cron.schedule("0 18 * * 1-6", () => runDistribute("NIGHT"), { timezone: TZ });
   // 3-kunlik SLA ogohlantirishi — har kuni 10:00
   cron.schedule("0 10 * * *", () => runSla(), { timezone: TZ });
   // Biznex obuna flaglari — jim churn ogohlantirishidan oldin yangilansin (06:00)
@@ -295,7 +301,7 @@ async function main() {
   cron.schedule("0 7 * * *", () => runDiskCheck(), { timezone: TZ });
   log(
     "Cron jadvallari o'rnatildi: biznex 06:00, disk 07:00," +
-      " taqsimot 08:00 (kunduzgi) & 18:00 (kechki)," +
+      " taqsimot 08:00 (kunduzgi) & 18:00 (kechki) — Dush–Shan," +
       " eslatma 09:30 & 15:00, SLA 10:00, jim churn 10:15," +
       " kechki smena 09:30, kunduzgi smena 17:30, haftalik Dush 09:00, oylik 1-kun 09:00," +
       " yangilanish 00:00, backup 03:00",

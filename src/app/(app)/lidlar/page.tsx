@@ -9,10 +9,12 @@ import { OperatorProgress } from "@/components/operator-progress";
 import { getOperatorDailyStats } from "@/lib/analytics";
 import { ACTIVE_STAGES, NO_CONTACT_STAGES, profileOrder } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
-import { tzDayKey } from "@/lib/tz";
+import { tzDayKey, startOfTzDay } from "@/lib/tz";
 import { getActiveLeadProfile } from "@/lib/settings";
 import { classifyLead, isFloorLead } from "@/lib/lead-segments";
 import { LeadFocusCard } from "@/components/lead-focus-card";
+import { DutyCheckIn } from "@/components/duty-checkin";
+import { isDutyRotationDay } from "@/lib/shift";
 
 type SearchParams = Promise<{ operator?: string }>;
 
@@ -91,6 +93,17 @@ export default async function LeadsPage({
     getOperatorDailyStats(viewerId),
     getActiveLeadProfile(),
   ]);
+
+  // Navbat kuni (yakshanba) — ro'yxat oldindan bo'linmaydi, operator o'zi
+  // "Bugun ishdaman" deydi. Faqat operatorga ko'rsatiladi: admin boshqa odamning
+  // board'ini ko'rayotgan bo'lsa, uning nomidan ishga chiqib bo'lmaydi.
+  const dutyDay = isDutyRotationDay(now) && session.role === "OPERATOR";
+  const dutyRows = dutyDay
+    ? await db.dutyDay.findMany({
+        where: { date: startOfTzDay(0) },
+        select: { userId: true, user: { select: { name: true } } },
+      })
+    : [];
 
   // Kunlik fokus board'ni ham tartiblaydi: ustuvorlik faqat "kimga tegdi"ni emas,
   // "kim birinchi qo'ng'iroq qilinadi"ni ham belgilashi kerak.
@@ -188,6 +201,13 @@ export default async function LeadsPage({
           </p>
         </div>
       </div>
+
+      {dutyDay && (
+        <DutyCheckIn
+          checkedIn={dutyRows.some((d) => d.userId === session.userId)}
+          onDuty={dutyRows.map((d) => d.user.name)}
+        />
+      )}
 
       <LeadFocusCard profile={focus.id} todayOnly={focus.todayOnly} canEdit={isAdmin} />
 

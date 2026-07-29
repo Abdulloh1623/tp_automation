@@ -85,10 +85,23 @@ function shuffle(ids: string[]): void {
  * bo'lsa, uning ishlanmagan lidlari bo'shatilib joriy smenaga o'tadi (kunduzgi
  * smena ulgurmagan lid kechqurun yana navbatga tushadi). `shift` berilmasa —
  * eski xulq: barcha faol operatorlar.
+ *
+ * `operatorIds` berilsa — ro'yxat AYNAN shu odamlarga bo'linadi va smena
+ * e'tiborga olinmaydi. Bu navbat (yakshanba) kuni uchun: kim "Bugun ishdaman"
+ * desa, o'sha kunlik ro'yxatni oladi — smenasidan qat'i nazar, chunki o'sha kuni
+ * jadval emas, kelishuv ishlaydi.
  */
-export async function distributeLeadsCore(shift?: UserShift): Promise<DistributeResult> {
+export async function distributeLeadsCore(
+  shift?: UserShift,
+  operatorIds?: string[],
+): Promise<DistributeResult> {
+  const duty = operatorIds !== undefined;
   const operators = await db.user.findMany({
-    where: { role: "OPERATOR", isActive: true, ...(shift ? { shift } : {}) },
+    where: {
+      role: "OPERATOR",
+      isActive: true,
+      ...(duty ? { id: { in: operatorIds } } : shift ? { shift } : {}),
+    },
     select: { id: true, dailyLimit: true },
   });
   if (operators.length === 0) {
@@ -96,9 +109,11 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
       assigned: 0,
       operators: 0,
       shift,
-      error: shift
-        ? `${USER_SHIFT[shift]} smenasida faol operator yo'q`
-        : "Faol operator yo'q",
+      error: duty
+        ? "Bugun ishga chiqqan operator yo'q"
+        : shift
+          ? `${USER_SHIFT[shift]} smenasida faol operator yo'q`
+          : "Faol operator yo'q",
     };
   }
 
@@ -142,8 +157,10 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
   });
   const touched = new Set(touchedRows.map((r) => r.clientId));
 
-  // Kim qaysi smenada — boshqa smenaning lidiga tegmaslik uchun.
-  const other: UserShift | null = shift ? (shift === "DAY" ? "NIGHT" : "DAY") : null;
+  // Kim qaysi smenada — boshqa smenaning lidiga tegmaslik uchun. Navbat kunida
+  // smena chegarasi yo'q: ro'yxat ishga chiqqanlarga to'liq ochiladi.
+  const other: UserShift | null =
+    shift && !duty ? (shift === "DAY" ? "NIGHT" : "DAY") : null;
   const otherEnded = other ? currentShift(now) !== other : false;
   const shiftOf = new Map<string, string>();
   if (other) {
@@ -263,6 +280,7 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
     entity: "Client",
     detail:
       `${assigned} mijoz → ${operators.length} operator (sig'im ${capacity})` +
+      (duty ? " · navbat kuni (ishga chiqqanlarga)" : "") +
       (shiftLabel ? ` · smena: ${shiftLabel}` : "") +
       ` · fokus: ${label}${active.todayOnly ? " (faqat bugunga)" : ""} · ` +
       `majburiy: ${floorRows.length} · egasida qoldi: ${kept}` +

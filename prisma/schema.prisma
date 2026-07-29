@@ -55,6 +55,7 @@ model User {
   staffTickets         Ticket[]                @relation("TicketStaff")
   escalationClients    Client[]                @relation("EscalationStaff")
   dailyGrants          DailyLeadGrant[]
+  dutyDays             DutyDay[]
   passwordResets       PasswordResetRequest[]
   notifications        NotificationRecipient[]
   pendingPayments      PendingPayment[]        @relation("PendingPaymentResolver")
@@ -146,6 +147,21 @@ model DailyLeadGrant {
   extraCount  Int      @default(0)
   createdById String?
   createdAt   DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([date])
+}
+
+// Navbat kuni (yakshanba) ishga chiqqan operator. Dushanba–shanba jadval qat'iy,
+// yakshanbada esa jamoa o'zaro kelishadi — shuning uchun o'sha kuni kim ishlashini
+// tizim OLDINDAN bilmaydi. Operator "Bugun ishdaman" tugmasini bosganda shu yozuv
+// paydo bo'ladi va kunlik ro'yxat faqat chiqqanlarga bo'linadi.
+model DutyDay {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime // o'sha kun (00:00, UTC+5)
+  createdAt DateTime @default(now())
 
   @@unique([userId, date])
   @@index([date])

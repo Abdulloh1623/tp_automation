@@ -290,6 +290,11 @@ export const ESCALATION_THRESHOLD = 3;
 export const MIN_PASSWORD_LENGTH = 8;
 export const MAX_PASSWORD_LENGTH = 128;
 
+// Chek rasmining eng katta hajmi. Serverda (`lib/receipts.ts`) VA formada
+// (`components/receipt-input.tsx`) bir xil raqam ishlatilsin — aks holda
+// foydalanuvchi katta faylni tanlab, "Saqlash" bosgandan keyingina xato oladi.
+export const RECEIPT_MAX_MB = 5;
+
 // Oy nomlari (o'zbekcha) — moliya va uskuna analitikasi grafiklari uchun.
 export const UZBEK_MONTHS = [
   "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",

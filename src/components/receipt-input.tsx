@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Upload, ClipboardPaste, X, Image as ImageIcon } from "lucide-react";
+import { RECEIPT_MAX_MB } from "@/lib/constants";
+
+const MAX_BYTES = RECEIPT_MAX_MB * 1024 * 1024;
 
 /**
  * Chek (rasm) kiritish: fayl yuklash YOKI clipboarddan paste.
@@ -23,7 +26,19 @@ export function ReceiptInput({
     };
   }, [preview]);
 
+  /**
+   * Hajmni SHU YERDA tekshiramiz: chegaradan katta fayl bilan "Saqlash" bosilsa
+   * so'rov server action'ning body chegarasiga urilib, foydalanuvchi hech qanday
+   * tushunarli xabar ko'rmasdi (prod xatosi — "Body exceeded 1 MB limit").
+   */
   function setFile(file: File | null) {
+    if (file && file.size > MAX_BYTES) {
+      setHint(
+        `Fayl juda katta (${Math.round(file.size / 1024 / 1024)}MB) — chegara ${RECEIPT_MAX_MB}MB. Kichikroq rasm tanlang.`,
+      );
+      return;
+    }
+    setHint(null);
     if (preview) URL.revokeObjectURL(preview);
     if (file) {
       setPreview(URL.createObjectURL(file));
@@ -37,8 +52,8 @@ export function ReceiptInput({
 
   function fromBlob(blob: Blob) {
     const ext = blob.type.includes("png") ? "png" : blob.type.includes("webp") ? "webp" : "jpg";
+    // `setHint` ni bu yerda tozalamaymiz — setFile hajm xatosini o'zi yozadi.
     setFile(new File([blob], `chek.${ext}`, { type: blob.type || "image/png" }));
-    setHint(null);
   }
 
   function onPaste(e: React.ClipboardEvent) {

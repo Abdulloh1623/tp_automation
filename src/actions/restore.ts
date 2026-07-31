@@ -21,7 +21,12 @@ import { startMaintenance, endMaintenance, getMaintenance } from "@/lib/maintena
 // bo'lgani uchun fayl "tekshirish" va "tiklash" oralig'ida saqlanishi kerak —
 // uni brauzerga qaytarib, keyin qayta yuklash xavfli va sekin bo'lardi.
 const STAGING_DIR = path.join(process.cwd(), "uploads", "restore");
-const MAX_BYTES = 500 * 1024 * 1024; // 500MB — dump gzip'langan holda kichik
+// Server action body chegarasi bilan bir xil (`next.config.ts` — 25MB). Ilgari
+// bu yerda 500MB turardi, lekin transport 1MB da uzilardi: foydalanuvchi aniq
+// xabar o'rniga tushunarsiz "Body exceeded" xatosini olardi. Gzip'langan dump
+// bu bazada bir necha MB — chegara amalda yetarli.
+const MAX_MB = 25;
+const MAX_BYTES = MAX_MB * 1024 * 1024;
 
 export type VerifyState = {
   ok?: boolean;
@@ -99,7 +104,9 @@ export async function verifyBackupUpload(
     return { error: "Fayl tanlanmagan" };
   }
   if (file.size > MAX_BYTES) {
-    return { error: `Fayl juda katta (${Math.round(file.size / 1024 / 1024)}MB, chegara 500MB)` };
+    return {
+      error: `Fayl juda katta (${Math.round(file.size / 1024 / 1024)}MB, chegara ${MAX_MB}MB)`,
+    };
   }
 
   const buf = Buffer.from(await file.arrayBuffer());

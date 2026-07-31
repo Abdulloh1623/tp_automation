@@ -22,6 +22,17 @@ const nextConfig: NextConfig = {
   // Native/runtime modullar server bundle'ga kirmasin (resvg = native binar;
   // pino = runtime'da require qilinsin, aks holda bundling dinamik require'larni buzadi).
   serverExternalPackages: ["@resvg/resvg-js", "pino"],
+  experimental: {
+    // Fayl yuklaydigan HAR BIR forma server action orqali ketadi (chek rasmi,
+    // soliq hujjati, topshirish skani, FAQ skrinshoti, ommaviy XLSX, backup).
+    // Next'ning sukutdagi chegarasi 1MB — telefonda olingan oddiy chek surati
+    // ham undan katta bo'lgani uchun so'rov modul ichidagi hajm tekshiruviga
+    // YETIB BORMASDAN "Body exceeded 1 MB limit" bilan yiqilardi (prod xatosi,
+    // 31/07/2026). Bu qiymat modullardagi eng katta chegaradan (bulk.ts —
+    // 20MB) past bo'lmasligi kerak, aks holda o'sha tekshiruvlar aldamchi
+    // bo'lib qoladi. Yangi chegara qo'shsangiz shu raqamni ham qarang.
+    serverActions: { bodySizeLimit: "25mb" },
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

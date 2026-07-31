@@ -2,14 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  UserPlus,
-  Pencil,
-  KeyRound,
-  Power,
-  X,
-  AlertCircle,
-} from "lucide-react";
+import { UserPlus, Pencil, KeyRound, Power, AlertCircle } from "lucide-react";
 import {
   createUser,
   updateUser,
@@ -22,6 +15,7 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Modal } from "@/components/ui/modal";
 import { RegionMultiSelect } from "@/components/region-multi-select";
 import {
   USER_ROLE,
@@ -203,8 +197,12 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                   (u.isActive ? "" : "opacity-50")
                 }
               >
-                <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{u.name}</td>
-                <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{u.username}</td>
+                <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
+                  {u.name}
+                </td>
+                <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                  {u.username}
+                </td>
                 <td className="px-4 py-3">
                   <Badge tone={roleTone[u.role] ?? "neutral"}>
                     {userRoleLabel(u.role)}
@@ -249,7 +247,9 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                       size="sm"
                       className={
                         "h-7 px-2 text-xs " +
-                        (u.isActive ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400")
+                        (u.isActive
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-emerald-600 dark:text-emerald-400")
                       }
                       onClick={() => toggleActive(u)}
                       disabled={pending}
@@ -265,186 +265,182 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
         </table>
       </div>
 
-      {mode && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setMode(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-base font-semibold">
-                {mode.kind === "create"
-                  ? "Yangi xodim"
-                  : mode.kind === "edit"
-                    ? "Xodimni tahrirlash"
-                    : "Parolni almashtirish"}
-              </h3>
-              <button
-                onClick={() => setMode(null)}
-                className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
+      <Modal
+        open={!!mode}
+        onClose={() => !pending && setMode(null)}
+        title={
+          mode?.kind === "create"
+            ? "Yangi xodim"
+            : mode?.kind === "edit"
+              ? "Xodimni tahrirlash"
+              : "Parolni almashtirish"
+        }
+        subtitle={mode && mode.kind !== "create" ? mode.user.name : undefined}
+        icon={<UserPlus className="h-4 w-4" />}
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setMode(null)}
+              disabled={pending}
+            >
+              Bekor
+            </Button>
+            <Button size="sm" onClick={submit} loading={pending}>
+              Saqlash
+            </Button>
+          </>
+        }
+      >
+        {mode && (
+          <>
             {error && (
-              <div className="mb-3 flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
+              <div className="flex items-center gap-2 rounded-lg bg-red-50 dark:bg-red-950/40 px-3 py-2 text-sm text-red-700 dark:text-red-300">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {error}
               </div>
             )}
 
-            <div className="space-y-3">
-              {mode.kind === "password" ? (
+            {mode.kind === "password" ? (
+              <div>
+                <Label htmlFor="pw">Yangi parol</Label>
+                <Input
+                  id="pw"
+                  type="text"
+                  value={form.password}
+                  onChange={(e) => set("password", e.target.value)}
+                  placeholder={`kamida ${MIN_PASSWORD_LENGTH} belgi`}
+                />
+              </div>
+            ) : (
+              <>
                 <div>
-                  <Label htmlFor="pw">Yangi parol</Label>
+                  <Label htmlFor="name">Ism</Label>
                   <Input
-                    id="pw"
-                    type="text"
-                    value={form.password}
-                    onChange={(e) => set("password", e.target.value)}
-                    placeholder={`kamida ${MIN_PASSWORD_LENGTH} belgi`}
+                    id="name"
+                    value={form.name}
+                    onChange={(e) => set("name", e.target.value)}
                   />
                 </div>
-              ) : (
-                <>
+                {mode.kind === "create" && (
+                  <>
+                    <div>
+                      <Label htmlFor="username">Login</Label>
+                      <Input
+                        id="username"
+                        value={form.username}
+                        onChange={(e) => set("username", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="password">Parol</Label>
+                      <Input
+                        id="password"
+                        type="text"
+                        value={form.password}
+                        onChange={(e) => set("password", e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
+                <div>
+                  <Label htmlFor="role">Rol</Label>
+                  <Select
+                    id="role"
+                    value={form.role}
+                    onChange={(e) => set("role", e.target.value)}
+                  >
+                    {Object.entries(USER_ROLE).map(([k, label]) => (
+                      <option key={k} value={k}>
+                        {label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div>
+                  <Label>Viloyatlar (bir nechta tanlash mumkin)</Label>
+                  <RegionMultiSelect
+                    value={form.regions}
+                    onChange={(v) => set("regions", v)}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label htmlFor="name">Ism</Label>
-                    <Input
-                      id="name"
-                      value={form.name}
-                      onChange={(e) => set("name", e.target.value)}
+                    <Label htmlFor="phone">Telefon</Label>
+                    <PhoneInput
+                      id="phone"
+                      value={form.phone}
+                      onValueChange={(v) => set("phone", v)}
                     />
                   </div>
-                  {mode.kind === "create" && (
-                    <>
-                      <div>
-                        <Label htmlFor="username">Login</Label>
-                        <Input
-                          id="username"
-                          value={form.username}
-                          onChange={(e) => set("username", e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="password">Parol</Label>
-                        <Input
-                          id="password"
-                          type="text"
-                          value={form.password}
-                          onChange={(e) => set("password", e.target.value)}
-                        />
-                      </div>
-                    </>
-                  )}
                   <div>
-                    <Label htmlFor="role">Rol</Label>
+                    <Label htmlFor="dailyLimit">Kunlik lid kvotasi</Label>
+                    <Input
+                      id="dailyLimit"
+                      type="number"
+                      min={0}
+                      placeholder="Avtomatik"
+                      value={form.dailyLimit}
+                      onChange={(e) => set("dailyLimit", e.target.value)}
+                    />
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      Bo&apos;sh qoldiring — dastur kunlik sonni o&apos;zi
+                      hisoblaydi
+                    </p>
+                  </div>
+                </div>
+                {form.role === "OPERATOR" && (
+                  <div>
+                    <Label htmlFor="shift">Ish smenasi</Label>
                     <Select
-                      id="role"
-                      value={form.role}
-                      onChange={(e) => set("role", e.target.value)}
+                      id="shift"
+                      value={form.shift}
+                      onChange={(e) => set("shift", e.target.value)}
                     >
-                      {Object.entries(USER_ROLE).map(([k, label]) => (
-                        <option key={k} value={k}>
+                      {Object.entries(USER_SHIFT).map(([key, label]) => (
+                        <option key={key} value={key}>
                           {label}
                         </option>
                       ))}
                     </Select>
                   </div>
-                  <div>
-                    <Label>Viloyatlar (bir nechta tanlash mumkin)</Label>
-                    <RegionMultiSelect
-                      value={form.regions}
-                      onChange={(v) => set("regions", v)}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="phone">Telefon</Label>
-                      <PhoneInput
-                        id="phone"
-                        value={form.phone}
-                        onValueChange={(v) => set("phone", v)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="dailyLimit">Kunlik lid kvotasi</Label>
-                      <Input
-                        id="dailyLimit"
-                        type="number"
-                        min={0}
-                        placeholder="Avtomatik"
-                        value={form.dailyLimit}
-                        onChange={(e) => set("dailyLimit", e.target.value)}
-                      />
-                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        Bo&apos;sh qoldiring — dastur kunlik sonni o&apos;zi hisoblaydi
-                      </p>
-                    </div>
-                  </div>
-                  {form.role === "OPERATOR" && (
-                    <div>
-                      <Label htmlFor="shift">Ish smenasi</Label>
-                      <Select
-                        id="shift"
-                        value={form.shift}
-                        onChange={(e) => set("shift", e.target.value)}
-                      >
-                        {Object.entries(USER_SHIFT).map(([key, label]) => (
-                          <option key={key} value={key}>
-                            {label}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                  )}
-                  {/* Yaratishda ham ko'rinadi: tasdiqlovchi xodimni bir qadamda
+                )}
+                {/* Yaratishda ham ko'rinadi: tasdiqlovchi xodimni bir qadamda
                       to'liq sozlash uchun (ilgari avval yaratib, keyin qayta
                       tahrirlash kerak edi — belgilash unutilishi oson edi). */}
-                  {(mode.kind === "create" || mode.kind === "edit") && (
-                    <div>
-                      <Label htmlFor="tg">Telegram ID</Label>
-                      <Input
-                        id="tg"
-                        value={form.telegramId}
-                        onChange={(e) => set("telegramId", e.target.value)}
-                        placeholder="bot ruxsati uchun (ixtiyoriy)"
+                {(mode.kind === "create" || mode.kind === "edit") && (
+                  <div>
+                    <Label htmlFor="tg">Telegram ID</Label>
+                    <Input
+                      id="tg"
+                      value={form.telegramId}
+                      onChange={(e) => set("telegramId", e.target.value)}
+                      placeholder="bot ruxsati uchun (ixtiyoriy)"
+                    />
+                    <label className="mt-3 flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                        checked={form.cardVerifier}
+                        onChange={(e) => set("cardVerifier", e.target.checked)}
                       />
-                      <label className="mt-3 flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
-                        <input
-                          type="checkbox"
-                          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                          checked={form.cardVerifier}
-                          onChange={(e) => set("cardVerifier", e.target.checked)}
-                        />
-                        <span>
-                          Karta to&apos;lovlarini tasdiqlaydi
-                          <span className="block text-xs text-slate-500 dark:text-slate-400">
-                            Karta/QR to&apos;lovi kiritilganda chek va summa shu xodimning
-                            botiga tugmalar bilan yuboriladi. Telegram ID kerak.
-                          </span>
+                      <span>
+                        Karta to&apos;lovlarini tasdiqlaydi
+                        <span className="block text-xs text-slate-500 dark:text-slate-400">
+                          Karta/QR to&apos;lovi kiritilganda chek va summa shu
+                          xodimning botiga tugmalar bilan yuboriladi. Telegram
+                          ID kerak.
                         </span>
-                      </label>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            <div className="mt-4 flex gap-2">
-              <Button onClick={submit} disabled={pending}>
-                {pending ? "Saqlanmoqda..." : "Saqlash"}
-              </Button>
-              <Button variant="ghost" onClick={() => setMode(null)}>
-                Bekor
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+                      </span>
+                    </label>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

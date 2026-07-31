@@ -136,8 +136,10 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
           role: form.role,
           regions: form.regions,
           phone: form.phone,
+          telegramId: form.telegramId,
           dailyLimit: form.dailyLimit,
           shift: form.shift,
+          cardVerifier: form.cardVerifier,
         });
       } else if (mode.kind === "edit") {
         res = await updateUser(mode.user.id, {
@@ -399,7 +401,10 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                       </Select>
                     </div>
                   )}
-                  {mode.kind === "edit" && (
+                  {/* Yaratishda ham ko'rinadi: tasdiqlovchi xodimni bir qadamda
+                      to'liq sozlash uchun (ilgari avval yaratib, keyin qayta
+                      tahrirlash kerak edi — belgilash unutilishi oson edi). */}
+                  {(mode.kind === "create" || mode.kind === "edit") && (
                     <div>
                       <Label htmlFor="tg">Telegram ID</Label>
                       <Input

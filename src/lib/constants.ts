@@ -295,6 +295,11 @@ export const MAX_PASSWORD_LENGTH = 128;
 // foydalanuvchi katta faylni tanlab, "Saqlash" bosgandan keyingina xato oladi.
 export const RECEIPT_MAX_MB = 5;
 
+// Soliqqa ulash hujjatlari (guvohnoma skani, kadastr/ijara shartnomasi).
+// Chek bilan bir xil qoida: server (`lib/soliq-docs.ts`) va forma
+// (`components/soliq-connect-dialog.tsx`) shu yagona raqamga tayanadi.
+export const SOLIQ_DOC_MAX_MB = 10;
+
 // Oy nomlari (o'zbekcha) — moliya va uskuna analitikasi grafiklari uchun.
 export const UZBEK_MONTHS = [
   "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",

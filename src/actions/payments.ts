@@ -10,7 +10,8 @@ import { deleteReceipt } from "@/lib/receipts";
 import { nextPaymentAfterDelete } from "@/lib/billing";
 import { processPayment } from "@/lib/payment-core";
 import { createCardConfirmationRequest, needsCardConfirmation } from "@/lib/card-payment";
-import { formatMoney } from "@/lib/utils";
+import { formatDate, formatMoney } from "@/lib/utils";
+import { revalidatePaymentSurfaces } from "@/lib/revalidate";
 import { PAYMENT_METHOD, type PaymentMethod } from "@/lib/constants";
 import { currencyEnum, noteString, paymentMethodEnum } from "@/lib/validation";
 
@@ -210,28 +211,61 @@ export async function updatePayment(
 
   const existing = await db.payment.findUnique({
     where: { id: paymentId },
-    select: { clientId: true, client: { select: { restaurantName: true } } },
+    select: {
+      clientId: true,
+      amount: true,
+      currency: true,
+      method: true,
+      paidAt: true,
+      client: { select: { restaurantName: true } },
+    },
   });
   if (!existing) return { error: "To'lov topilmadi" };
+
+  const paidAt = parsed.data.paidAt ? new Date(parsed.data.paidAt) : undefined;
 
   await db.payment.update({
     where: { id: paymentId },
     data: {
       amount: parsed.data.amount,
       currency: parsed.data.currency,
-      paidAt: parsed.data.paidAt ? new Date(parsed.data.paidAt) : undefined,
+      paidAt,
       method: parsed.data.method,
       receiptNote: parsed.data.receiptNote ?? null,
     },
   });
 
+  // Audit hisobotida "nima o'zgardi" ko'rinib tursin — faqat yangi qiymat emas.
+  const changes: string[] = [];
+  if (
+    existing.amount !== parsed.data.amount ||
+    existing.currency !== parsed.data.currency
+  ) {
+    changes.push(
+      `summa ${formatMoney(existing.amount, existing.currency)} → ${formatMoney(parsed.data.amount, parsed.data.currency)}`,
+    );
+  }
+  if (paidAt && paidAt.getTime() !== existing.paidAt.getTime()) {
+    changes.push(`sana ${formatDate(existing.paidAt)} → ${formatDate(paidAt)}`);
+  }
+  if (existing.method !== parsed.data.method) {
+    const label = (m: string | null) =>
+      m ? (PAYMENT_METHOD[m as PaymentMethod] ?? m) : "—";
+    changes.push(`usul ${label(existing.method)} → ${label(parsed.data.method)}`);
+  }
+
   await logAudit("To'lov tahrirlandi", {
     entity: "Client",
     entityId: existing.clientId,
-    detail: `${existing.client.restaurantName}: ${formatMoney(parsed.data.amount, parsed.data.currency)}`,
+    detail: `${existing.client.restaurantName}: ${
+      changes.length
+        ? changes.join(", ")
+        : formatMoney(parsed.data.amount, parsed.data.currency)
+    }`,
   });
-  revalidatePath(`/mijozlar/${existing.clientId}`);
-  revalidatePath("/tolovlar");
+  // Summa/sana o'zgarishi kunlik-oylik hisobotlarga ham tegadi — barcha
+  // hisob-kitob sahifalari keshi birga yangilanadi.
+  revalidatePaymentSurfaces(existing.clientId);
   return { ok: true };
 }
 
@@ -274,7 +308,6 @@ export async function deletePayment(paymentId: string): Promise<PaymentFormState
     entityId: existing.clientId,
     detail: `${existing.client.restaurantName}: ${formatMoney(existing.amount, existing.currency)}`,
   });
-  revalidatePath(`/mijozlar/${existing.clientId}`);
-  revalidatePath("/tolovlar");
+  revalidatePaymentSurfaces(existing.clientId);
   return { ok: true };
 }

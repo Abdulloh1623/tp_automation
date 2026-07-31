@@ -508,6 +508,23 @@ describe("distributeLeadsCore", () => {
     expect(r.assigned).toBe(1);
   });
 
+  it("oldinga tortishda yaqinda gaplashilganlar chetlatiladi (cooldown)", async () => {
+    // Kecha ishlangan (recall +3 kun) lid ertaga qayta tortilmasligi kerak:
+    // "oldinga tortish" so'rovi lastContactedAt cooldown filtrini olib yurishi shart.
+    policy({ minPerOperator: 10, maxPerOperator: 50, debtorCooldownDays: 3 });
+    userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: null }]);
+    setPool([lead("bugun")], [lead("kelasi", { nextContactDate: inDays(2) })]);
+
+    await distributeLeadsCore();
+    const upcoming = clientFindMany.mock.calls.find(
+      (c) => (c[0].where?.nextContactDate as { gt?: Date } | undefined)?.gt,
+    );
+    expect(upcoming?.[0].where.OR).toEqual([
+      { lastContactedAt: null },
+      { lastContactedAt: { lt: expect.any(Date) } },
+    ]);
+  });
+
   it("qat'iy kvota qo'yilgan operator avtomatikka bo'ysunmaydi", async () => {
     policy({ minPerOperator: 0, maxPerOperator: 50 });
     userFindMany.mockResolvedValue([

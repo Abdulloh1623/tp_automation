@@ -1,6 +1,6 @@
 // To'lov yozishning yagona manbasi: chek saqlash + DB + mijoz yangilash +
 // kanal + audit. Server action EMAS (shuning uchun tashqaridan chaqirib
-// bo'lmaydi) — `actions/payments.ts` va `actions/pending-payments.ts` shu
+// bo'lmaydi) — `actions/payments.ts` va karta to'lovini tasdiqlash yo'li shu
 // funksiyani ishlatadi, natijada ikkala yo'l bir xil billing/audit qoidasiga
 // bo'ysunadi.
 import { addDays } from "date-fns";

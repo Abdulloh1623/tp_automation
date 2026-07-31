@@ -206,6 +206,13 @@ export async function distributeLeadsCore(
 
   // Ro'yxat kam bo'lsa — muddati eng yaqin lidlarni oldinga tortamiz, operator
   // bo'sh o'tirmasin. Faqat AVTOMATIK rejimda ma'noga ega.
+  //
+  // MUHIM: yaqinda gaplashilgan lidni oldinga TORTMAYMIZ. Qayta aloqa oraliqlari
+  // qisqa (masalan "muammo yo'q" = +3 kun), shu sababli "muddati eng yaqin"
+  // lidlar aynan kecha ishlanganlardir. Ularni tortsak, operator kecha "3 kundan
+  // keyin" qo'ygan mijozni ertasigayoq qayta ko'radi va recall qoidasi buziladi.
+  // Shuning uchun qarzdor bilan bir xil cooldown (`debtorSince`) qo'llanadi:
+  // shu oraliqda tegilgan lidlar tortishdan chetlatiladi.
   const wanted = operators.reduce((s, o) => s + limitOf(o), 0);
   let pulled = 0;
   if (free.length < wanted) {
@@ -215,6 +222,7 @@ export async function distributeLeadsCore(
         stage: { in: ACTIVE_STAGES as unknown as string[] },
         nextContactDate: { gt: endOfDay(now) },
         id: { notIn: free.map((c) => c.id) },
+        OR: [{ lastContactedAt: null }, { lastContactedAt: { lt: debtorSince } }],
       },
       orderBy: { nextContactDate: "asc" },
       take: wanted - free.length,

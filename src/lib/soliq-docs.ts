@@ -2,9 +2,10 @@
 // saqlash — lokal fayl tizimi. pdf / jpeg / word (doc, docx) qabul qilinadi.
 import { promises as fs } from "fs";
 import path from "path";
+import { SOLIQ_DOC_MAX_MB } from "@/lib/constants";
 
 const SOLIQ_DIR = path.join(process.cwd(), "uploads", "soliq");
-const MAX_BYTES = 10 * 1024 * 1024; // 10MB
+const MAX_BYTES = SOLIQ_DOC_MAX_MB * 1024 * 1024;
 
 const MIME_EXT: Record<string, string> = {
   "application/pdf": "pdf",
@@ -41,7 +42,7 @@ export async function saveSoliqDoc(
   }
   if (buffer.length === 0) return { ok: false, error: "Hujjat bo'sh" };
   if (buffer.length > MAX_BYTES) {
-    return { ok: false, error: "Hujjat hajmi 10MB dan oshmasin" };
+    return { ok: false, error: `Hujjat hajmi ${SOLIQ_DOC_MAX_MB}MB dan oshmasin` };
   }
   await fs.mkdir(SOLIQ_DIR, { recursive: true });
   const ext = MIME_EXT[mime];

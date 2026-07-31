@@ -1,8 +1,25 @@
 "use client";
 
+// Mijoz profilidagi "Uskunalar" bo'limi.
+//
+// Ilgari ikkala forma — biriktirish (egalik, manba, checkbox, texnika
+// qatorlari) va qaytarish arizasi — bo'lim ichida DOIM ochiq turardi. Natijada
+// "mijozda qanday uskuna bor?" degan oddiy savolga javob olish uchun ham uzun
+// forma orasidan qidirishga to'g'ri kelardi. Endi bo'lim faqat holatni
+// ko'rsatadi, amallar esa to'lov/soliq oynalari bilan bir xil `Modal` qobig'ida
+// ochiladi.
+
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { PackagePlus, Undo2, AlertCircle, Check, Clock, Plus, Trash2, PackageCheck } from "lucide-react";
+import {
+  PackagePlus,
+  Undo2,
+  AlertCircle,
+  Clock,
+  Plus,
+  Trash2,
+  PackageCheck,
+} from "lucide-react";
 import {
   assignEquipmentBatchToClient,
   requestEquipmentReturn,
@@ -15,6 +32,7 @@ import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Modal } from "@/components/ui/modal";
 import { ownershipLabel } from "@/lib/constants";
 import { formatMoney } from "@/lib/utils";
 
@@ -44,6 +62,7 @@ type Row = { key: number; typeId: string; qty: string };
 
 export function ClientEquipmentPanel({
   clientId,
+  clientName,
   role,
   currency,
   items,
@@ -52,6 +71,8 @@ export function ClientEquipmentPanel({
   pendingReturn,
 }: {
   clientId: string;
+  /** Oyna sarlavhasi ostida ko'rinadi — qaysi mijoz ekani aniq bo'lsin. */
+  clientName: string;
   role: string;
   currency: string;
   items: EqItem[];
@@ -61,8 +82,10 @@ export function ClientEquipmentPanel({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [returnOpen, setReturnOpen] = useState(false);
 
   const [aOwn, setAOwn] = useState("RENTAL");
   const [aSource, setASource] = useState("WAREHOUSE");
@@ -114,18 +137,20 @@ export function ClientEquipmentPanel({
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   }
 
-  function run(fn: () => Promise<{ ok: boolean; error?: string }>, okMsg: string) {
+  function run(
+    fn: () => Promise<{ ok: boolean; error?: string }>,
+    okMsg: string,
+    onDone: () => void,
+  ) {
     setErr(null);
-    setMsg(null);
     start(async () => {
       const res = await fn();
       if (res.ok) {
-        setMsg(okMsg);
         toast(okMsg, "success");
+        onDone();
         router.refresh();
       } else {
         setErr(res.error ?? "Xatolik");
-        toast(res.error ?? "Xatolik", "error");
       }
     });
   }
@@ -136,6 +161,17 @@ export function ClientEquipmentPanel({
     (r) => !installed && r.typeId && Number(r.qty) > availFor(r.typeId),
   );
 
+  function openAssign() {
+    setErr(null);
+    setAssignOpen(true);
+  }
+
+  function openReturn() {
+    setErr(null);
+    setRNote("");
+    setReturnOpen(true);
+  }
+
   function submitAssign() {
     const list = rows
       .map((r) => ({ equipmentTypeId: r.typeId, quantity: Number(r.qty) }))
@@ -145,43 +181,38 @@ export function ClientEquipmentPanel({
       return;
     }
     if (overLimit) {
-      const msg = "Manbada yetarli emas — miqdorni kamaytiring yoki boshqa manba tanlang";
-      setErr(msg);
-      toast(msg, "error");
+      setErr("Manbada yetarli emas — miqdorni kamaytiring yoki boshqa manba tanlang");
       return;
     }
     const source: EquipmentSource = effSource.startsWith("USTA:")
       ? { type: "USTA", ustaId: effSource.slice(5) }
       : { type: "WAREHOUSE" };
-    run(async () => {
-      const res = await assignEquipmentBatchToClient(clientId, list, aOwn, source, {
-        alreadyInstalled: installed,
-      });
-      if (res.ok) {
+    run(
+      () =>
+        assignEquipmentBatchToClient(clientId, list, aOwn, source, {
+          alreadyInstalled: installed,
+        }),
+      "Uskunalar biriktirildi",
+      () => {
         setRows([{ key: seq + 1, typeId: types[0]?.id ?? "", qty: "1" }]);
         setSeq((s) => s + 1);
-      }
-      return res;
-    }, "Uskunalar biriktirildi");
+        setInstalled(false);
+        setAssignOpen(false);
+      },
+    );
   }
 
-  return (
-    <div className="space-y-4">
-      {(msg || err) && (
-        <div
-          className={
-            "flex items-center gap-2 rounded-lg px-3 py-2 text-sm " +
-            (err ? "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300" : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300")
-          }
-        >
-          {err ? <AlertCircle className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-          {err ?? msg}
-        </div>
-      )}
+  const errorBox = err && (
+    <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+      <AlertCircle className="h-4 w-4 shrink-0" /> {err}
+    </div>
+  );
 
+  return (
+    <div className="space-y-3">
       {/* Joriy uskunalar */}
       {items.length === 0 ? (
-        <p className="text-sm text-slate-400 dark:text-slate-500">Biriktirilgan uskuna yo'q</p>
+        <p className="text-sm text-slate-400 dark:text-slate-500">Biriktirilgan uskuna yo&apos;q</p>
       ) : (
         <div className="space-y-2">
           {items.map((i) => (
@@ -225,185 +256,251 @@ export function ClientEquipmentPanel({
         </div>
       )}
 
-      {/* Manager: bir yoki bir nechta uskuna biriktirish */}
-      {isManager && (
-        <div className="space-y-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">
-          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">Uskuna biriktirish</div>
+      {/* Amallar — formalar o'rniga oynani ochadigan tugmalar */}
+      {(isManager || (canReturn && hasRental && !pendingReturn)) && (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {isManager && (
+            <Button variant="outline" size="sm" onClick={openAssign}>
+              <PackagePlus className="h-4 w-4" /> Uskuna biriktirish
+            </Button>
+          )}
+          {canReturn && hasRental && !pendingReturn && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-amber-300 text-amber-700 dark:border-amber-800 dark:text-amber-300"
+              onClick={openReturn}
+            >
+              <Undo2 className="h-4 w-4" /> Qaytarish arizasi
+            </Button>
+          )}
+        </div>
+      )}
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label>Egalik</Label>
-              <Select value={aOwn} onChange={(e) => setAOwn(e.target.value)}>
-                <option value="RENTAL">Ijara</option>
-                <option value="SOLD">Sotuv</option>
-              </Select>
-            </div>
-            <div>
-              <Label>Manba (qayerdan)</Label>
-              {/* "Allaqachon o'rnatilgan" belgilanganda manba tushunchasi YO'Q —
-                  uskuna hech qayerdan olinmaydi. Ilgari bu yerda o'chirilgan
-                  (disabled) select "Sklad (ombor)" ni ko'rsatib turardi va
-                  checkbox matni bilan ziddiyat hosil qilardi. */}
-              {installed ? (
-                <div className="flex h-10 items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-                  <PackageCheck className="h-4 w-4 shrink-0" />
-                  Mijozda — hech qayerdan olinmaydi
-                </div>
-              ) : (
-                <Select value={effSource} onChange={(e) => setASource(e.target.value)}>
-                  {sourceOptions.map((o) => (
-                    <option key={o.key} value={o.key}>
-                      {o.label}
-                    </option>
-                  ))}
-                </Select>
-              )}
-              {/* Bu qoida AYNAN manba tanloviga tegishli — shu sabab select
-                  ostida turadi (ilgari checkbox ostida edi va chalkashtirardi). */}
-              {!installed && (
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Usta o'zi olib borgan bo'lsa — usta zaxirasidan; ombordan olib
-                  ketilsa — Sklad.
-                </p>
-              )}
-            </div>
+      {/* --- Biriktirish oynasi --- */}
+      <Modal
+        open={assignOpen}
+        onClose={() => !pending && setAssignOpen(false)}
+        size="lg"
+        title="Uskuna biriktirish"
+        subtitle={clientName}
+        icon={<PackagePlus className="h-4 w-4" />}
+        note={
+          installed
+            ? "Uskuna allaqachon mijozda — ombor/usta qoldig'i o'zgarmaydi."
+            : "Qoldiq tanlangan manbadan ayiriladi."
+        }
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setAssignOpen(false)}
+              disabled={pending}
+            >
+              Bekor
+            </Button>
+            <Button size="sm" disabled={pending || overLimit} onClick={submitAssign}>
+              Biriktirish
+            </Button>
+          </>
+        }
+      >
+        {errorBox}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor={`own-${clientId}`}>Egalik</Label>
+            <Select id={`own-${clientId}`} value={aOwn} onChange={(e) => setAOwn(e.target.value)}>
+              <option value="RENTAL">Ijara</option>
+              <option value="SOLD">Sotuv</option>
+            </Select>
           </div>
+          <div>
+            <Label htmlFor={`src-${clientId}`}>Manba (qayerdan)</Label>
+            {/* "Allaqachon o'rnatilgan" belgilanganda manba tushunchasi YO'Q —
+                uskuna hech qayerdan olinmaydi. Ilgari bu yerda o'chirilgan
+                (disabled) select "Sklad (ombor)" ni ko'rsatib turardi va
+                checkbox matni bilan ziddiyat hosil qilardi. */}
+            {installed ? (
+              <div className="flex h-10 items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                <PackageCheck className="h-4 w-4 shrink-0" />
+                Mijozda
+              </div>
+            ) : (
+              <Select
+                id={`src-${clientId}`}
+                value={effSource}
+                onChange={(e) => setASource(e.target.value)}
+              >
+                {sourceOptions.map((o) => (
+                  <option key={o.key} value={o.key}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </div>
+        </div>
 
-          <label
-            className={
-              "flex items-start gap-2 rounded-lg border p-2.5 text-sm transition-colors " +
-              (installed
-                ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
-                : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200")
-            }
-          >
-            <input
-              type="checkbox"
-              checked={installed}
-              onChange={(e) => setInstalled(e.target.checked)}
-              className="mt-0.5 h-4 w-4"
-            />
-            <span>
-              Uskuna allaqachon mijozda (yangi o'rnatish emas)
-              <span className="block text-xs opacity-80">
-                Oldindan mavjud mijozni tizimga kiritish uchun: ombor/usta qoldig'i
-                ayirilmaydi va sotuvda yangi to'lov yozilmaydi.
-              </span>
+        {!installed && (
+          <p className="-mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Usta o&apos;zi olib borgan bo&apos;lsa — usta zaxirasidan; ombordan olib ketilsa —
+            Sklad.
+          </p>
+        )}
+
+        <label
+          className={
+            "flex items-start gap-2 rounded-lg border p-2.5 text-sm transition-colors " +
+            (installed
+              ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+              : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200")
+          }
+        >
+          <input
+            type="checkbox"
+            checked={installed}
+            onChange={(e) => setInstalled(e.target.checked)}
+            className="mt-0.5 h-4 w-4"
+          />
+          <span>
+            Uskuna allaqachon mijozda (yangi o&apos;rnatish emas)
+            <span className="block text-xs opacity-80">
+              Oldindan mavjud mijozni tizimga kiritish uchun: ombor/usta qoldig&apos;i ayirilmaydi
+              va sotuvda yangi to&apos;lov yozilmaydi.
             </span>
-          </label>
+          </span>
+        </label>
 
-          {/* Texnika qatorlari */}
-          <div className="space-y-2">
-            {rows.map((r) => {
-              const avail = availFor(r.typeId);
-              const over = !installed && Number(r.qty) > avail;
-              return (
-                <div key={r.key} className="flex items-end gap-2">
-                  <div className="flex-1">
-                    <Label>Texnika</Label>
-                    <Select
-                      value={r.typeId}
-                      onChange={(e) => updateRow(r.key, { typeId: e.target.value })}
-                    >
-                      {types.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                  <div className="w-32">
-                    <div className="flex items-baseline justify-between gap-1">
-                      <Label>Miqdor</Label>
-                      {/* Qoldiq — miqdor maydonining O'ZIDA, o'qiladigan kontrastda
-                          (ilgari kichik va oqish kulrang edi, e'tibordan qolardi). */}
-                      {!installed && (
-                        <span
-                          className={
-                            "text-[11px] font-medium " +
-                            (over
-                              ? "text-red-600 dark:text-red-400"
-                              : "text-slate-600 dark:text-slate-300")
-                          }
-                        >
-                          mavjud {avail}
-                        </span>
-                      )}
-                    </div>
-                    <Input
-                      type="number"
-                      min={1}
-                      // Ombordan olinayotganda brauzer ham chegarani biladi
-                      max={installed ? undefined : avail}
-                      value={r.qty}
-                      onChange={(e) => updateRow(r.key, { qty: e.target.value })}
-                      aria-invalid={over}
-                      className={over ? "border-red-400 dark:border-red-700" : ""}
-                    />
-                    {installed ? (
-                      <p className="mt-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
-                        ombordan ayirilmaydi
-                      </p>
-                    ) : (
-                      over && (
-                        <p className="mt-0.5 text-[11px] font-medium text-red-600 dark:text-red-400">
-                          faqat {avail} ta bor
-                        </p>
-                      )
+        {/* Texnika qatorlari */}
+        <div className="space-y-2">
+          {rows.map((r) => {
+            const avail = availFor(r.typeId);
+            const over = !installed && Number(r.qty) > avail;
+            return (
+              // `items-start`: miqdor ustunida input ostida qo'shimcha qator
+              // (mavjud/xato) bor — pastdan tekislansa "Texnika" va "Miqdor"
+              // yorliqlari turli balandlikda qolib ketardi.
+              <div key={r.key} className="flex items-start gap-2">
+                <div className="flex-1">
+                  <Label>Texnika</Label>
+                  <Select
+                    value={r.typeId}
+                    onChange={(e) => updateRow(r.key, { typeId: e.target.value })}
+                  >
+                    {types.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="w-28">
+                  <div className="flex items-baseline justify-between gap-1">
+                    <Label>Miqdor</Label>
+                    {/* Qoldiq — miqdor maydonining O'ZIDA, o'qiladigan kontrastda
+                        (ilgari kichik va oqish kulrang edi, e'tibordan qolardi). */}
+                    {!installed && (
+                      <span
+                        className={
+                          "text-[11px] font-medium " +
+                          (over
+                            ? "text-red-600 dark:text-red-400"
+                            : "text-slate-600 dark:text-slate-300")
+                        }
+                      >
+                        mavjud {avail}
+                      </span>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    className="mb-5 h-9 w-9 shrink-0 p-0 text-slate-400 hover:text-red-600"
-                    disabled={rows.length <= 1}
-                    onClick={() => removeRow(r.key)}
-                    aria-label="Qatorni o'chirish"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <Input
+                    type="number"
+                    min={1}
+                    // Ombordan olinayotganda brauzer ham chegarani biladi
+                    max={installed ? undefined : avail}
+                    value={r.qty}
+                    onChange={(e) => updateRow(r.key, { qty: e.target.value })}
+                    aria-invalid={over}
+                    className={over ? "border-red-400 dark:border-red-700" : ""}
+                  />
+                  {installed ? (
+                    <p className="mt-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                      ombordan ayirilmaydi
+                    </p>
+                  ) : (
+                    over && (
+                      <p className="mt-0.5 text-[11px] font-medium text-red-600 dark:text-red-400">
+                        faqat {avail} ta bor
+                      </p>
+                    )
+                  )}
                 </div>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center justify-between gap-2">
-            <Button variant="outline" className="text-sm" onClick={addRow} disabled={pending}>
-              <Plus className="h-4 w-4" /> Texnika qo'shish
-            </Button>
-            <Button disabled={pending || overLimit} onClick={submitAssign}>
-              <PackagePlus className="h-4 w-4" /> Biriktirish
-            </Button>
-          </div>
+                <Button
+                  variant="ghost"
+                  // Yorliq balandligi (satr + mb-1.5) — tugma input bilan bir chiziqda
+                  className="mt-[26px] h-10 w-9 shrink-0 p-0 text-slate-400 hover:text-red-600"
+                  disabled={rows.length <= 1}
+                  onClick={() => removeRow(r.key)}
+                  aria-label="Qatorni o'chirish"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            );
+          })}
         </div>
-      )}
 
-      {/* Operator/manager: qaytarish arizasi */}
-      {canReturn && hasRental && !pendingReturn && (
-        <div className="space-y-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-3">
-          <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
-            Uskunani qaytarish (ijara)
-          </div>
+        <Button variant="outline" size="sm" onClick={addRow} disabled={pending}>
+          <Plus className="h-4 w-4" /> Texnika qo&apos;shish
+        </Button>
+      </Modal>
+
+      {/* --- Qaytarish arizasi oynasi --- */}
+      <Modal
+        open={returnOpen}
+        onClose={() => !pending && setReturnOpen(false)}
+        title="Uskunani qaytarish"
+        subtitle={clientName}
+        icon={<Undo2 className="h-4 w-4" />}
+        note="Ariza managerga boradi; tasdiqlangach usta uskunani olib keladi."
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setReturnOpen(false)}
+              disabled={pending}
+            >
+              Bekor
+            </Button>
+            <Button
+              size="sm"
+              loading={pending}
+              disabled={!rNote.trim()}
+              onClick={() =>
+                run(() => requestEquipmentReturn(clientId, rNote), "Qaytarish arizasi yuborildi", () =>
+                  setReturnOpen(false),
+                )
+              }
+            >
+              Yuborish
+            </Button>
+          </>
+        }
+      >
+        {errorBox}
+        <div>
+          <Label htmlFor={`rnote-${clientId}`}>Sabab / izoh</Label>
           <Textarea
-            rows={2}
+            id={`rnote-${clientId}`}
+            rows={3}
             value={rNote}
             onChange={(e) => setRNote(e.target.value)}
-            placeholder="Sabab / izoh (majburiy)"
+            placeholder="Nima uchun qaytarilmoqda?"
           />
-          <Button
-            variant="outline"
-            className="border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300"
-            disabled={pending}
-            onClick={() =>
-              run(
-                () => requestEquipmentReturn(clientId, rNote),
-                "Qaytarish arizasi yuborildi",
-              )
-            }
-          >
-            <Undo2 className="h-4 w-4" /> Qaytarish arizasi
-          </Button>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

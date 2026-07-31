@@ -793,6 +793,7 @@ export async function ClientProfile({ id }: { id: string }) {
             <div>
               <ClientEquipmentPanel
                 clientId={client.id}
+                clientName={client.restaurantName || client.fullName}
                 role={session.role}
                 currency={client.currency}
                 items={eqItems}

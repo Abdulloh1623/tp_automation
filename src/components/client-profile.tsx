@@ -978,6 +978,11 @@ export async function ClientProfile({ id }: { id: string }) {
                             method: p.method,
                             paidAt: p.paidAt.toISOString(),
                             receiptNote: p.receiptNote,
+                            label: {
+                              amount: formatMoney(p.amount, p.currency),
+                              date: formatDate(p.paidAt),
+                              method: paymentMethodLabel(p.method),
+                            },
                           }}
                         />
                       </div>

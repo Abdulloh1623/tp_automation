@@ -12,6 +12,7 @@ import { processPayment } from "@/lib/payment-core";
 import { createCardConfirmationRequest, needsCardConfirmation } from "@/lib/card-payment";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { revalidatePaymentSurfaces } from "@/lib/revalidate";
+import { tzDayKey } from "@/lib/tz";
 import { PAYMENT_METHOD, type PaymentMethod } from "@/lib/constants";
 import { currencyEnum, noteString, paymentMethodEnum } from "@/lib/validation";
 
@@ -222,14 +223,19 @@ export async function updatePayment(
   });
   if (!existing) return { error: "To'lov topilmadi" };
 
-  const paidAt = parsed.data.paidAt ? new Date(parsed.data.paidAt) : undefined;
+  // Sana KUN bo'yicha solishtiriladi: forma "YYYY-MM-DD" yuboradi (yarim tun),
+  // bazadagi yozuv esa aniq vaqt bilan turadi. Xom `getTime()` solishtirilsa har
+  // saqlashda "sana o'zgardi" deb hisoblanib, yozuvning soati ham beixtiyor
+  // yarim tunga surilardi. Kun o'zgarmasa — `paidAt` ga umuman tegilmaydi.
+  const nextPaidAt = parsed.data.paidAt ? new Date(parsed.data.paidAt) : undefined;
+  const dateChanged = !!nextPaidAt && tzDayKey(nextPaidAt) !== tzDayKey(existing.paidAt);
 
   await db.payment.update({
     where: { id: paymentId },
     data: {
       amount: parsed.data.amount,
       currency: parsed.data.currency,
-      paidAt,
+      paidAt: dateChanged ? nextPaidAt : undefined,
       method: parsed.data.method,
       receiptNote: parsed.data.receiptNote ?? null,
     },
@@ -245,8 +251,8 @@ export async function updatePayment(
       `summa ${formatMoney(existing.amount, existing.currency)} → ${formatMoney(parsed.data.amount, parsed.data.currency)}`,
     );
   }
-  if (paidAt && paidAt.getTime() !== existing.paidAt.getTime()) {
-    changes.push(`sana ${formatDate(existing.paidAt)} → ${formatDate(paidAt)}`);
+  if (dateChanged && nextPaidAt) {
+    changes.push(`sana ${formatDate(existing.paidAt)} → ${formatDate(nextPaidAt)}`);
   }
   if (existing.method !== parsed.data.method) {
     const label = (m: string | null) =>

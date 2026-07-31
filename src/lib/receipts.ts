@@ -1,9 +1,10 @@
 // To'lov cheki rasmlarini saqlash (lokal fayl tizimi).
 import { promises as fs } from "fs";
 import path from "path";
+import { RECEIPT_MAX_MB } from "@/lib/constants";
 
 const RECEIPTS_DIR = path.join(process.cwd(), "uploads", "receipts");
-const MAX_BYTES = 5 * 1024 * 1024; // 5MB
+const MAX_BYTES = RECEIPT_MAX_MB * 1024 * 1024;
 
 const MIME_EXT: Record<string, string> = {
   "image/png": "png",
@@ -41,7 +42,7 @@ export async function saveReceipt(
   }
   if (buffer.length === 0) return { ok: false, error: "Chek rasmi bo'sh" };
   if (buffer.length > MAX_BYTES) {
-    return { ok: false, error: "Rasm hajmi 5MB dan oshmasin" };
+    return { ok: false, error: `Rasm hajmi ${RECEIPT_MAX_MB}MB dan oshmasin` };
   }
   await fs.mkdir(RECEIPTS_DIR, { recursive: true });
   const ext = MIME_EXT[mime];

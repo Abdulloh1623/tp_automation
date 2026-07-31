@@ -4,7 +4,7 @@
 // funksiyani ishlatadi, natijada ikkala yo'l bir xil billing/audit qoidasiga
 // bo'ysunadi.
 import { addDays } from "date-fns";
-import { safeRevalidate } from "@/lib/revalidate";
+import { revalidatePaymentSurfaces } from "@/lib/revalidate";
 import { db } from "@/lib/db";
 import { saveReceipt } from "@/lib/receipts";
 import { sendPaymentToChannel, escapeHtml } from "@/lib/telegram";
@@ -168,10 +168,7 @@ export async function processPayment(
     await sendPaymentToChannel(caption, receipt.buffer, receipt.mime);
   }
 
-  safeRevalidate(`/mijozlar/${clientId}`);
-  safeRevalidate("/mijozlar");
-  safeRevalidate("/tolovlar");
-  safeRevalidate("/");
+  revalidatePaymentSurfaces(clientId);
   return { ok: true, paymentId: payment.id };
 }
 

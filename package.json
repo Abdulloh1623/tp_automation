@@ -24,8 +24,7 @@
     "sync-biznex": "tsx scripts/sync-biznex.ts",
     "test:import": "tsx scripts/test-import-logic.ts",
     "bot": "tsx scripts/bot.ts",
-    "import-receipts": "tsx scripts/import-telegram-receipts.ts",
-    "recalc-after-import": "tsx scripts/recalc-after-import.ts"
+    "cleanup-orphan-receipts": "tsx scripts/cleanup-orphan-receipts.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -67,7 +66,6 @@
     "eslint-config-next": "^15.5.19",
     "postcss": "^8.5.10",
     "tailwindcss": "^3.4.17",
-    "tesseract.js": "^7.0.0",
     "typescript": "^5.7.3",
     "vitest": "^4.1.9"
   },

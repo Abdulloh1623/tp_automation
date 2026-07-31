@@ -18,14 +18,6 @@ export function backupChannelId(): string | null {
   return process.env.TELEGRAM_BACKUP_CHANNEL_ID?.trim() || null;
 }
 
-/**
- * "To'lov cheklari" guruhi — bot shu yerdan chek rasm/PDF larini o'qiydi.
- * Bo'sh bo'lsa qabul qilish umuman o'chiq (bot boshqa guruhlarga aralashmaydi).
- */
-export function receiptsGroupId(): string | null {
-  return process.env.TELEGRAM_RECEIPTS_GROUP_ID?.trim() || null;
-}
-
 export function telegramEnabled(): boolean {
   return !!botToken();
 }

@@ -58,7 +58,6 @@ model User {
   dutyDays             DutyDay[]
   passwordResets       PasswordResetRequest[]
   notifications        NotificationRecipient[]
-  pendingPayments      PendingPayment[]        @relation("PendingPaymentResolver")
   faqEntries           FaqEntry[]              @relation("FaqAuthor")
   cardPaymentsRecorded PendingCardPayment[]    @relation("CardPaymentRecorder")
   cardPaymentsResolved PendingCardPayment[]    @relation("CardPaymentResolver")
@@ -234,7 +233,6 @@ model Client {
   returnRequests  EquipmentReturnRequest[]
   taxConnections  TaxConnection[]
   phones          ClientPhone[]
-  pendingPayments PendingPayment[]         @relation("PendingPaymentClient")
   cardPayments    PendingCardPayment[]     @relation("CardPaymentClient")
 
   @@index([status])
@@ -276,61 +274,6 @@ model Payment {
 
   @@index([clientId])
   @@index([paidAt])
-}
-
-// Telegram "To'lov cheklari" guruhidan kelgan, hali tasdiqlanmagan chek.
-//
-// Bot chekni va matnni ushlab shu yerga yozadi; operator /tolovlar sahifasida
-// summani kiritib tasdiqlaydi — shundan keyingina haqiqiy Payment yaratiladi.
-// Avtomatik yozilmaydi: summa xabar matnida bo'lmaydi (faqat chek rasmida).
-model PendingPayment {
-  id                String    @id @default(cuid())
-  // Telegram xabar identifikatori — dublikat oldini olish kaliti.
-  // Bot qayta ishga tushsa yoki xabar qayta kelsa ikkinchi yozuv yaratilmaydi.
-  tgChatId          String
-  tgMessageId       String
-  // Xabarni guruhga yuborgan xodim (ko'rsatish uchun)
-  senderName        String?
-  // Chek xabari bilan birga kelgan matn (parse qilingan manba)
-  rawText           String?
-  parsedName        String?
-  parsedPhone       String? // oxirgi 9 raqam
-  sheetNo           String? // eski Google Sheets tartib raqami — faqat izoh uchun
-  // Taxmin qilingan mijoz (telefon aniq mos kelsa). Operator o'zgartirishi mumkin.
-  suggestedClientId String?
-  suggestedClient   Client?   @relation("PendingPaymentClient", fields: [suggestedClientId], references: [id], onDelete: SetNull)
-  // Saqlangan chek fayli (uploads/receipts/... — Payment bilan bir xil joy)
-  receiptPath       String?
-  receiptMime       String?
-  // Manba: TELEGRAM — bot jonli ushlagan; HISTORY — guruh eksportidan bir
-  // martalik import. HISTORY yozuvlari billingni SURMAYDI (pastga qarang).
-  source            String    @default("TELEGRAM")
-  // Chek guruhga tashlangan sana (eksportda xabar sanasi). Tarixiy importda
-  // to'lovning haqiqiy sanasi shu bo'ladi — "bugun" emas.
-  occurredAt        DateTime?
-  // --- OCR natijasi (tesseract, faqat tarixiy import) ---
-  ocrText           String?
-  suggestedAmount   Float?
-  suggestedCurrency String?
-  // high — yorliqli summa topildi; low — taxmin; none — topilmadi.
-  // Operator UI'da past ishonchlilar ajratib ko'rsatiladi.
-  amountConfidence  String?
-  // Bir chekda bir necha summa bo'lishi mumkin (masalan Paynet: "To'lov
-  // summasi" va "Mijozdan olinadigan" — komissiya tufayli har xil).
-  // Operator tanlashi uchun JSON ro'yxat sifatida saqlanadi.
-  amountCandidates  String?
-  status            String    @default("PENDING") // PENDING | CONFIRMED | REJECTED
-  // Tasdiqlangach yaratilgan to'lov
-  paymentId         String?
-  resolvedById      String?
-  resolvedBy        User?     @relation("PendingPaymentResolver", fields: [resolvedById], references: [id])
-  resolvedAt        DateTime?
-  rejectReason      String?
-  receivedAt        DateTime  @default(now())
-  createdAt         DateTime  @default(now())
-
-  @@unique([tgChatId, tgMessageId])
-  @@index([status, receivedAt])
 }
 
 /// Karta/QR to'lovi — kartaga dostupi bor xodim tasdiqlaguncha kutish navbati.

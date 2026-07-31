@@ -1,5 +1,5 @@
 import { startOfMonth } from "date-fns";
-import { Users, Receipt, CreditCard } from "lucide-react";
+import { Users, CreditCard } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { TicketTabs } from "@/components/ticket-tabs";
@@ -10,38 +10,12 @@ import {
 import { EmptyState } from "@/components/empty-state";
 import { PaymentsTable, type PaymentRow } from "@/components/payments-table";
 import {
-  PendingReceiptsQueue,
-  type PendingReceiptItem,
-  type AmountCandidate,
-} from "@/components/pending-receipts-queue";
-import {
   CardApprovalQueue,
   type CardApprovalItem,
 } from "@/components/card-approval-queue";
 
 import { formatDate, formatMoney, daysUntil } from "@/lib/utils";
 import { paymentState, paymentUrgency, PAYMENT_STATE_LABEL } from "@/lib/payment-status";
-
-/**
- * OCR summa nomzodlarini JSON matndan o'qiydi. Buzuq JSON sahifani
- * yiqitmasligi kerak — xato bo'lsa bo'sh ro'yxat.
- */
-function parseCandidates(raw: string | null): AmountCandidate[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((c) => c && typeof c.value === "number")
-      .map((c) => ({
-        value: c.value as number,
-        label: typeof c.label === "string" ? c.label : null,
-        currency: c.currency === "UZS" || c.currency === "USD" ? c.currency : null,
-      }));
-  } catch {
-    return [];
-  }
-}
 
 /**
  * Valyutalar aralash bo'lgani uchun jami har bir valyuta bo'yicha alohida
@@ -58,9 +32,9 @@ export default async function PaymentsPage() {
   await requireRole(["ADMIN", "MANAGER", "OPERATOR"]);
   const monthStart = startOfMonth(new Date());
 
-  // To'rtta mustaqil so'rov BIR VAQTDA (ilgari ketma-ket edi — sahifa ularning
+  // Uchta mustaqil so'rov BIR VAQTDA (ilgari ketma-ket edi — sahifa ularning
   // yig'indisini kutardi).
-  const [clients, monthPayments, pendingRows, cardRows] = await Promise.all([
+  const [clients, monthPayments, cardRows] = await Promise.all([
     db.client.findMany({
       where: { status: "ACTIVE" },
       include: {
@@ -76,16 +50,6 @@ export default async function PaymentsPage() {
         recordedBy: { select: { name: true } },
       },
     }),
-    // Telegram guruhidan kelgan, hali tasdiqlanmagan cheklar
-    db.pendingPayment.findMany({
-      where: { status: "PENDING" },
-      orderBy: { receivedAt: "desc" },
-      include: {
-        suggestedClient: {
-          select: { restaurantName: true, fullName: true, phone: true },
-        },
-      },
-    }),
     // Karta egasi tasdig'ini kutayotgan to'lovlar (hali Payment EMAS)
     db.pendingCardPayment.findMany({
       where: { status: "PENDING" },
@@ -96,28 +60,6 @@ export default async function PaymentsPage() {
       },
     }),
   ]);
-  const pendingReceipts: PendingReceiptItem[] = pendingRows.map((p) => ({
-    id: p.id,
-    senderName: p.senderName,
-    rawText: p.rawText,
-    parsedName: p.parsedName,
-    parsedPhone: p.parsedPhone,
-    sheetNo: p.sheetNo,
-    receiptMime: p.receiptMime,
-    isPdf: p.receiptMime === "application/pdf",
-    suggestedClientId: p.suggestedClientId,
-    suggestedClientLabel: p.suggestedClient
-      ? `${p.suggestedClient.restaurantName} — ${p.suggestedClient.fullName} (${p.suggestedClient.phone})`
-      : null,
-    receivedAt: p.receivedAt.toISOString(),
-    isHistorical: p.source === "HISTORY",
-    occurredAt: p.occurredAt?.toISOString() ?? null,
-    suggestedAmount: p.suggestedAmount,
-    suggestedCurrency: p.suggestedCurrency,
-    amountConfidence: (p.amountConfidence as "high" | "low" | "none" | null) ?? null,
-    amountCandidates: parseCandidates(p.amountCandidates),
-  }));
-
   const cardApprovals: CardApprovalItem[] = cardRows.map((r) => ({
     id: r.id,
     clientId: r.clientId,
@@ -142,13 +84,6 @@ export default async function PaymentsPage() {
       }
     })(),
   }));
-
-  // Diqqat talab qiladiganlar tepada: summa o'qilmagan / taxminiy bo'lganlar,
-  // keyin mijozi topilmaganlar. Ishonchli va to'liq to'ldirilganlar pastda.
-  const attentionRank = (r: PendingReceiptItem): number =>
-    (r.amountConfidence === "high" ? 2 : r.amountConfidence === "low" ? 1 : 0) +
-    (r.suggestedClientId ? 2 : 0);
-  pendingReceipts.sort((a, b) => attentionRank(a) - attentionRank(b));
 
   // Holatlarni hisoblash
   const withState = clients
@@ -296,32 +231,9 @@ export default async function PaymentsPage() {
                 />
               ),
           },
-          {
-            key: "cheklar",
-            label: "Telegram cheklari",
-            icon: <Receipt className="h-4 w-4" />,
-            tone: "amber",
-            count: pendingReceipts.length,
-            content:
-              pendingReceipts.length > 0 ? (
-                <PendingReceiptsQueue items={pendingReceipts} />
-              ) : (
-                <EmptyState
-                  icon={Receipt}
-                  title="Tasdiqlanmagan chek yo'q"
-                  hint="Telegram «To'lov cheklari» guruhiga chek tashlansa, shu yerda paydo bo'ladi."
-                />
-              ),
-          },
         ]}
-        // Kutayotgan chek bo'lsa — o'sha bo'lim ochiladi (ish shu yerda)
-        initialKey={
-          cardApprovals.length > 0
-            ? "karta"
-            : pendingReceipts.length > 0
-              ? "cheklar"
-              : "mijozlar"
-        }
+        // Tasdiq kutayotgan karta to'lovi bo'lsa — o'sha bo'lim ochiladi
+        initialKey={cardApprovals.length > 0 ? "karta" : "mijozlar"}
       />
     </div>
   );

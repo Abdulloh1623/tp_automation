@@ -56,8 +56,10 @@ export async function createUser(input: {
   role: string;
   regions?: string[];
   phone?: string;
+  telegramId?: string;
   dailyLimit?: number | string;
   shift?: string;
+  cardVerifier?: boolean;
 }): Promise<UserActionState> {
   const admin = await requireAdmin();
   if (!admin.ok) return admin;
@@ -90,8 +92,14 @@ export async function createUser(input: {
         role: parsed.data.role,
         ...regionData(input.regions),
         phone: clean(parsed.data.phone),
+        telegramId: clean(parsed.data.telegramId),
         dailyLimit: parsed.data.dailyLimit,
         shift: normShift(parsed.data.shift),
+        // Ilgari bu ikkisi sxemada parse qilinardi, lekin `create` ga
+        // UZATILMASDI: yangi xodim doim `cardVerifier: false` bo'lib yaralar,
+        // uni tasdiqlovchi qilish uchun yana tahrirlash kerak edi. Belgilash
+        // unutilsa karta to'lovlari jimgina tasdiqsiz yozilaveradi (fail-open).
+        cardVerifier: parsed.data.cardVerifier,
       },
     });
   } catch {

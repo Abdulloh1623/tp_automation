@@ -21,12 +21,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { confirmDialog } from "@/components/confirm-dialog";
 import { toast } from "@/components/toaster";
-import { formatDate, formatMoney } from "@/lib/utils";
-import { CURRENCY, PAYMENT_METHOD, type PaymentMethod } from "@/lib/constants";
+import { CURRENCY, PAYMENT_METHOD } from "@/lib/constants";
 
 export type EditablePayment = {
   id: string;
@@ -35,6 +33,13 @@ export type EditablePayment = {
   method: string | null;
   paidAt: string; // ISO (sahifa toISOString bilan uzatadi)
   receiptNote: string | null;
+  /**
+   * Server tomonda formatlangan ko'rinish ("350 000 so'm · 12/07/2026").
+   * Brauzerning ICU'si `uz-UZ` ni boshqacha yozadi ("350,000" / "2026-07-12"),
+   * shu sabab bu yerda qayta formatlamaymiz — aks holda oynadagi qiymat orqada
+   * turgan jadval qatoridan farq qilib, chalkash ko'rinadi.
+   */
+  label: { amount: string; date: string; method: string };
 };
 
 // ISO sanani <input type="date"> uchun yyyy-MM-dd ga (lokal vaqt).
@@ -42,11 +47,6 @@ function isoToDateInput(iso: string): string {
   const d = new Date(iso);
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
-
-function methodLabel(method: string | null): string {
-  if (!method) return "—";
-  return PAYMENT_METHOD[method as PaymentMethod] ?? method;
 }
 
 export function PaymentHistoryActions({
@@ -144,32 +144,27 @@ export function PaymentHistoryActions({
 
   const dialog = (
     <div
-      className="fixed inset-0 z-[100] overflow-y-auto bg-slate-950/50 p-2 backdrop-blur-md sm:p-6"
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/60 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={close}
       role="dialog"
       aria-modal="true"
       aria-label="To'lovni tahrirlash"
     >
+      {/* Balandligi HAR DOIM ekranga sig'adi: sarlavha va tugmalar joyida
+          qoladi, o'rtadagi forma esa o'zi scroll bo'ladi (kichik ekran /
+          klaviatura ochilganda ham tugmalar yo'qolmaydi). */}
       <div
-        className="relative mx-auto w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-2xl ring-1 ring-black/5 dark:border-slate-800 dark:bg-slate-950 dark:ring-white/5"
+        className="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-slate-200/80 bg-white shadow-2xl ring-1 ring-black/5 sm:max-h-[85dvh] sm:rounded-2xl dark:border-slate-800 dark:bg-slate-950 dark:ring-white/5"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Hi-Tech aksent chizig'i — profil/hujjat modallari bilan bir xil */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary-500/70 to-transparent" />
-
-        <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400">
-              <ReceiptText className="h-5 w-5" />
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-950/60 dark:text-primary-400">
+              <ReceiptText className="h-4 w-4" />
             </span>
-            <div className="min-w-0">
-              <h2 className="truncate text-base font-semibold text-slate-900 dark:text-slate-100">
-                To&apos;lovni tahrirlash
-              </h2>
-              <p className="truncate text-sm text-slate-500 dark:text-slate-400">
-                O&apos;zgarish hisobotlarga darhol tushadi
-              </p>
-            </div>
+            <h2 className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+              To&apos;lovni tahrirlash
+            </h2>
           </div>
           <button
             type="button"
@@ -177,34 +172,27 @@ export function PaymentHistoryActions({
             aria-label="Yopish"
             className="shrink-0 rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Hozirgi qiymatlar — nimani o'zgartirayotgani ko'rinib tursin */}
-        <dl className="grid grid-cols-3 gap-x-4 gap-y-3 border-b border-slate-100 bg-slate-50/70 px-5 py-4 dark:border-slate-800 dark:bg-slate-900/40">
-          {[
-            { label: "Hozirgi summa", value: formatMoney(payment.amount, payment.currency) },
-            { label: "Sana", value: formatDate(payment.paidAt) },
-            { label: "Usul", value: methodLabel(payment.method) },
-          ].map((m) => (
-            <div key={m.label} className="min-w-0">
-              <dt className="text-xs text-slate-500 dark:text-slate-400">{m.label}</dt>
-              <dd className="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
-                {m.value}
-              </dd>
-            </div>
-          ))}
-        </dl>
+        {/* Hozirgi yozuv bir qatorda — nima tahrirlanayotgani aniq bo'lsin */}
+        <p className="shrink-0 border-b border-slate-100 bg-slate-50/70 px-4 py-2 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-400">
+          Hozirgi:{" "}
+          <span className="font-medium text-slate-700 dark:text-slate-200">
+            {payment.label.amount}
+          </span>{" "}
+          · {payment.label.date} · {payment.label.method}
+        </p>
 
-        <div className="space-y-4 px-5 py-4">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {error && (
             <div className="flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
               <AlertCircle className="h-4 w-4 shrink-0" /> {error}
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <Label htmlFor={`amount-${payment.id}`}>Summa</Label>
               <MoneyInput
@@ -254,22 +242,20 @@ export function PaymentHistoryActions({
 
           <div>
             <Label htmlFor={`note-${payment.id}`}>Izoh</Label>
-            <Textarea
+            <Input
               id={`note-${payment.id}`}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              className="min-h-[64px]"
               placeholder="Ixtiyoriy"
             />
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-3 dark:border-slate-800 dark:bg-slate-900/40">
-          <Button variant="ghost" onClick={close} disabled={pending}>
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/40">
+          <Button variant="ghost" size="sm" onClick={close} disabled={pending}>
             Bekor
           </Button>
-          <Button onClick={saveEdit} loading={pending}>
+          <Button size="sm" onClick={saveEdit} loading={pending}>
             Saqlash
           </Button>
         </div>

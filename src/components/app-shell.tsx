@@ -61,7 +61,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: "Mijozlar",
     items: [
       { href: "/mijozlar", label: "Mijozlar", icon: Users, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
-      { href: "/toldirilmagan", label: "To'ldirilmagan", icon: UserX, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
+      { href: "/muammoli-mijozlar", label: "Muammoli mijozlar", icon: UserX, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
       { href: "/tolovlar", label: "To'lovlar", icon: CreditCard, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
     ],
   },

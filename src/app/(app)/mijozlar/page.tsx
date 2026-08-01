@@ -147,7 +147,7 @@ export default async function ClientsPage({
         </div>
         <div className="flex gap-2">
           {dupGroups > 0 && (
-            <Link href="/mijozlar/dublikatlar">
+            <Link href="/muammoli-mijozlar?bolim=dublikat">
               <Button
                 variant="outline"
                 className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/40"

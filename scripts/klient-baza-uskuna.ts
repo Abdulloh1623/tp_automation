@@ -26,6 +26,13 @@ import { writeFileSync } from "fs";
 import path from "path";
 import readXlsxFile from "read-excel-file/node";
 
+/**
+ * Dasturning bazaviy oylik narxi. Shundan ortig'i — uskuna ijarasi, ya'ni
+ * mijozda ijara uskunasi BO'LISHI shart (`BASE_PROGRAM_USD`, lib/constants.ts —
+ * skript ilova kodiga bog'lanmasligi uchun bu yerda takrorlangan).
+ */
+const BASE_USD = 29;
+
 /** Omborda (EquipmentType) turgan nom bilan AYNAN bir xil bo'lishi shart. */
 const TYPE_MONOBLOK = "Monoblok";
 const TYPE_PRINTER = "Printer";
@@ -180,6 +187,16 @@ async function main() {
   const warnNoLookup: string[] = [];
   const warnCheap: string[] = [];
   const warnDupRow: string[] = [];
+  /** ${BASE_USD} dan ortiq to'laydi, lekin ijara uskunasi yo'q — alohida ro'yxat. */
+  const noRental: {
+    name: string;
+    phone: string;
+    contract: string;
+    amount: number;
+    expected: number;
+    reason: string;
+    desc: string;
+  }[] = [];
   const mixedUsed = new Set<string>();
   const seenNames = new Set<string>();
   let noEquip = 0;
@@ -203,6 +220,8 @@ async function main() {
     let m = intOf(cell(r, COL.monoblok));
     let p = intOf(cell(r, COL.printer));
     let rt = intOf(cell(r, COL.router));
+    /** Sheetdagi xom son — sotuvni ayirishdan OLDIN. */
+    const written = m + p + rt;
 
     // 1) Otkaz — texnikasi umuman hisobga olinmaydi.
     if (isAtkaz) {
@@ -230,15 +249,34 @@ async function main() {
         continue;
       }
       addTo(sold, m, p, rt);
-      continue;
+      m = p = rt = 0; // hammasi sotilgan — ijarada hech narsa qolmadi
     } else if (MIXED_BY_DESC.test(desc) && /sotib/i.test(desc)) {
       // "Mono Arenda 2 ta Printer sotib olgan" — monoblok ijarada, printer sotuvda.
       addTo(sold, 0, p, 0, false);
       p = 0;
     }
 
-    if (m + p + rt === 0) {
-      noEquip++;
+    // Biznes qoidasi: oyligi BASE_USD dan ortiq bo'lsa — farq uskuna ijarasi,
+    // ya'ni mijozda ijara uskunasi BO'LISHI shart. Bu tekshiruv `continue` dan
+    // OLDIN turadi: uskunasi umuman yo'qlar ham, hammasini sotib olganlar ham
+    // shu ro'yxatga tushishi kerak.
+    const amount = money(cell(r, COL.newAmount)) || money(cell(r, COL.amount));
+    const rentalTotal = m + p + rt;
+    if (amount > BASE_USD && rentalTotal === 0) {
+      noRental.push({
+        name: rawName,
+        phone: canonPhone(cell(r, COL.phone)),
+        contract,
+        amount,
+        expected: amount - BASE_USD,
+        reason: written === 0 ? "uskuna umuman yozilmagan" : "hammasi sotib olingan",
+        desc,
+      });
+    }
+
+    if (rentalTotal === 0) {
+      // "Sotib olingan" hisobiga allaqachon tushganlarni ikkinchi marta sanamaymiz.
+      if (written === 0) noEquip++;
       continue;
     }
 
@@ -253,9 +291,8 @@ async function main() {
 
     addTo(rent, m, p, rt);
 
-    // Biznes qoidasi: oyligi 29$ bo'lgan mijozda ijara uskunasi bo'lmasligi kerak.
-    const amount = money(cell(r, COL.newAmount)) || money(cell(r, COL.amount));
-    if (amount > 0 && amount <= 29) {
+    // Teskari yo'nalish: aynan bazaviy narx (yoki undan past), lekin uskunasi bor.
+    if (amount > 0 && amount <= BASE_USD) {
       warnCheap.push(`${rawName} — ${amount}$ · M${m} P${p} R${rt}`);
     }
 
@@ -297,10 +334,46 @@ async function main() {
     "utf8",
   );
 
+  // Ikkinchi fayl — tekshirish ro'yxati (yuklash uchun EMAS).
+  noRental.sort((a, b) => b.amount - a.amount);
+  const noRentalFile = path.join(outDir, "klient-baza-ijarasiz-29dan-ortiq.csv");
+  writeFileSync(
+    noRentalFile,
+    "﻿" +
+      [
+        ["Mijoz", "Telefon", "Shartnoma", "Oylik $", "Kutilayotgan ijara $", "Sabab", "Izoh"],
+        ...noRental.map((c) => [
+          c.name,
+          c.phone,
+          c.contract,
+          String(c.amount),
+          String(Math.round(c.expected * 100) / 100),
+          c.reason,
+          c.desc,
+        ]),
+      ]
+        .map((row) => row.map(csvCell).join(","))
+        .join("\n"),
+    "utf8",
+  );
+
   console.log("=== IJARADAGI USKUNA (yuklashga tayyor) ===");
   console.log("  " + line(rent));
   console.log(`  CSV qatorlari: ${rows.length} (${byPhone.size} telefon)`);
   console.log(`  fayl: ${file}`);
+
+  const noRentalSum = noRental.reduce((s, c) => s + c.expected, 0);
+  console.log(`\n=== $${BASE_USD} DAN ORTIQ TO'LAYDI, IJARA USKUNASI YO'Q ===`);
+  console.log(`  ${noRental.length} mijoz · kutilayotgan ijara ${Math.round(noRentalSum)}$/oy`);
+  console.log(
+    `  uskuna umuman yozilmagan: ${noRental.filter((c) => c.reason === "uskuna umuman yozilmagan").length} · ` +
+      `hammasi sotib olingan: ${noRental.filter((c) => c.reason === "hammasi sotib olingan").length}`,
+  );
+  console.log(`  fayl: ${noRentalFile}`);
+  noRental.slice(0, 15).forEach((c) =>
+    console.log(`   ${c.amount}$ (ijara ~${Math.round(c.expected)}$) · ${c.name.slice(0, 60)} — ${c.reason}`),
+  );
+  if (noRental.length > 15) console.log(`   … va yana ${noRental.length - 15} ta`);
 
   console.log("\n=== HISOBGA OLINMAGANLAR ===");
   console.log(`  Sotib olingan:  ${line(sold)}`);

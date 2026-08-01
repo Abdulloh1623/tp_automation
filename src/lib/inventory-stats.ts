@@ -288,16 +288,23 @@ export type RuleClient = {
   rentedQty: number; // ijaradagi uskuna soni (ClientEquipment, ownership=RENTAL)
 };
 
-export type RuleCheck = {
+/**
+ * Tekshiruv natijasi. `T` — chaqiruvchi bergan mijoz shakli: qo'shimcha
+ * maydonlar (telefon, operator, ...) yo'qolmasligi uchun generik, aks holda
+ * ro'yxatni ko'rsatish uchun mijozlarni id bo'yicha qayta ulash kerak bo'lardi.
+ */
+export type RuleCheck<T extends RuleClient = RuleClient> = {
   /** Oyligi aynan bazaviy narx (29$), lekin ijara uskunasi biriktirilgan. */
-  baseWithEquipment: RuleClient[];
+  baseWithEquipment: T[];
   /** Oyligi bazaviy narxdan ORTIQ, lekin ijara uskunasi biriktirilmagan. */
-  aboveBaseWithoutEquipment: RuleClient[];
+  aboveBaseWithoutEquipment: T[];
   /** Oyligi bazaviy narxdan PAST (0 dan katta) — shartnoma/summa shubhali. */
-  belowBase: RuleClient[];
+  belowBase: T[];
+  /** Oyligi umuman kiritilmagan (0) — tekshirib bo'lmaydi, to'ldirish kerak. */
+  zeroAmount: T[];
   /** Qoida faqat USD uchun — UZS mijozlar tekshiruvdan tashqarida. */
   skippedNonUsd: number;
-  /** Oyligi 0 — hali to'ldirilmagan. */
+  /** Oyligi 0 — hali to'ldirilmagan (`zeroAmount.length` bilan bir xil). */
   skippedZero: number;
   checked: number;
   okCount: number;
@@ -311,14 +318,15 @@ const nearly = (a: number, b: number) => Math.abs(a - b) < 0.01;
  * ijara uskunasi BO'LISHI shart. Ikkala yo'nalishdagi buzilish ham ma'lumot
  * to'liq emasligini bildiradi (shartnomadan to'ldirish kerak).
  */
-export function check29Rule(
-  clients: RuleClient[],
+export function check29Rule<T extends RuleClient>(
+  clients: T[],
   baseUsd: number = BASE_PROGRAM_USD,
-): RuleCheck {
-  const res: RuleCheck = {
+): RuleCheck<T> {
+  const res: RuleCheck<T> = {
     baseWithEquipment: [],
     aboveBaseWithoutEquipment: [],
     belowBase: [],
+    zeroAmount: [],
     skippedNonUsd: 0,
     skippedZero: 0,
     checked: 0,
@@ -332,6 +340,7 @@ export function check29Rule(
     }
     if (c.monthlyAmount <= 0) {
       res.skippedZero++;
+      res.zeroAmount.push(c);
       continue;
     }
     res.checked++;

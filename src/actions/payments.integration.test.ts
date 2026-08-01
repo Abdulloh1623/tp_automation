@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "@/lib/db";
 import { recordPayment } from "./payments";
+import { rejectAllPendingPayments } from "./pending-payments";
 import {
   resetDb,
   makeUser,
@@ -192,5 +193,88 @@ describe("recordPayment", () => {
       expect(res.error, `summa "${amount}"`).toBeTruthy();
     }
     expect(await db.payment.count()).toBe(0);
+  });
+});
+
+// Navbatni ommaviy rad etish — yuzlab chek yig'ilib qolganda bittalab
+// bosish real emas. Muhim shart: YOZUV O'CHIRILMAYDI (Telegram dublikat
+// kaliti saqlanadi), faqat status va chek fayli ketadi.
+describe("rejectAllPendingPayments (navbatni ommaviy tozalash)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  const makePending = (n: number, status = "PENDING") =>
+    db.pendingPayment.create({
+      data: {
+        tgChatId: "-100",
+        tgMessageId: String(n),
+        status,
+        receiptPath: `receipts/chek-${n}.jpg`,
+        parsedName: `Chek ${n}`,
+      },
+    });
+
+  it("barcha PENDING cheklarni rad etadi, yozuvni o'chirmaydi", async () => {
+    await loginAs(await makeUser("ADMIN"));
+    await makePending(1);
+    await makePending(2);
+    await makePending(3);
+
+    const res = await rejectAllPendingPayments();
+
+    expect(res.ok).toBe(true);
+    expect(res.rejected).toBe(3);
+    expect(await db.pendingPayment.count(), "qatorlar joyida qoladi").toBe(3);
+    expect(await db.pendingPayment.count({ where: { status: "REJECTED" } })).toBe(3);
+    const one = await db.pendingPayment.findFirst();
+    expect(one!.receiptPath, "chek fayli yo'li tozalanadi").toBeNull();
+    expect(one!.resolvedAt).not.toBeNull();
+    expect(one!.rejectReason).toBeTruthy();
+  });
+
+  it("allaqachon ko'rib chiqilgan cheklarga TEGMAYDI", async () => {
+    await loginAs(await makeUser("ADMIN"));
+    await makePending(1, "CONFIRMED");
+    await makePending(2, "REJECTED");
+    await makePending(3);
+
+    const res = await rejectAllPendingPayments();
+
+    expect(res.rejected).toBe(1);
+    const confirmed = await db.pendingPayment.findFirst({ where: { tgMessageId: "1" } });
+    expect(confirmed!.status, "tasdiqlangan chek o'zgarmaydi").toBe("CONFIRMED");
+    expect(confirmed!.receiptPath, "uning cheki ham saqlanadi").toBe("receipts/chek-1.jpg");
+  });
+
+  it("to'lov YARATMAYDI", async () => {
+    await loginAs(await makeUser("ADMIN"));
+    await makePending(1);
+
+    await rejectAllPendingPayments();
+
+    expect(await db.payment.count()).toBe(0);
+  });
+
+  it("OPERATOR va MANAGER qila olmaydi", async () => {
+    for (const role of ["OPERATOR", "MANAGER"] as const) {
+      await resetDb();
+      await loginAs(await makeUser(role));
+      await makePending(1);
+
+      const res = await rejectAllPendingPayments();
+
+      expect(res.error, `rol ${role}`).toBeTruthy();
+      expect(await db.pendingPayment.count({ where: { status: "PENDING" } })).toBe(1);
+    }
+  });
+
+  it("navbat bo'sh bo'lsa — 0 qaytaradi", async () => {
+    await loginAs(await makeUser("ADMIN"));
+
+    const res = await rejectAllPendingPayments();
+
+    expect(res.ok).toBe(true);
+    expect(res.rejected).toBe(0);
   });
 });

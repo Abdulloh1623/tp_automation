@@ -357,7 +357,7 @@ export default async function DashboardPage() {
     { label: "3 kundan oshgan eskalatsiya", count: escSlaBreached, href: "/eskalatsiya" },
     { label: "Uskuna qaytarish arizalari", count: pendingReturns, href: "/ombor" },
     { label: "Biriktirilmagan mijozlar", count: unassignedCount, href: "/mijozlar?assigned=__none__" },
-    { label: "To'ldirilmagan ma'lumot", count: incompleteCount, href: "/toldirilmagan" },
+    { label: "To'ldirilmagan ma'lumot", count: incompleteCount, href: "/muammoli-mijozlar?bolim=malumot" },
     { label: "Kam zaxira (ombor)", count: lowStockCount, href: "/ombor" },
   ];
 

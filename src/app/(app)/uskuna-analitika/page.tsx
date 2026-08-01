@@ -284,8 +284,12 @@ function DetailPanel({
               ))}
             </DetailTable>
             <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">
-              Jami {d.rentalClientCount} ta mijozda ijara uskunasi bor. Bu summa mijozning
-              oylik to'lovi ICHIDAGI ulush — MRR ustiga qo'shilmaydi.
+              Jami {d.rentalClientCount} ta mijozda ijara uskunasi bor — otkaz
+              qilinganlar BILAN birga (daromad hisobi boshqaruv paneli bilan bir xil
+              bo'lishi uchun). Pastdagi &laquo;Mijozlar uskuna bo&apos;yicha&raquo;
+              blokida otkazlar chiqarib tashlangan, shuning uchun u kamroq son
+              ko'rsatishi mumkin. Bu summa mijozning oylik to'lovi ICHIDAGI ulush —
+              MRR ustiga qo'shilmaydi.
             </p>
           </>
         )}

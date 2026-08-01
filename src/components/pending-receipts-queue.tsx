@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { confirmDialog } from "@/components/confirm-dialog";
 import { AddClientLink, ClientNotFound } from "@/components/add-client-link";
 import { CURRENCY, PAYMENT_METHOD } from "@/lib/constants";
-import { formatPhone } from "@/lib/utils";
+import { formatDateTime, formatNumber, formatPhone } from "@/lib/utils";
 
 export type AmountCandidate = {
   value: number;
@@ -215,7 +215,7 @@ function PendingRow({
               {it.senderName && <span>Yubordi: {it.senderName}</span>}
               {it.parsedPhone && <span>Telefon: {formatPhone(it.parsedPhone)}</span>}
               {it.sheetNo && <span>Eski ro&apos;yxat №{it.sheetNo}</span>}
-              <span>{new Date(it.receivedAt).toLocaleString("uz-UZ")}</span>
+              <span>{formatDateTime(it.receivedAt)}</span>
             </div>
           </div>
 
@@ -301,7 +301,7 @@ function PendingRow({
                   }
                   title={c.label ?? "yorliqsiz"}
                 >
-                  {c.value.toLocaleString("uz-UZ")}
+                  {formatNumber(c.value)}
                   {c.label && (
                     <span className="ml-1 opacity-70">· {c.label}</span>
                   )}

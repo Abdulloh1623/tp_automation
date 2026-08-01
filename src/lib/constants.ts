@@ -300,6 +300,12 @@ export const RECEIPT_MAX_MB = 5;
 // (`components/soliq-connect-dialog.tsx`) shu yagona raqamga tayanadi.
 export const SOLIQ_DOC_MAX_MB = 10;
 
+// Hafta kunlari (o'zbekcha, 0 = yakshanba) — to'liq sana yozuvi uchun.
+// Intl `uz-UZ` ni brauzerda bilmaydi (`Sat` qaytaradi), shuning uchun qo'lda.
+export const UZBEK_WEEKDAYS = [
+  "yakshanba", "dushanba", "seshanba", "chorshanba", "payshanba", "juma", "shanba",
+];
+
 // Oy nomlari (o'zbekcha) — moliya va uskuna analitikasi grafiklari uchun.
 export const UZBEK_MONTHS = [
   "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun",

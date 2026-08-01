@@ -7,7 +7,7 @@ import { DuplicateDeleteButton } from "@/components/duplicate-delete-button";
 import type { DupGroup, DupReason } from "@/lib/duplicates";
 import type { DupPageClient } from "@/lib/duplicates-data";
 import { CLIENT_STATUS, LEAD_STAGE } from "@/lib/constants";
-import { formatMoney, formatPhone } from "@/lib/utils";
+import { formatDate, formatMoney, formatPhone } from "@/lib/utils";
 
 const REASON_LABEL: Record<DupReason, string> = {
   phone: "Bir xil telefon",
@@ -147,7 +147,7 @@ export function DuplicateGroups({
 
                   <div className="min-w-[90px] text-xs text-slate-400">
                     {c.assignedTo?.name ?? "biriktirilmagan"}
-                    <div>{new Date(c.createdAt).toLocaleDateString("uz-UZ")}</div>
+                    <div>{formatDate(c.createdAt)}</div>
                   </div>
 
                   <div className="flex items-center gap-1.5">

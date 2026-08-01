@@ -9,7 +9,7 @@ import { Select } from "@/components/ui/select";
 import { toast } from "@/components/toaster";
 import { confirmDialog } from "@/components/confirm-dialog";
 import { CARD_REJECT_REASON, paymentMethodLabel } from "@/lib/constants";
-import { formatMoney, formatPhone } from "@/lib/utils";
+import { formatDateTime, formatMoney, formatPhone } from "@/lib/utils";
 
 export type CardApprovalItem = {
   id: string;
@@ -40,14 +40,8 @@ function ago(iso: string): string {
 }
 
 function timeOf(iso: string): string {
-  return new Date(iso).toLocaleString("uz-UZ", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Tashkent",
-  });
+  // Intl EMAS: `uz-UZ` natijasi Node va brauzerda har xil (hydration mismatch).
+  return formatDateTime(iso);
 }
 
 export function CardApprovalQueue({ items }: { items: CardApprovalItem[] }) {

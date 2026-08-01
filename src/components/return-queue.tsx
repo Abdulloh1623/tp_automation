@@ -32,7 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { confirmDialog } from "@/components/confirm-dialog";
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { SpecialNoteBell } from "@/components/special-note-bell";
-import { formatPhone, normalizePhone } from "@/lib/utils";
+import { formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 
 export type ReturnQueueItem = {
   id: string;
@@ -244,7 +244,7 @@ function Row({
             </span>
             <span>· Ariza: {r.byName ?? "—"}</span>
             {done && r.resolvedAt && (
-              <span>· Qaytarildi: {new Date(r.resolvedAt).toLocaleDateString("uz")}</span>
+              <span>· Qaytarildi: {formatDate(r.resolvedAt)}</span>
             )}
           </div>
           {r.note && <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{r.note}</p>}

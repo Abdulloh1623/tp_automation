@@ -16,6 +16,7 @@ type SearchParams = Promise<{
   status?: string;
   assigned?: string;
   biznex?: string;
+  uskuna?: string;
   sort?: string;
   dir?: string;
   page?: string;
@@ -44,6 +45,7 @@ export default async function ClientsPage({
   const status = sp.status || "";
   const assigned = sp.assigned || "";
   const biznex = sp.biznex || "";
+  const uskuna = sp.uskuna || "";
   const sort = sp.sort && SORTABLE[sp.sort] ? sp.sort : "createdAt";
   const dir: "asc" | "desc" = sp.dir === "asc" ? "asc" : "desc";
   const page = Math.max(1, parseInt(sp.page || "1", 10) || 1);
@@ -65,6 +67,20 @@ export default async function ClientsPage({
   where.stage = { not: "REFUSED" };
   if (assigned === "__none__") where.assignedToId = null;
   else if (assigned) where.assignedToId = assigned;
+  // Uskuna egaligi — `ClientEquipment` dan HISOBLANADI, `equipmentMode`
+  // maydonidan emas. Sabab: maydon keshlangan qiymat (biriktirish/qaytarishda
+  // yangilanadi) va eskirib qolishi mumkin; uskuna analitikasidagi uchlik
+  // taqsimot ham xuddi shu manbadan oladi, ikkalasi bir-biriga mos bo'lsin.
+  // IJARA USTUN: ham ijara, ham sotuvi bo'lgan mijoz "ijara" da chiqadi.
+  const hasRental = { some: { ownership: "RENTAL", quantity: { gt: 0 } } };
+  if (uskuna === "RENTAL") where.equipmentItems = hasRental;
+  else if (uskuna === "SOLD") {
+    where.equipmentItems = { some: { ownership: "SOLD", quantity: { gt: 0 } } };
+    where.NOT = { equipmentItems: hasRental };
+  } else if (uskuna === "PROGRAM_ONLY") {
+    where.equipmentItems = { none: { quantity: { gt: 0 } } };
+  }
+
   // Biznex flaglari — fon skripti (`npm run sync-biznex`) qo'yadi.
   // `not_found` — telefon bo'yicha moslik topilmadi (ma'lumot sifati);
   // `silent_churn` — obunasi tugagan, lekin CRM'da hali faol (MRR xavf ostida).

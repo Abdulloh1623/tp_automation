@@ -115,6 +115,22 @@ export function ClientsFilter({
             <option value="silent_churn">Obunasi tugagan (faol turibdi)</option>
           </Select>
         </div>
+        {/* Uskuna egaligi — /uskuna-analitika dagi uchlik taqsimot bilan
+            bir xil mantiq (ijara ustun). */}
+        <div className="w-48">
+          <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
+            Uskuna
+          </label>
+          <Select
+            defaultValue={params.get("uskuna") ?? ""}
+            onChange={(e) => setParam("uskuna", e.target.value)}
+          >
+            <option value="">Barchasi</option>
+            <option value="RENTAL">Ijaraga olgan</option>
+            <option value="SOLD">Sotib olgan</option>
+            <option value="PROGRAM_ONLY">Faqat dastur</option>
+          </Select>
+        </div>
       </div>
     </Card>
   );

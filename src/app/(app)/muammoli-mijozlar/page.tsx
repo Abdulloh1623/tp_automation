@@ -2,11 +2,16 @@ import Link from "next/link";
 import { ClipboardList, Wallet, Copy } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { BASE_PROGRAM_USD } from "@/lib/constants";
-import { loadIncompleteClients, loadPaymentProblems } from "@/lib/problem-clients";
+import {
+  loadIncompleteClients,
+  loadPaymentProblems,
+  loadRefusedButActive,
+} from "@/lib/problem-clients";
 import { loadDuplicateGroups } from "@/lib/duplicates-data";
 import { IncompleteTable } from "@/components/incomplete-table";
 import { PaymentProblemList, type ProblemBucket } from "@/components/payment-problem-list";
 import { DuplicateGroups } from "@/components/duplicate-groups";
+import { RefusedActiveFix } from "@/components/refused-active-fix";
 
 // Uch bo'lim bitta manzilda: tanlov URL da turadi, ya'ni havolani ulashsa ham,
 // tuzatishdan keyin sahifa yangilansa ham xuddi shu bo'lim ochiladi.
@@ -37,10 +42,11 @@ export default async function ProblemClientsPage({
   // yuklanadi. Faol tab uchun to'liq ma'lumot, qolganlari uchun faqat son
   // kerak — lekin dublikat/qoida hisoblashi baribir butun ro'yxatni talab
   // qiladi, alohida "count" so'rovi yutuq bermaydi.
-  const [incomplete, rule, dupGroups] = await Promise.all([
+  const [incomplete, rule, dupGroups, refusedActive] = await Promise.all([
     loadIncompleteClients(),
     loadPaymentProblems(),
     loadDuplicateGroups(),
+    loadRefusedButActive(),
   ]);
 
   const buckets: ProblemBucket[] = [
@@ -95,6 +101,10 @@ export default async function ProblemClientsPage({
             : `Tuzatish kerak bo'lgan ${total} ta holat. Ro'yxatlar dinamik — tuzatilgan mijoz o'zi chiqib ketadi.`}
         </p>
       </div>
+
+      {/* Holat nomuvofiqligi — uchala tabdagi sonlarga ham ta'sir qiladi,
+          shuning uchun tab tanlovidan tashqarida, doim tepada turadi. */}
+      <RefusedActiveFix rows={refusedActive.clients} mrr={refusedActive.mrr} />
 
       <div className="flex flex-wrap gap-2">
         {TABS.map((t) => {

@@ -741,3 +741,59 @@ export async function deleteClientInline(
   revalidatePath("/muammoli-mijozlar");
   return { ok: true };
 }
+
+/**
+ * Otkaz qilingan, lekin holati hali "Faol" bo'lgan mijozlarni nofaol qiladi
+ * (faqat ADMIN). `lib/problem-clients.ts` dagi `loadRefusedButActive` bilan
+ * bir xil mezon.
+ *
+ * NIMA QILADI: `status` -> INACTIVE va `deactivatedAt` yoziladi (churn vaqti,
+ * moliya hisobiga kerak). `stage` allaqachon REFUSED — tegilmaydi.
+ * `refuseClient` bilan bir xil natija, faqat ommaviy.
+ *
+ * DIQQAT: bu MRR ni kamaytiradi — otkaz mijozlarning oyligi endi daromad
+ * hisobiga kirmaydi. Aynan shu tuzatishning maqsadi: ular kirmasligi kerak.
+ *
+ * `deactivatedAt` FAQAT bo'sh bo'lganda yoziladi — mijoz ilgari bir marta
+ * nofaol bo'lib, keyin qaytgan bo'lsa, eski churn sanasi saqlanadi.
+ */
+export async function deactivateRefusedClients(): Promise<{
+  ok: boolean;
+  error?: string;
+  fixed?: number;
+}> {
+  const g = await guardRole(["ADMIN"]);
+  if (!g.ok) return { ok: false, error: g.error };
+
+  const stale = await db.client.findMany({
+    where: { stage: "REFUSED", status: { not: "INACTIVE" } },
+    select: { id: true, deactivatedAt: true },
+  });
+  if (stale.length === 0) return { ok: true, fixed: 0 };
+
+  const now = new Date();
+  const withoutDate = stale.filter((c) => !c.deactivatedAt).map((c) => c.id);
+  const ids = stale.map((c) => c.id);
+
+  await db.client.updateMany({
+    where: { id: { in: ids } },
+    data: { status: "INACTIVE" },
+  });
+  if (withoutDate.length > 0) {
+    await db.client.updateMany({
+      where: { id: { in: withoutDate } },
+      data: { deactivatedAt: now },
+    });
+  }
+
+  await logAudit("Otkaz mijozlar nofaol qilindi", {
+    entity: "Client",
+    detail: `${ids.length} ta mijoz · ${withoutDate.length} tasiga churn sanasi yozildi`,
+  });
+
+  revalidatePath("/muammoli-mijozlar");
+  revalidatePath("/mijozlar");
+  revalidatePath("/moliya");
+  revalidatePath("/");
+  return { ok: true, fixed: ids.length };
+}

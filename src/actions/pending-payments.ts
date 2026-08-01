@@ -196,3 +196,55 @@ export async function searchClientsForReceipt(
     label: `${c.restaurantName} — ${c.fullName} (${c.phone})`,
   }));
 }
+
+/**
+ * Kutilayotgan Telegram cheklarini OMMAVIY rad etadi (faqat ADMIN).
+ *
+ * NEGA KERAK: navbatga tarixiy importdan va guruhdan yuzlab chek yig'ilib
+ * qolishi mumkin (mijozi topilmagan, summasi o'qilmagan). Ularni bittalab
+ * rad etish real emas — 178 ta chek uchun 178 marta bosish kerak bo'lardi.
+ *
+ * YOZUVLAR O'CHIRILMAYDI, faqat `REJECTED` bo'ladi. Sabab: `(tgChatId,
+ * tgMessageId)` — botning dublikat kaliti. Qator o'chirilsa, bot o'sha guruhni
+ * qayta o'qiganda cheklar QAYTADAN kirib kelardi. Chek rasmi esa o'chiriladi —
+ * u diskda joy egallaydi va rad etilgandan keyin kerak emas.
+ */
+export async function rejectAllPendingPayments(
+  reason?: string,
+): Promise<PendingFormState & { rejected?: number }> {
+  const g = await guardRole(["ADMIN"]);
+  if (!g.ok) return { error: g.error };
+
+  const pending = await db.pendingPayment.findMany({
+    where: { status: "PENDING" },
+    select: { id: true, receiptPath: true },
+  });
+  if (pending.length === 0) return { ok: true, rejected: 0 };
+
+  const note = reason?.trim()?.slice(0, 500) || "Navbat ommaviy tozalandi";
+  const ids = pending.map((p) => p.id);
+
+  // Status AVVAL yangilanadi: fayl o'chirish uzoq davom etsa ham, navbat
+  // darhol bo'shaydi va ikkinchi marta bosilsa qayta ishlanmaydi.
+  const updated = await db.pendingPayment.updateMany({
+    where: { id: { in: ids }, status: "PENDING" },
+    data: {
+      status: "REJECTED",
+      rejectReason: note,
+      resolvedById: g.session.userId,
+      resolvedAt: new Date(),
+      receiptPath: null,
+    },
+  });
+
+  // Fayllar bazadan uzilgach o'chiriladi — bittasi yiqilsa qolgani davom etadi.
+  for (const p of pending) await deleteReceipt(p.receiptPath);
+
+  await logAudit("Telegram cheklari ommaviy rad etildi", {
+    entity: "PendingPayment",
+    detail: `${updated.count} ta chek · sabab: ${note}`,
+  });
+
+  revalidatePath("/tolovlar");
+  return { ok: true, rejected: updated.count };
+}

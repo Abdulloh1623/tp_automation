@@ -6,6 +6,7 @@ import { AlertCircle, CheckCircle2, FileText, Search, X } from "lucide-react";
 import {
   confirmPendingPayment,
   rejectPendingPayment,
+  rejectAllPendingPayments,
   searchClientsForReceipt,
 } from "@/actions/pending-payments";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,7 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { confirmDialog } from "@/components/confirm-dialog";
+import { toast } from "@/components/toaster";
 import { AddClientLink, ClientNotFound } from "@/components/add-client-link";
 import { CURRENCY, PAYMENT_METHOD } from "@/lib/constants";
 import { formatDateTime, formatNumber, formatPhone } from "@/lib/utils";
@@ -67,7 +69,14 @@ function todayIso(): string {
 /** Bir vaqtda ko'rsatiladigan kartochkalar (tarixiy importdan keyin ~190 ta bo'ladi). */
 const PAGE = 25;
 
-export function PendingReceiptsQueue({ items }: { items: PendingReceiptItem[] }) {
+export function PendingReceiptsQueue({
+  items,
+  isAdmin = false,
+}: {
+  items: PendingReceiptItem[];
+  /** Navbatni ommaviy tozalash — faqat ADMIN (amal ham shuni tekshiradi). */
+  isAdmin?: boolean;
+}) {
   const [err, setErr] = useState<string | null>(null);
   const [shown, setShown] = useState(PAGE);
 
@@ -76,6 +85,7 @@ export function PendingReceiptsQueue({ items }: { items: PendingReceiptItem[] })
 
   return (
     <div className="space-y-3">
+      {isAdmin && <RejectAllButton total={items.length} onError={setErr} />}
       <p className="text-sm text-slate-500 dark:text-slate-400">
         Telegram &laquo;To&apos;lov cheklari&raquo; guruhidan kelgan cheklar. Summani chekka
         qarab kiriting va tasdiqlang &mdash; shundan keyin to&apos;lov yoziladi.
@@ -98,6 +108,58 @@ export function PendingReceiptsQueue({ items }: { items: PendingReceiptItem[] })
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Butun navbatni bir amalda rad etish. Yozuvlar O'CHIRILMAYDI (Telegram
+ * dublikat kaliti saqlanadi), faqat status REJECTED bo'ladi va chek rasmlari
+ * diskdan olib tashlanadi.
+ */
+function RejectAllButton({
+  total,
+  onError,
+}: {
+  total: number;
+  onError: (m: string | null) => void;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+
+  function onClick() {
+    void (async () => {
+      const ok = await confirmDialog({
+        title: `${total} ta chek rad etilsinmi?`,
+        message:
+          "Butun navbat tozalanadi: cheklar \"rad etilgan\" holatiga o'tadi va " +
+          "chek rasmlari diskdan o'chiriladi. Yozuvlarning o'zi bazada qoladi " +
+          "(bir chek ikki marta kirib kelmasligi uchun). Bu amalni qaytarib bo'lmaydi.",
+        confirmLabel: "Ha, rad etish",
+      });
+      if (!ok) return;
+      start(async () => {
+        const res = await rejectAllPendingPayments();
+        if (res.ok) {
+          onError(null);
+          toast(`${res.rejected ?? 0} ta chek rad etildi`, "success");
+          router.refresh();
+        } else {
+          onError(res.error ?? "Xatolik");
+        }
+      });
+    })();
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900 dark:bg-amber-950/30">
+      <span className="text-sm text-amber-800 dark:text-amber-200">
+        Navbatda {total} ta chek. Hammasi keraksiz bo&apos;lsa bir amalda rad etish mumkin.
+      </span>
+      <Button variant="outline" size="sm" onClick={onClick} disabled={pending}>
+        <X className="h-4 w-4" />
+        {pending ? "..." : "Hammasini rad etish"}
+      </Button>
     </div>
   );
 }

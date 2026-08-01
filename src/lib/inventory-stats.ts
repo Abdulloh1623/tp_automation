@@ -403,6 +403,8 @@ export type EquipmentDetail = {
   brakRecent: { date: Date; typeName: string; qty: number; from: string; note: string | null; user: string }[];
   /** Kam zaxira: yetishmayotgan miqdor bilan. */
   lowStock: { name: string; qty: number; minStock: number; deficit: number; usedLast90: number }[];
+  /** Nofaol mijozlarda qolib ketgan yozuvlar (tozalash uchun ro'yxat). */
+  stale: { id: string; name: string; status: string; rental: number; sold: number }[];
 };
 
 export type EquipmentOverview = {
@@ -415,6 +417,13 @@ export type EquipmentOverview = {
   rentalUnits: number;
   soldUnits: number;
   monthlyRentalUsd: number;
+  /**
+   * Nofaol (o'chirilgan/kutilayotgan) mijozlarda qolib ketgan uskuna — yuqoridagi
+   * jamilarga KIRMAYDI. Nolga teng bo'lishi kerak: noldan katta bo'lsa, uskuna
+   * qaytarilgan-u yozuvi o'chirilmagan.
+   */
+  staleUnits: number;
+  staleRentalUsd: number;
   lowStock: { name: string; warehouse: number; minStock: number }[];
   byType: { name: string; warehouse: number; usta: number; client: number; brak: number }[];
   // Dinamika
@@ -430,7 +439,7 @@ export type EquipmentOverview = {
 
 /** Analitika sahifasi uchun barcha ko'rsatkichlar. `months` — oyna (default 12 oy). */
 export async function getEquipmentOverview(months = 12): Promise<EquipmentOverview> {
-  const [types, stock, clientEquipment, movements, ustalar, movementCount] =
+  const [types, stock, allClientEquipment, movements, ustalar, movementCount] =
     await Promise.all([
       db.equipmentType.findMany({
         select: { id: true, name: true, salePrice: true, rentalPrice: true, minStock: true, isActive: true },
@@ -446,7 +455,7 @@ export async function getEquipmentOverview(months = 12): Promise<EquipmentOvervi
           equipmentTypeId: true,
           clientId: true,
           equipmentType: { select: { rentalPrice: true } },
-          client: { select: { restaurantName: true } },
+          client: { select: { restaurantName: true, fullName: true, status: true } },
         },
       }),
       // Usta balansi (`expected`) to'g'ri chiqishi uchun TO'LIQ tarix kerak —
@@ -493,6 +502,20 @@ export async function getEquipmentOverview(months = 12): Promise<EquipmentOvervi
   const typeById = new Map(types.map((t) => [t.id, t]));
   const now = new Date();
   const windowStart = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+
+  // "Mijozlarda" — FAQAT FAOL mijozlar.
+  //
+  // Ilgari holat filtrlanmasdi, shu sabab o'chirilgan/otkaz mijozlarda qolib
+  // ketgan yozuvlar ham "mijozlarda turgan uskuna" va "ijara daromadi" ichiga
+  // qo'shilib ketardi — boshqaruv paneli esa (faol filtri bilan) boshqa raqam
+  // ko'rsatardi. Filtr SO'ROVDAN KEYIN, bitta joyda: pastdagi barcha hisob
+  // (tur kesimi, mijoz kesimi, ijara daromadi) shu ro'yxatdan oziqlanadi.
+  //
+  // Nofaol mijozlarda qolgan yozuv — ma'lumot xatosi (uskuna aslida
+  // qaytarilgan, yozuv esa o'chirilmagan), shuning uchun jamiga qo'shilmaydi,
+  // lekin YO'QOLMAYDI ham: pastda alohida ko'rsatiladi va tozalanadi.
+  const clientEquipment = allClientEquipment.filter((e) => e.client.status === "ACTIVE");
+  const staleEquipment = allClientEquipment.filter((e) => e.client.status !== "ACTIVE");
 
   // Qoldiqni joylashuv turi bo'yicha yig'amiz.
   const wh = new Map<string, number>();
@@ -710,6 +733,36 @@ export async function getEquipmentOverview(months = 12): Promise<EquipmentOvervi
     })
     .sort((a, b) => b.deficit - a.deficit);
 
+  // Nofaol mijozlarda qolgan yozuvlar — mijoz kesimida.
+  const stalePerClient = new Map<
+    string,
+    { id: string; name: string; status: string; rental: number; sold: number }
+  >();
+  let staleUnits = 0;
+  let staleRentalUsd = 0;
+  for (const e of staleEquipment) {
+    const c = stalePerClient.get(e.clientId) ?? {
+      id: e.clientId,
+      // Nofaol mijozlarda restoran nomi ko'pincha bo'sh — FIO ga tushamiz,
+      // aks holda ro'yxat bir nechta "—" qator bo'lib qoladi.
+      name: e.client.restaurantName || e.client.fullName,
+      status: e.client.status,
+      rental: 0,
+      sold: 0,
+    };
+    staleUnits += e.quantity;
+    if (e.ownership === "RENTAL") {
+      c.rental += e.quantity;
+      staleRentalUsd += e.quantity * e.equipmentType.rentalPrice;
+    } else {
+      c.sold += e.quantity;
+    }
+    stalePerClient.set(e.clientId, c);
+  }
+  const staleDetail = [...stalePerClient.values()].sort(
+    (a, b) => b.rental + b.sold - (a.rental + a.sold),
+  );
+
   return {
     warehouseUnits,
     warehouseValue,
@@ -719,6 +772,8 @@ export async function getEquipmentOverview(months = 12): Promise<EquipmentOvervi
     rentalUnits,
     soldUnits,
     monthlyRentalUsd,
+    staleUnits,
+    staleRentalUsd,
     lowStock,
     byType,
     months: bucketFlowByMonth(movements, months),
@@ -738,6 +793,7 @@ export async function getEquipmentOverview(months = 12): Promise<EquipmentOvervi
       brak: brakDetail,
       brakRecent,
       lowStock: lowStockDetail,
+      stale: staleDetail,
     },
   };
 }

@@ -64,8 +64,12 @@ export default async function OmborPage({
     _sum: { quantity: true },
   });
 
+  // FAQAT FAOL mijozlar — o'chirilgan mijozda qolib ketgan yozuv "mijozlarda
+  // turgan uskuna" va ijara daromadini oshirib ko'rsatardi (boshqaruv paneli
+  // esa faol filtri bilan boshqa raqam berardi). Qolib ketganlari
+  // /uskuna-analitika dagi tozalash blokida.
   const clientEquipment = await db.clientEquipment.findMany({
-    where: { quantity: { gt: 0 } },
+    where: { quantity: { gt: 0 }, client: { status: "ACTIVE" } },
     include: { equipmentType: { select: { salePrice: true, rentalPrice: true } } },
   });
 
@@ -156,7 +160,7 @@ export default async function OmborPage({
   const stats: { label: string; value: string; warn?: boolean }[] = [
     { label: "Omborda (dona)", value: String(warehouseUnits) },
     { label: "Ombor qiymati ($)", value: warehouseValue.toLocaleString("en-US") },
-    { label: "Mijozlarda (dona)", value: String(deployedUnits) },
+    { label: "Mijozlarda (faol, dona)", value: String(deployedUnits) },
     { label: "Ijara daromadi ($/oy)", value: monthlyRentalRevenue.toLocaleString("en-US") },
     { label: "Ustalarda (dona)", value: String(ustaUnits) },
     { label: "Kam zaxira", value: String(lowStock.length), warn: lowStock.length > 0 },

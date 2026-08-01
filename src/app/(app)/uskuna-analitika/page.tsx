@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StaleEquipmentCleanup } from "@/components/stale-equipment-cleanup";
 import { FlowChart, FlowLegend, SourceSplit } from "@/components/equipment-charts";
 import {
   getEquipmentOverview,
@@ -441,7 +442,8 @@ export default async function UskunaAnalitikaPage({
             Uskuna analitikasi
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Ombor → usta → mijoz oqimi, o'rnatish manbasi va ma'lumot sifati
+            Ombor → usta → mijoz oqimi, o'rnatish manbasi va ma'lumot sifati.
+            &quot;Mijozlarda&quot; va ijara daromadi — faqat FAOL mijozlar bo'yicha.
           </p>
         </div>
         <div className="flex gap-1 rounded-lg border border-slate-200 p-0.5 dark:border-slate-800">
@@ -491,7 +493,7 @@ export default async function UskunaAnalitikaPage({
           cardKey="mijozlar"
           active={active}
           months={months}
-          label="Mijozlarda"
+          label="Mijozlarda (faol)"
           value={`${o.clientUnits} dona`}
           sub={`Ijara ${o.rentalUnits} · Sotuv ${o.soldUnits}`}
           icon={PackageCheck}
@@ -534,6 +536,13 @@ export default async function UskunaAnalitikaPage({
       </div>
 
       {active && <DetailPanel which={active} d={o.detail} months={months} />}
+
+      {/* Nofaol mijozlarda qolib ketgan yozuvlar — jamiga kirmaydi, tozalanadi. */}
+      <StaleEquipmentCleanup
+        rows={o.detail.stale}
+        units={o.staleUnits}
+        rentalUsd={o.staleRentalUsd}
+      />
 
       {/* Oqim + manba */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

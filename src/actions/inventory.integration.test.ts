@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "@/lib/db";
 import { transferToUsta, transferBatchToUsta, addStock, scrapToBrak } from "./inventory";
-import { assignEquipmentToClient } from "./equipment";
+import { assignEquipmentToClient, clearInactiveClientEquipment } from "./equipment";
 import { resetDb, makeUser, makeClient, makeEquipment, loginAs, stockOf } from "@/test/fixtures";
 
 describe("addStock (omborga kirim)", () => {
@@ -316,5 +316,88 @@ describe("scrapToBrak (brakka chiqarish)", () => {
 
     expect(res.ok).toBe(false);
     expect(await stockOf(type.id)).toBe(1);
+  });
+});
+
+// Uskuna mijozdan qaytarib olingan, lekin qaytarish tizim orqali emas, qo'lda
+// bo'lgan — `ClientEquipment` yozuvi o'chirilmay qolgan. Shunday yozuvlar
+// "mijozlarda turgan uskuna" va ijara daromadini oshirib ko'rsatardi.
+describe("clearInactiveClientEquipment (nofaol mijozlardagi yozuvni tozalash)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("faqat NOFAOL mijozning yozuvini o'chiradi", async () => {
+    await loginAs(await makeUser("MANAGER"));
+    const type = await makeEquipment("Monoblok", { warehouseQty: 10 });
+    const faol = await makeClient({ status: "ACTIVE" });
+    const ochirilgan = await makeClient({ status: "INACTIVE" });
+    await db.clientEquipment.createMany({
+      data: [
+        { clientId: faol.id, equipmentTypeId: type.id, quantity: 2, ownership: "RENTAL" },
+        { clientId: ochirilgan.id, equipmentTypeId: type.id, quantity: 3, ownership: "RENTAL" },
+      ],
+    });
+
+    const res = await clearInactiveClientEquipment();
+
+    expect(res.ok).toBe(true);
+    expect(res.removed).toBe(3);
+    expect(res.clients).toBe(1);
+    const qolgan = await db.clientEquipment.findMany();
+    expect(qolgan).toHaveLength(1);
+    expect(qolgan[0].clientId, "faol mijozniki tegilmasin").toBe(faol.id);
+  });
+
+  it("OMBOR QOLDIG'IGA tegmaydi", async () => {
+    await loginAs(await makeUser("MANAGER"));
+    const type = await makeEquipment("Monoblok", { warehouseQty: 4 });
+    const ochirilgan = await makeClient({ status: "INACTIVE" });
+    await db.clientEquipment.create({
+      data: { clientId: ochirilgan.id, equipmentTypeId: type.id, quantity: 3, ownership: "RENTAL" },
+    });
+
+    await clearInactiveClientEquipment();
+
+    expect(await stockOf(type.id), "qaytgan dona qoldiqqa QO'SHILMAYDI").toBe(4);
+    expect(await db.equipmentMovement.count(), "soxta sanali harakat yozilmaydi").toBe(0);
+  });
+
+  it("mijozning equipmentMode'ini qayta hisoblaydi", async () => {
+    await loginAs(await makeUser("MANAGER"));
+    const type = await makeEquipment("Monoblok");
+    const ochirilgan = await makeClient({ status: "INACTIVE" });
+    await db.client.update({ where: { id: ochirilgan.id }, data: { equipmentMode: "RENTAL" } });
+    await db.clientEquipment.create({
+      data: { clientId: ochirilgan.id, equipmentTypeId: type.id, quantity: 1, ownership: "RENTAL" },
+    });
+
+    await clearInactiveClientEquipment();
+
+    const after = await db.client.findUnique({ where: { id: ochirilgan.id } });
+    expect(after!.equipmentMode).toBe("PROGRAM_ONLY");
+  });
+
+  it("OPERATOR tozalay olmaydi", async () => {
+    await loginAs(await makeUser("OPERATOR"));
+    const type = await makeEquipment("Monoblok");
+    const ochirilgan = await makeClient({ status: "INACTIVE" });
+    await db.clientEquipment.create({
+      data: { clientId: ochirilgan.id, equipmentTypeId: type.id, quantity: 1, ownership: "RENTAL" },
+    });
+
+    const res = await clearInactiveClientEquipment();
+
+    expect(res.ok).toBe(false);
+    expect(await db.clientEquipment.count()).toBe(1);
+  });
+
+  it("tozalanadigan yozuv bo'lmasa — 0 qaytaradi", async () => {
+    await loginAs(await makeUser("MANAGER"));
+
+    const res = await clearInactiveClientEquipment();
+
+    expect(res.ok).toBe(true);
+    expect(res.removed).toBe(0);
   });
 });

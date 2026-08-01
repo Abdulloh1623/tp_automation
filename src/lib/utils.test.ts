@@ -41,6 +41,20 @@ describe("formatMoney", () => {
     expect(formatMoney(500, "UZS")).toBe("500 so'm");
     expect(formatMoney(29.6, "UZS")).toBe("30 so'm");
   });
+
+  // Ming ajratgichi Intl'dan OLINMAYDI: Node "1 946", Chrome esa "1,946"
+  // berardi va summa ko'rsatadigan klient komponentlarda hydration mismatch
+  // bo'lardi. Shu bois ajratgich aynan uzilmas probel ekani tekshiriladi.
+  it("mingni uzilmas probel bilan ajratadi (muhitga bog'liq emas)", () => {
+    expect(formatMoney(1946, "USD")).toBe("$1 946");
+    expect(formatMoney(1234567, "UZS")).toBe("1 234 567 so'm");
+    expect(formatMoney(999, "USD")).toBe("$999");
+  });
+  it("kasr qismi vergul bilan, ortiqcha nollarsiz", () => {
+    expect(formatMoney(10495.5, "USD")).toBe("$10 495,5");
+    expect(formatMoney(102.25, "USD")).toBe("$102,25");
+    expect(formatMoney(29.004, "USD")).toBe("$29");
+  });
 });
 
 describe("formatAmountInput", () => {

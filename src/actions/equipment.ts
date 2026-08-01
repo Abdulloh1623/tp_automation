@@ -597,3 +597,66 @@ export async function confirmReturnCollected(requestId: string): Promise<EqState
   revalidatePath(`/mijozlar/${req.clientId}`);
   return { ok: true };
 }
+
+/**
+ * Nofaol mijozlarda qolib ketgan uskuna yozuvlarini tozalaydi.
+ *
+ * NEGA KERAK: uskuna mijozdan qaytarib olingan, lekin qaytarish tizim orqali
+ * emas, qo'lda amalga oshirilgan — natijada `ClientEquipment` yozuvi o'chirilmay
+ * qolgan. Bu yozuvlar mijoz kartasida ham, uskuna analitikasida ham mavjud
+ * bo'lib turadi va "mijozlarda turgan uskuna" raqamini oshirib ko'rsatadi.
+ *
+ * OMBOR QOLDIG'IGA TEGILMAYDI. Bular tarixiy o'rnatishlar — o'rnatilganda ham
+ * sklad hisobidan o'tmagan (`INSTALL_LEGACY`), shuning uchun qaytganda ham
+ * qoldiqqa qo'shilmaydi; aks holda hech qachon hisobga kirmagan dona ombor
+ * qoldig'ini shishirib yuborardi. Uskuna jismonan qayerdaligi ma'lum bo'lsa,
+ * ombor bo'limidan qo'lda kirim qilinadi.
+ *
+ * `EquipmentMovement` ham yozilmaydi: harakat sanasi noma'lum, soxta sana
+ * bilan yozish oylik oqim grafigini buzardi. O'chirilgan yozuvlar audit
+ * jurnalida qoladi.
+ */
+export async function clearInactiveClientEquipment(): Promise<
+  EqState & { removed?: number; clients?: number }
+> {
+  const guard = await requireManager();
+  if (!guard.ok) return guard;
+
+  const stale = await db.clientEquipment.findMany({
+    where: { quantity: { gt: 0 }, client: { status: { not: "ACTIVE" } } },
+    select: {
+      id: true,
+      clientId: true,
+      quantity: true,
+      ownership: true,
+      equipmentType: { select: { name: true } },
+      client: { select: { restaurantName: true } },
+    },
+  });
+  if (stale.length === 0) return { ok: true, removed: 0, clients: 0 };
+
+  const clientIds = [...new Set(stale.map((e) => e.clientId))];
+  const removed = stale.reduce((n, e) => n + e.quantity, 0);
+
+  await db.clientEquipment.deleteMany({ where: { id: { in: stale.map((e) => e.id) } } });
+  for (const id of clientIds) await recomputeMode(id);
+
+  // Nima o'chirilgani auditda qoladi — bu yagona tiklash manbai.
+  await logAudit("Nofaol mijozlardagi uskuna yozuvlari tozalandi", {
+    entity: "ClientEquipment",
+    detail:
+      `${removed} dona · ${clientIds.length} mijoz — ` +
+      stale
+        .map(
+          (e) =>
+            `${e.client.restaurantName}: ${e.equipmentType.name} ×${e.quantity}` +
+            ` (${e.ownership === "RENTAL" ? "ijara" : "sotuv"})`,
+        )
+        .join("; "),
+  });
+
+  revalidatePath("/uskuna-analitika");
+  revalidatePath("/ombor");
+  revalidatePath("/");
+  return { ok: true, removed, clients: clientIds.length };
+}

@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "@/lib/db";
-import { updateClient } from "./clients";
+import { updateClient, deactivateRefusedClients } from "./clients";
 import { resetDb, makeUser, makeClient, loginAs, logout } from "@/test/fixtures";
 import { RedirectError } from "@/test/integration-setup";
 
@@ -163,5 +163,80 @@ describe("updateClient — pul maydonlari", () => {
     await update(client.id, clientForm(client, { status: "ACTIVE" }));
     after = await db.client.findUnique({ where: { id: client.id } });
     expect(after!.deactivatedAt, "qayta faollashsa tozalanishi kerak").toBeNull();
+  });
+});
+
+// Eski importlar `stage: REFUSED` qo'yib `status` ni tegmagan — natijada otkaz
+// mijoz "Faol" bo'lib qolib, oyligi MRR ga qo'shilib turardi. Ilovaning o'z
+// otkaz yo'llari ikkalasini ham qo'yadi; bu amal eski qoldiqni tuzatadi.
+describe("deactivateRefusedClients (otkaz, lekin hali faol)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  const refusedActive = () =>
+    makeClient({ status: "ACTIVE" }).then((c) =>
+      db.client.update({ where: { id: c.id }, data: { stage: "REFUSED" } }),
+    );
+
+  it("otkazdagi faol mijozni nofaol qiladi va churn sanasini yozadi", async () => {
+    await loginAs(await makeUser("ADMIN"));
+    const c = await refusedActive();
+
+    const res = await deactivateRefusedClients();
+
+    expect(res.ok).toBe(true);
+    expect(res.fixed).toBe(1);
+    const after = await db.client.findUnique({ where: { id: c.id } });
+    expect(after!.status).toBe("INACTIVE");
+    expect(after!.stage, "bosqich o'zgarmaydi").toBe("REFUSED");
+    expect(after!.deactivatedAt).not.toBeNull();
+  });
+
+  it("otkazda BO'LMAGAN faol mijozga tegmaydi", async () => {
+    await loginAs(await makeUser("ADMIN"));
+    const ok = await makeClient({ status: "ACTIVE" });
+    await refusedActive();
+
+    const res = await deactivateRefusedClients();
+
+    expect(res.fixed).toBe(1);
+    const after = await db.client.findUnique({ where: { id: ok.id } });
+    expect(after!.status).toBe("ACTIVE");
+  });
+
+  it("mavjud churn sanasini QAYTA yozmaydi", async () => {
+    await loginAs(await makeUser("ADMIN"));
+    const old = new Date("2026-01-15T00:00:00.000Z");
+    const c = await refusedActive();
+    await db.client.update({ where: { id: c.id }, data: { deactivatedAt: old } });
+
+    await deactivateRefusedClients();
+
+    const after = await db.client.findUnique({ where: { id: c.id } });
+    expect(after!.deactivatedAt?.toISOString()).toBe(old.toISOString());
+  });
+
+  it("OPERATOR va MANAGER qila olmaydi", async () => {
+    for (const role of ["OPERATOR", "MANAGER"] as const) {
+      await resetDb();
+      await loginAs(await makeUser(role));
+      const c = await refusedActive();
+
+      const res = await deactivateRefusedClients();
+
+      expect(res.ok, `rol ${role}`).toBe(false);
+      const after = await db.client.findUnique({ where: { id: c.id } });
+      expect(after!.status).toBe("ACTIVE");
+    }
+  });
+
+  it("tuzatiladigan mijoz bo'lmasa — 0 qaytaradi", async () => {
+    await loginAs(await makeUser("ADMIN"));
+
+    const res = await deactivateRefusedClients();
+
+    expect(res.ok).toBe(true);
+    expect(res.fixed).toBe(0);
   });
 });

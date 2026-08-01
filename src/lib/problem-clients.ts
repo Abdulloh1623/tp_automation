@@ -120,3 +120,49 @@ export async function loadPaymentProblems(): Promise<RuleCheck<PaymentRuleClient
 // baribir to'liq yuklaydi, alohida COUNT so'rovlari faqat ikkinchi marta o'sha
 // ishni qilardi. Nav badge'iga ham qo'yilmagan — bu hisob har sahifa ochilishida
 // butun mijoz + uskuna jadvalini o'qiydi, badge uchun juda qimmat.
+
+/**
+ * Otkaz qilingan, lekin holati hali "Faol" bo'lgan mijozlar.
+ *
+ * NEGA BO'LADI: ilovaning o'z yo'llari (`refuseClient`, lid natijasi) otkazda
+ * `status: "INACTIVE"` ni ham qo'yadi. Bu yozuvlar ESKI IMPORTLARDAN qolgan —
+ * sheet rangi/izohi bo'yicha `stage` qo'yilgan, `status` esa tegilmagan
+ * (bir marta `scripts/fix-refused-status.ts` bilan tuzatilgan, keyingi import
+ * yana keltirgan).
+ *
+ * NEGA MUHIM: `status` — moliyaning kaliti. Otkaz mijoz "Faol" bo'lib tursa,
+ * uning oyligi MRR ga qo'shilib, daromad oshirib ko'rsatiladi; 29$ qoidasi va
+ * uskuna hisoblari ham uni tekshiradi. Ayni paytda `/mijozlar` ro'yxatida
+ * ko'rinmaydi (u yerda otkazlar yashiriladi) — shu sabab bir xil narsani
+ * sanaydigan ikki joy har xil son ko'rsatadi.
+ */
+export async function loadRefusedButActive(): Promise<{
+  clients: {
+    id: string;
+    restaurantName: string;
+    fullName: string;
+    phone: string;
+    monthlyAmount: number;
+    currency: string;
+  }[];
+  /** Valyuta bo'yicha oylik summa — tuzatilgach MRR shuncha kamayadi. */
+  mrr: Record<string, number>;
+}> {
+  const clients = await db.client.findMany({
+    where: { stage: "REFUSED", status: { not: "INACTIVE" } },
+    orderBy: { monthlyAmount: "desc" },
+    select: {
+      id: true,
+      restaurantName: true,
+      fullName: true,
+      phone: true,
+      monthlyAmount: true,
+      currency: true,
+    },
+  });
+  const mrr: Record<string, number> = {};
+  for (const c of clients) {
+    mrr[c.currency] = (mrr[c.currency] ?? 0) + c.monthlyAmount;
+  }
+  return { clients, mrr };
+}

@@ -50,6 +50,32 @@ export function tzTimeAt(hour: number, minute = 0, daysAgo = 0, now = new Date()
   return new Date(s.getTime() - TZ_MIN * 60000);
 }
 
+/**
+ * UTC+5 bo'yicha sana/vaqt qismlari — matn formatlash uchun (utils.ts).
+ *
+ * Barchasi nol bilan to'ldirilgan satr; `weekday` 0=yakshanba.
+ */
+export function tzParts(d: Date): {
+  yyyy: string;
+  mm: string;
+  dd: string;
+  hh: string;
+  mi: string;
+  month: number; // 0-asosli
+  weekday: number; // 0 = yakshanba
+} {
+  const s = new Date(d.getTime() + TZ_MIN * 60000);
+  return {
+    yyyy: String(s.getUTCFullYear()),
+    mm: String(s.getUTCMonth() + 1).padStart(2, "0"),
+    dd: String(s.getUTCDate()).padStart(2, "0"),
+    hh: String(s.getUTCHours()).padStart(2, "0"),
+    mi: String(s.getUTCMinutes()).padStart(2, "0"),
+    month: s.getUTCMonth(),
+    weekday: s.getUTCDay(),
+  };
+}
+
 /** UTC+5 bo'yicha "HH:MM". */
 export function tzTimeLabel(d: Date): string {
   const s = new Date(d.getTime() + TZ_MIN * 60000);

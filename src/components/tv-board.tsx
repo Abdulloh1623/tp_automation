@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Crown, PhoneCall, Users, Wifi, WifiOff, Sun, Moon } from "lucide-react";
 import type { Analytics, OperatorStat, Shift } from "@/lib/analytics";
 import { LEAD_LIMITS } from "@/lib/constants";
+import { formatDateLong } from "@/lib/utils";
 
 const POLL_MS = 5000;
 
@@ -212,7 +213,7 @@ export function TvBoard({
             {clock ? clock.toLocaleTimeString("ru-RU") : "--:--:--"}
           </div>
           <div className="mt-1 flex items-center justify-end gap-2 text-sm text-slate-400 lg:text-base">
-            {clock?.toLocaleDateString("uz-UZ", { day: "2-digit", month: "long", weekday: "long" })}
+            {clock ? formatDateLong(clock) : ""}
             <span
               className={
                 "ml-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium " +

@@ -7,6 +7,10 @@ import {
   formatAmountInput,
   parseAmountInput,
   formatPhoneInput,
+  formatDate,
+  formatDateTime,
+  formatDateLong,
+  formatNumber,
 } from "./utils";
 
 describe("normalizePhone", () => {
@@ -49,6 +53,10 @@ describe("formatMoney", () => {
     expect(formatMoney(1946, "USD")).toBe("$1 946");
     expect(formatMoney(1234567, "UZS")).toBe("1 234 567 so'm");
     expect(formatMoney(999, "USD")).toBe("$999");
+  });
+  it("ajratgich AYNAN uzilmas probel (oddiy probel emas)", () => {
+    expect(formatMoney(1946, "USD")).not.toContain(" "); // oddiy probel
+    expect(formatMoney(1946, "USD").charCodeAt(2)).toBe(0xa0);
   });
   it("kasr qismi vergul bilan, ortiqcha nollarsiz", () => {
     expect(formatMoney(10495.5, "USD")).toBe("$10 495,5");
@@ -117,5 +125,42 @@ describe("daysUntil", () => {
     expect(daysUntil(mk(0))).toBe(0);
     expect(daysUntil(mk(3))).toBe(3);
     expect(daysUntil(mk(-2))).toBe(-2);
+  });
+});
+
+// Sana formatlash Intl'siz: `Intl.DateTimeFormat("uz-UZ")` Node'da
+// "01/08/2026", Chrome'da esa "2026-08-01" beradi — sana ko'rsatadigan har bir
+// klient komponentda hydration mismatch bo'lardi. Vaqt mintaqasi ham qat'iy
+// UTC+5: foydalanuvchining kompyuteri boshqa mintaqada bo'lsa ham server bilan
+// bir xil matn chiqishi kerak.
+describe("formatDate / formatDateTime (UTC+5, Intl'siz)", () => {
+  // 2026-08-01T09:00Z = Toshkentda 14:00
+  const iso = "2026-08-01T09:00:00.000Z";
+
+  it("DD/MM/YYYY ko'rinishida", () => {
+    expect(formatDate(new Date(iso))).toBe("01/08/2026");
+    expect(formatDate(iso)).toBe("01/08/2026");
+  });
+  it("vaqt bilan — DD/MM/YYYY, HH:MM (UTC+5)", () => {
+    expect(formatDateTime(new Date(iso))).toBe("01/08/2026, 14:00");
+  });
+  it("UTC yarim tunidan oldingi vaqt Toshkent kuniga tushadi", () => {
+    // 31-iyul 20:00Z = 1-avgust 01:00 Toshkent
+    expect(formatDate("2026-07-31T20:00:00.000Z")).toBe("01/08/2026");
+  });
+  it("bo'sh yoki yaroqsiz sana — tire (yiqilmaydi)", () => {
+    expect(formatDate(null)).toBe("—");
+    expect(formatDate("bu sana emas")).toBe("—");
+    expect(formatDateTime(undefined)).toBe("—");
+  });
+  it("to'liq o'zbekcha sana — tablo uchun", () => {
+    expect(formatDateLong(iso)).toBe("shanba, 01-avgust");
+  });
+});
+
+describe("formatNumber", () => {
+  it("mingni uzilmas probel bilan ajratadi", () => {
+    expect(formatNumber(1234567)).toBe("1 234 567");
+    expect(formatNumber(500)).toBe("500");
   });
 });

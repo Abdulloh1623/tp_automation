@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { currencySymbol } from "./constants";
+import { currencySymbol, UZBEK_MONTHS, UZBEK_WEEKDAYS } from "./constants";
+import { tzParts } from "./tz";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -29,6 +30,11 @@ function groupNumber(value: number, decimals: number): string {
   return (value < 0 ? "-" : "") + grouped + (trimmed ? "," + trimmed : "");
 }
 
+/** Valyutasiz son: `1234567` -> `1 234 567`. */
+export function formatNumber(value: number, decimals = 0): string {
+  return groupNumber(value, decimals);
+}
+
 export function formatMoney(amount: number, currency: string): string {
   const formatted = groupNumber(amount, currency === "UZS" ? 0 : 2);
   return currency === "USD"
@@ -36,26 +42,39 @@ export function formatMoney(amount: number, currency: string): string {
     : `${formatted} ${currencySymbol(currency)}`;
 }
 
-export function formatDate(date: Date | string | null | undefined): string {
-  if (!date) return "—";
+/**
+ * Sanani `Date` ga keltiradi; yaroqsiz bo'lsa `null`.
+ *
+ * Ilgari yaroqsiz sana `Intl.format` ichida RangeError bilan yiqilardi.
+ */
+function toDate(date: Date | string | null | undefined): Date | null {
+  if (!date) return null;
   const d = typeof date === "string" ? new Date(date) : date;
-  return new Intl.DateTimeFormat("uz-UZ", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(d);
+  return isNaN(d.getTime()) ? null : d;
 }
 
+/** "DD/MM/YYYY" — UTC+5 (Toshkent) bo'yicha. */
+export function formatDate(date: Date | string | null | undefined): string {
+  const d = toDate(date);
+  if (!d) return "—";
+  const p = tzParts(d);
+  return `${p.dd}/${p.mm}/${p.yyyy}`;
+}
+
+/** "DD/MM/YYYY, HH:MM" — UTC+5 (Toshkent) bo'yicha. */
 export function formatDateTime(date: Date | string | null | undefined): string {
-  if (!date) return "—";
-  const d = typeof date === "string" ? new Date(date) : date;
-  return new Intl.DateTimeFormat("uz-UZ", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(d);
+  const d = toDate(date);
+  if (!d) return "—";
+  const p = tzParts(d);
+  return `${p.dd}/${p.mm}/${p.yyyy}, ${p.hh}:${p.mi}`;
+}
+
+/** "shanba, 01-avgust" — tablo uchun to'liq o'zbekcha sana. */
+export function formatDateLong(date: Date | string | null | undefined): string {
+  const d = toDate(date);
+  if (!d) return "—";
+  const p = tzParts(d);
+  return `${UZBEK_WEEKDAYS[p.weekday]}, ${p.dd}-${UZBEK_MONTHS[p.month].toLowerCase()}`;
 }
 
 /** Bugundan necha kun farq (musbat = kelajak, manfiy = o'tgan). */

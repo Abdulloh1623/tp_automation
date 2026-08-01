@@ -351,6 +351,49 @@ function DetailPanel({
 }
 
 /** Nomuvofiq mijozlar ro'yxati — profilga havola bilan. */
+/** Uchlik taqsimot katagi — bosilsa /mijozlar filtri bilan ochiladi. */
+function MixTile({
+  href,
+  label,
+  value,
+  total,
+  tone,
+}: {
+  href: string;
+  label: string;
+  value: number;
+  total: number;
+  tone: "emerald" | "blue" | "slate";
+}) {
+  const ring = {
+    emerald: "hover:border-emerald-400 dark:hover:border-emerald-700",
+    blue: "hover:border-blue-400 dark:hover:border-blue-700",
+    slate: "hover:border-slate-400 dark:hover:border-slate-600",
+  }[tone];
+  const text = {
+    emerald: "text-emerald-600 dark:text-emerald-400",
+    blue: "text-blue-600 dark:text-blue-400",
+    slate: "text-slate-700 dark:text-slate-300",
+  }[tone];
+  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+  return (
+    <Link
+      href={href}
+      className={
+        "rounded-xl border border-slate-200 p-4 transition-colors dark:border-slate-800 " + ring
+      }
+    >
+      <div className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        {label}
+      </div>
+      <div className={"mt-1 text-2xl font-semibold tabular-nums " + text}>
+        {value} <span className="text-sm font-normal text-slate-400">ta mijoz</span>
+      </div>
+      <div className="mt-0.5 text-xs text-slate-400">{pct}%</div>
+    </Link>
+  );
+}
+
 function RuleList({
   title,
   hint,
@@ -543,6 +586,45 @@ export default async function UskunaAnalitikaPage({
         units={o.staleUnits}
         rentalUsd={o.staleRentalUsd}
       />
+
+      {/* Mijozlar uskuna egaligi bo'yicha — MIJOZ soni (dona emas). */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Mijozlar uskuna bo&apos;yicha</CardTitle>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {o.clientMix.total} ta faol mijoz (otkazlar hisobga olinmaydi &mdash; ular
+            /otkaz bo&apos;limida). Bir mijozda ham ijara, ham sotib olingan
+            uskuna bo&apos;lsa &mdash; &laquo;ijara&raquo; deb sanaladi, shuning uchun
+            uchta son ustma-ust tushmaydi. Har birini bosib ro&apos;yxatini ko&apos;rish
+            mumkin.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <MixTile
+              href="/mijozlar?uskuna=RENTAL&status=ACTIVE"
+              label="Ijaraga olgan"
+              value={o.clientMix.rental}
+              total={o.clientMix.total}
+              tone="emerald"
+            />
+            <MixTile
+              href="/mijozlar?uskuna=SOLD&status=ACTIVE"
+              label="Sotib olgan"
+              value={o.clientMix.sold}
+              total={o.clientMix.total}
+              tone="blue"
+            />
+            <MixTile
+              href="/mijozlar?uskuna=PROGRAM_ONLY&status=ACTIVE"
+              label="Faqat dastur"
+              value={o.clientMix.programOnly}
+              total={o.clientMix.total}
+              tone="slate"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Oqim + manba */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

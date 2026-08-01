@@ -6,6 +6,7 @@ import {
   installSourceBreakdown,
   perUstaFlow,
   check29Rule,
+  splitClientMix,
   expectedRentalValue,
   type MovementLike,
 } from "./inventory-stats";
@@ -287,5 +288,50 @@ describe("expectedRentalValue", () => {
   });
   it("UZS — qoida qo'llanmaydi", () => {
     expect(expectedRentalValue(500000, "UZS")).toBe(0);
+  });
+});
+
+// Mijozlarni uskuna egaligi bo'yicha uchga bo'lish. Asosiy shart: uchta son
+// HAR DOIM jamiga teng bo'lsin — aks holda sahifadagi foizlar 100% dan
+// oshib/kam bo'lib ketardi.
+describe("splitClientMix", () => {
+  const eq = (clientId: string, ownership: string, quantity = 1) => ({
+    clientId,
+    ownership,
+    quantity,
+  });
+
+  it("ijara / sotuv / faqat dastur ga ajratadi", () => {
+    const r = splitClientMix(["a", "b", "c"], [eq("a", "RENTAL"), eq("b", "SOLD")]);
+    expect(r).toEqual({ rental: 1, sold: 1, programOnly: 1, total: 3 });
+  });
+
+  it("ham ijara, ham sotuvi bor mijoz FAQAT ijarada sanaladi", () => {
+    const r = splitClientMix(["a"], [eq("a", "RENTAL"), eq("a", "SOLD")]);
+    expect(r).toEqual({ rental: 1, sold: 0, programOnly: 0, total: 1 });
+  });
+
+  it("bir mijozning bir necha yozuvi ikki marta sanalmaydi", () => {
+    const r = splitClientMix(["a"], [eq("a", "RENTAL", 3), eq("a", "RENTAL", 2)]);
+    expect(r.rental).toBe(1);
+  });
+
+  it("miqdori 0 bo'lgan yozuv hisobga olinmaydi", () => {
+    const r = splitClientMix(["a"], [eq("a", "RENTAL", 0)]);
+    expect(r).toEqual({ rental: 0, sold: 0, programOnly: 1, total: 1 });
+  });
+
+  it("nofaol mijozning yozuvi jamini buzmaydi", () => {
+    // "x" faol ro'yxatda yo'q — uning uskunasi e'tiborga olinmaydi.
+    const r = splitClientMix(["a"], [eq("x", "RENTAL"), eq("a", "SOLD")]);
+    expect(r).toEqual({ rental: 0, sold: 1, programOnly: 0, total: 1 });
+  });
+
+  it("uchta son har doim jamiga teng", () => {
+    const r = splitClientMix(
+      ["a", "b", "c", "d"],
+      [eq("a", "RENTAL"), eq("b", "SOLD"), eq("c", "RENTAL"), eq("c", "SOLD")],
+    );
+    expect(r.rental + r.sold + r.programOnly).toBe(r.total);
   });
 });

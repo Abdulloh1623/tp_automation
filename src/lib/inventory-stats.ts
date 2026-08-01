@@ -280,6 +280,47 @@ export function perUstaFlow(
 // 29$ biznes qoidasi (dastur-only vs ijara)
 // ---------------------------------------------------------------------------
 
+/** Faol mijozlarning uskuna egaligi bo'yicha taqsimoti (MIJOZ soni, dona emas). */
+export type ClientMix = {
+  /** Ijara uskunasi bor. */
+  rental: number;
+  /** Uskunasi bor, lekin faqat sotib olingan. */
+  sold: number;
+  /** Uskunasi umuman yo'q — faqat dasturdan foydalanadi. */
+  programOnly: number;
+  /** Tekshirilgan faol mijozlar (uchtasining yig'indisi). */
+  total: number;
+};
+
+/**
+ * Faol mijozlarni uskuna egaligi bo'yicha uchga ajratadi.
+ *
+ * IJARA USTUN: bir mijozda ham ijara, ham sotib olingan uskuna bo'lsa, u
+ * "ijara" deb sanaladi — `Client.equipmentMode` bilan aynan bir xil qoida,
+ * aks holda mijoz kartasidagi yorliq bilan bu hisob bir-biriga to'g'ri
+ * kelmasdi. Shu sabab uchta son har doim jamiga teng, ustma-ust tushmaydi.
+ */
+export function splitClientMix(
+  activeClientIds: string[],
+  equipment: { clientId: string; ownership: string; quantity: number }[],
+): ClientMix {
+  const active = new Set(activeClientIds);
+  const rental = new Set<string>();
+  const sold = new Set<string>();
+  for (const e of equipment) {
+    if (e.quantity <= 0 || !active.has(e.clientId)) continue;
+    (e.ownership === "RENTAL" ? rental : sold).add(e.clientId);
+  }
+  // Ijarasi borlar "sotuv" hisobidan chiqariladi (ikki marta sanalmasin).
+  for (const id of rental) sold.delete(id);
+  return {
+    rental: rental.size,
+    sold: sold.size,
+    programOnly: active.size - rental.size - sold.size,
+    total: active.size,
+  };
+}
+
 export type RuleClient = {
   id: string;
   restaurantName: string;
@@ -424,6 +465,8 @@ export type EquipmentOverview = {
    */
   staleUnits: number;
   staleRentalUsd: number;
+  /** Faol mijozlar uskuna egaligi bo'yicha: ijara / sotuv / faqat dastur. */
+  clientMix: ClientMix;
   lowStock: { name: string; warehouse: number; minStock: number }[];
   byType: { name: string; warehouse: number; usta: number; client: number; brak: number }[];
   // Dinamika
@@ -572,13 +615,26 @@ export async function getEquipmentOverview(months = 12): Promise<EquipmentOvervi
   // 29$ qoidasi — faol mijozlar bo'yicha.
   const clients = await db.client.findMany({
     where: { status: "ACTIVE" },
-    select: { id: true, restaurantName: true, monthlyAmount: true, currency: true },
+    select: {
+      id: true,
+      restaurantName: true,
+      monthlyAmount: true,
+      currency: true,
+      stage: true,
+    },
   });
   const rentedByClient = new Map<string, number>();
   for (const e of clientEquipment) {
     if (e.ownership !== "RENTAL") continue;
     rentedByClient.set(e.clientId, (rentedByClient.get(e.clientId) ?? 0) + e.quantity);
   }
+  // Otkaz qilinganlar chiqarib tashlanadi: ular /mijozlar ro'yxatida ham
+  // ko'rinmaydi (faqat /otkaz da). Aks holda blokdagi son bosilganda
+  // ochiladigan ro'yxat bilan to'g'ri kelmasdi.
+  const clientMix = splitClientMix(
+    clients.filter((c) => c.stage !== "REFUSED").map((c) => c.id),
+    clientEquipment,
+  );
   const rule = check29Rule(
     clients.map((c) => ({
       id: c.id,
@@ -774,6 +830,7 @@ export async function getEquipmentOverview(months = 12): Promise<EquipmentOvervi
     monthlyRentalUsd,
     staleUnits,
     staleRentalUsd,
+    clientMix,
     lowStock,
     byType,
     months: bucketFlowByMonth(movements, months),

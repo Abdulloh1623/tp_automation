@@ -6,10 +6,31 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Uzilmas probel — ming ajratgichi (uz-UZ konvensiyasi). */
+const NBSP = " ";
+
+/**
+ * Sonni ming ajratgich bilan yozadi: `1946` -> `1 946`, `10495.5` -> `10 495,5`.
+ *
+ * NEGA `Intl.NumberFormat` EMAS: uning natijasi ish muhitiga bog'liq. Node
+ * `uz-UZ` uchun `"1 946"` (uzilmas probel) beradi, Chrome esa `"1,946"` —
+ * ya'ni server bilan brauzer boshqa matn chiqaradi va summa ko'rsatadigan HAR
+ * BIR klient komponentda hydration mismatch bo'ladi (React butun daraxtni
+ * qayta quradi). Ajratgichni o'zimiz qo'yganda ikkala tomon bir xil ishlaydi.
+ * Ko'rinish o'zgarmaydi: ming — uzilmas probel, kasr — vergul.
+ */
+function groupNumber(value: number, decimals: number): string {
+  // toFixed — eksponensial yozuvdan (1e21) va suzuvchi nuqta qoldig'idan himoya.
+  const fixed = Math.abs(value).toFixed(decimals);
+  const [int, frac = ""] = fixed.split(".");
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
+  // Ortiqcha nollar tashlanadi: 29.50 -> "29,5", 29.00 -> "29".
+  const trimmed = frac.replace(/0+$/, "");
+  return (value < 0 ? "-" : "") + grouped + (trimmed ? "," + trimmed : "");
+}
+
 export function formatMoney(amount: number, currency: string): string {
-  const rounded =
-    currency === "UZS" ? Math.round(amount) : Math.round(amount * 100) / 100;
-  const formatted = new Intl.NumberFormat("uz-UZ").format(rounded);
+  const formatted = groupNumber(amount, currency === "UZS" ? 0 : 2);
   return currency === "USD"
     ? `$${formatted}`
     : `${formatted} ${currencySymbol(currency)}`;

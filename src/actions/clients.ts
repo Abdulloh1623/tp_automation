@@ -507,7 +507,7 @@ export async function quickCompleteClient(
     entityId: id,
     detail: changed,
   });
-  revalidatePath("/toldirilmagan");
+  revalidatePath("/muammoli-mijozlar");
   revalidatePath("/mijozlar");
   return { ok: true };
 }
@@ -738,6 +738,6 @@ export async function deleteClientInline(
     detail: removed.restaurantName,
   });
   revalidatePath("/mijozlar");
-  revalidatePath("/mijozlar/dublikatlar");
+  revalidatePath("/muammoli-mijozlar");
   return { ok: true };
 }

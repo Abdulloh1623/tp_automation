@@ -15,6 +15,8 @@ export function roleHome(role: string): string {
 const ROUTE_ROLES: { prefix: string; roles: Role[] }[] = [
   { prefix: "/lidlar", roles: ["ADMIN", "OPERATOR", "MANAGER"] },
   { prefix: "/mijozlar", roles: ["ADMIN", "OPERATOR", "MANAGER"] },
+  { prefix: "/muammoli-mijozlar", roles: ["ADMIN", "OPERATOR", "MANAGER"] },
+  // Eski manzil — /muammoli-mijozlar ga yo'naltiradi (ruxsat bir xil bo'lsin).
   { prefix: "/toldirilmagan", roles: ["ADMIN", "OPERATOR", "MANAGER"] },
   { prefix: "/tolovlar", roles: ["ADMIN", "MANAGER", "OPERATOR"] },
   { prefix: "/muammolar", roles: ["ADMIN", "OPERATOR", "MANAGER"] },

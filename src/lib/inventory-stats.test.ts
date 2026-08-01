@@ -238,6 +238,21 @@ describe("check29Rule", () => {
     expect(r.checked).toBe(0);
   });
 
+  // Oyligi kiritilmaganlar "muammoli mijozlar" bo'limida ro'yxat bo'lib
+  // ko'rinadi — faqat sanoq yetarli emas edi.
+  it("oyligi 0 — zeroAmount ro'yxatiga tushadi", () => {
+    const r = check29Rule([c("a", 0, 0), c("b", 45, 1)]);
+    expect(r.zeroAmount.map((x) => x.id)).toEqual(["a"]);
+    expect(r.zeroAmount).toHaveLength(r.skippedZero);
+  });
+
+  // Generik: chaqiruvchi qo'shgan maydonlar natijada saqlanadi (ro'yxatni
+  // ko'rsatish uchun mijozlarni id bo'yicha qayta ulash shart bo'lmasin).
+  it("qo'shimcha maydonlar natijada saqlanadi", () => {
+    const r = check29Rule([{ ...c("a", 45, 0), phone: "+998901112233" }]);
+    expect(r.aboveBaseWithoutEquipment[0].phone).toBe("+998901112233");
+  });
+
   it("29 atrofidagi kasr (29.004) — bazaviy deb hisoblanadi", () => {
     const r = check29Rule([c("a", 29.004, 0)]);
     expect(r.okCount).toBe(1);

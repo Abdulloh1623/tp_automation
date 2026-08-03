@@ -22,6 +22,9 @@ import {
   TicketTypeBadge,
 } from "@/components/status-badge";
 import { TALKED_RESULTS } from "@/lib/constants";
+import { MyWeekCalls } from "@/components/my-week-calls";
+import { groupCallsByDay, WEEK_CALLS_DAYS } from "@/lib/week-calls";
+import { startOfTzDay } from "@/lib/tz";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -64,7 +67,10 @@ export default async function ProfilePage() {
   // hafta boshi oy boshidan oldin bo'lishi mumkin — eng ertasidan o'qiymiz
   const since = weekStart < monthStart ? weekStart : monthStart;
 
-  const [myCalls, myPayments, myTickets] = await Promise.all([
+  // Kunlik ro'yxat oynasi: bugun + oldingi 6 kun (UTC+5 kun boshidan).
+  const weekCallsFrom = startOfTzDay(WEEK_CALLS_DAYS - 1);
+
+  const [myCalls, myPayments, myTickets, myWeekCalls] = await Promise.all([
     db.callLog.findMany({
       where: { operatorId: user.id, calledAt: { gte: since } },
       select: { calledAt: true, result: true },
@@ -88,7 +94,39 @@ export default async function ProfilePage() {
         client: { select: { id: true, restaurantName: true } },
       },
     }),
+    // Oxirgi 7 kunlik qo'ng'iroqlarim — kun bo'yicha ro'yxat uchun.
+    // Kunlik chegara: 7 kun × ~100 qo'ng'iroq dan oshmaydi, ortiq yozuv
+    // ro'yxat sifatida baribir o'qilmaydi.
+    db.callLog.findMany({
+      where: { operatorId: user.id, calledAt: { gte: weekCallsFrom } },
+      orderBy: { calledAt: "desc" },
+      take: 700,
+      select: {
+        calledAt: true,
+        result: true,
+        note: true,
+        client: {
+          select: { id: true, restaurantName: true, fullName: true, phone: true },
+        },
+      },
+    }),
   ]);
+
+  const weekDays = groupCallsByDay(
+    myWeekCalls.map((c) => ({
+      clientId: c.client.id,
+      restaurantName: c.client.restaurantName,
+      fullName: c.client.fullName,
+      phone: c.client.phone,
+      calledAt: c.calledAt,
+      result: c.result,
+      note: c.note,
+    })),
+  );
+  const weekLeadCount = weekDays.reduce((n, d) => n + d.leads, 0);
+  // Operatorga ro'yxat DOIM ko'rinadi (bo'sh hafta ham ma'lumot); boshqa
+  // rollarga esa faqat qo'ng'iroq yozuvi bo'lsa — aks holda quruq karta.
+  const showWeekCalls = user.role === "OPERATOR" || weekLeadCount > 0;
 
   const periods: { key: string; label: string; from: Date; stats: PeriodStats }[] = [
     { key: "day", label: "Bugun", from: dayStart, stats: emptyStats() },
@@ -191,6 +229,37 @@ export default async function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Oxirgi 7 kun — har bir kun uchun o'zim gaplashgan lidlar ro'yxati */}
+      {showWeekCalls && (
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle>
+                <span className="inline-flex items-center gap-2">
+                  <PhoneCall className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                  Men gaplashgan lidlar
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    {weekLeadCount}
+                  </span>
+                </span>
+              </CardTitle>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                oxirgi {WEEK_CALLS_DAYS} kun · kunni bosing
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {weekLeadCount === 0 ? (
+              <p className="text-sm text-slate-400 dark:text-slate-500">
+                Oxirgi {WEEK_CALLS_DAYS} kunda qo'ng'iroq yozuvi yo'q.
+              </p>
+            ) : (
+              <MyWeekCalls days={weekDays} />
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Menga biriktirilgan muammolar — admin/menejer biriktirgach shu yerda ko'rinadi */}
       <Card>

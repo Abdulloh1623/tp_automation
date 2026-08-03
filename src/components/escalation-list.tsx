@@ -82,6 +82,7 @@ export type ResolvedItem = {
   ustaPhone: string | null;
   operatorName: string | null;
   resolvedAt: string;
+  resolveNote: string | null; // yopishda yozilgan ixtiyoriy izoh (DONE qo'ng'iroq izohi)
 };
 
 /** 3 kundan oshgan eskalatsiya belgisi. */
@@ -362,6 +363,11 @@ export function EscalationList({
               <CheckCircle2 className="h-3 w-3" /> Yakunlandi · {formatDate(new Date(c.resolvedAt))}
             </span>
           </div>
+          {c.resolveNote && (
+            <p className="rounded-lg bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-2 text-sm text-emerald-800 dark:text-emerald-200 whitespace-pre-wrap">
+              {c.resolveNote}
+            </p>
+          )}
         </CardContent>
       </Card>
     );

@@ -9,7 +9,7 @@ import {
   reopenSuggestion,
   deleteSuggestion,
 } from "@/actions/suggestions";
-import { confirmDialog } from "@/components/confirm-dialog";
+import { confirmDialog, confirmWithNote } from "@/components/confirm-dialog";
 import { ClientLink } from "@/components/client-link";
 import { toast } from "@/components/toaster";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,6 +36,7 @@ export type SuggestionItem = {
   region: string | null;
   createdByName: string | null;
   resolvedByName: string | null;
+  resolutionNote: string | null; // hal qilishdagi ixtiyoriy izoh
   createdAtFmt: string;
   resolvedAtFmt: string | null;
   overdue: boolean;
@@ -61,9 +62,18 @@ export function SuggestionsList({ items }: { items: SuggestionItem[] }) {
     [items, query, region],
   );
 
-  function onResolve(s: SuggestionItem) {
+  async function onResolve(s: SuggestionItem) {
+    // Izoh ixtiyoriy: bo'sh qoldirib "Hal qilindi" bosish ham yetarli.
+    const { ok, note } = await confirmWithNote({
+      title: "Taklifni hal qilindi deb belgilash",
+      message: `"${s.restaurantName || s.fullName}" taklifi yopiladi.`,
+      confirmLabel: "Hal qilindi",
+      variant: "primary",
+      note: { label: "Nima qilindi", placeholder: "Masalan: keyingi versiyaga rejaga qo'shildi" },
+    });
+    if (!ok) return;
     start(async () => {
-      const res = await resolveSuggestion(s.id);
+      const res = await resolveSuggestion(s.id, note);
       if (res.ok) {
         toast("Hal qilindi", "success");
         router.refresh();
@@ -172,6 +182,11 @@ export function SuggestionsList({ items }: { items: SuggestionItem[] }) {
                   <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 p-2.5 text-sm text-slate-700 dark:text-slate-200 whitespace-pre-wrap">
                     {s.body}
                   </div>
+                  {resolved && s.resolutionNote && (
+                    <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/40 p-2.5 text-sm text-emerald-800 dark:text-emerald-200 whitespace-pre-wrap">
+                      Yechim: {s.resolutionNote}
+                    </div>
+                  )}
                   <div className="text-xs text-slate-400 dark:text-slate-500">
                     {s.createdByName ? `Operator: ${s.createdByName} · ` : ""}
                     {s.createdAtFmt}

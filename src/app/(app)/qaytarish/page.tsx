@@ -72,6 +72,7 @@ export default async function QaytarishPage() {
     specialNoteBy: r.client.specialNoteBy?.name ?? null,
     specialNoteAt: r.client.specialNoteAt ? r.client.specialNoteAt.toISOString() : null,
     note: r.note,
+    resolutionNote: r.resolutionNote,
     byName: r.byUserId ? userById.get(r.byUserId)?.name ?? null : null,
     ustaName: r.ustaId ? userById.get(r.ustaId)?.name ?? null : null,
     ustaPhone: r.ustaId ? userById.get(r.ustaId)?.phone ?? null : null,

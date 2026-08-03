@@ -12,19 +12,24 @@
 // Tarixda orqaga qaytadigan yozuv bo'lmasa `back()` hech narsa qilmaydi —
 // shu sabab zaxira sifatida mijozlar ro'yxatiga o'tamiz.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 
 export function ProfileModalShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [closing, setClosing] = useState(false);
+  const closedRef = useRef(false);
+  // Modal ochiq turgandagi URL — zaxira taymeri `back()` haqiqatan
+  // ishlaganini shu qiymat bilan solishtirib biladi.
+  const modalUrlRef = useRef("");
 
   const close = useCallback(() => {
-    setClosing((prev) => {
-      if (!prev) router.back();
-      return true;
-    });
+    if (closedRef.current) return;
+    closedRef.current = true;
+    modalUrlRef.current = window.location.pathname + window.location.search;
+    setClosing(true);
+    router.back();
   }, [router]);
 
   useEffect(() => {
@@ -42,11 +47,21 @@ export function ProfileModalShell({ children }: { children: React.ReactNode }) {
   }, [close]);
 
   // Zaxira: `back()` ishlamasa (tarix bo'sh) foydalanuvchi bo'sh ekranda
-  // qolib ketmasin. Navigatsiya muvaffaqiyatli bo'lsa komponent unmount
-  // bo'ladi va timer tozalanadi — ya'ni bu faqat haqiqiy tiqilishda ishlaydi.
+  // qolib ketmasin.
+  //
+  // MUHIM: taymer o'chishidan oldin URL ni tekshiramiz. `history.back()` da
+  // manzil DARHOL o'zgaradi, orqa sahifa (masalan og'ir /qaytarish yoki
+  // /tolovlar) esa RSC yuklab render bo'lguncha bir necha soniya ketishi
+  // mumkin. Ilgari taymer shartsiz ishlagani uchun aynan shu sekin sahifalarda
+  // foydalanuvchi o'zi so'ramagan holda "Barcha mijozlar" ro'yxatiga otilib
+  // ketardi. Endi URL hali ham modal manzilida qolgan bo'lsagina — ya'ni
+  // `back()` chindan hech narsa qilmagan bo'lsa — ro'yxatga o'tamiz.
   useEffect(() => {
     if (!closing) return;
-    const t = setTimeout(() => router.replace("/mijozlar"), 700);
+    const t = setTimeout(() => {
+      const now = window.location.pathname + window.location.search;
+      if (now === modalUrlRef.current) router.replace("/mijozlar");
+    }, 700);
     return () => clearTimeout(t);
   }, [closing, router]);
 

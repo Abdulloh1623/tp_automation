@@ -4,13 +4,23 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { guardRole } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
+import { safeNote } from "@/lib/validation";
 
 export type SuggestionState = { ok: boolean; error?: string };
 
 const MANAGERS = ["ADMIN", "MANAGER"];
 
-/** Taklifni hal qilingan deb belgilaydi (admin/menejer). */
-export async function resolveSuggestion(id: string): Promise<SuggestionState> {
+/**
+ * Taklifni hal qilingan deb belgilaydi (admin/menejer).
+ *
+ * `note` — IXTIYORIY yechim izohi: taklif bo'yicha nima qilinganini keyin
+ * o'qib bo'lsin (muammodagi `Ticket.resolutionNote` bilan bir xil naqsh).
+ * Bo'sh qoldirilsa hech narsa so'ralmaydi — tugmani bosish kifoya.
+ */
+export async function resolveSuggestion(
+  id: string,
+  note?: string,
+): Promise<SuggestionState> {
   const g = await guardRole(MANAGERS);
   if (!g.ok) return { ok: false, error: g.error };
 
@@ -27,6 +37,7 @@ export async function resolveSuggestion(id: string): Promise<SuggestionState> {
       status: "RESOLVED",
       resolvedAt: new Date(),
       resolvedById: g.session.userId,
+      resolutionNote: safeNote(note),
     },
   });
   await logAudit("Taklif hal qilindi", { entity: "Suggestion", entityId: id });
@@ -42,7 +53,13 @@ export async function reopenSuggestion(id: string): Promise<SuggestionState> {
   await db.suggestion.update({
     where: { id },
     // notifiedAt tozalanadi — qayta ochilsa 1-oy bildirishnomasi qaytadan ishlaydi
-    data: { status: "OPEN", resolvedAt: null, resolvedById: null, notifiedAt: null },
+    data: {
+      status: "OPEN",
+      resolvedAt: null,
+      resolvedById: null,
+      notifiedAt: null,
+      resolutionNote: null,
+    },
   });
   await logAudit("Taklif qayta ochildi", { entity: "Suggestion", entityId: id });
   revalidatePath("/takliflar");

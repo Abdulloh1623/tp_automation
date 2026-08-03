@@ -7,6 +7,13 @@ import { BASE_PROGRAM_USD, ESCALATION_THRESHOLD } from "./constants";
 export const ESCALATION_STAGES = ["ESCALATED", "FORWARDED"] as const;
 
 /**
+ * Eskalatsiya izohsiz yopilganda qo'ng'iroq jurnaliga yoziladigan matn.
+ * Ro'yxatda ko'rsatilmaydi (yangilik yo'q) — faqat xodim o'zi yozgan izoh
+ * "Yakunlangan" kartasida chiqadi.
+ */
+export const ESCALATION_RESOLVED_NOTE = "Eskalatsiya hal bo'ldi deb belgilandi";
+
+/**
  * Ketma-ket ko'tarilmagan (kun bo'yicha sanalgan) qo'ng'iroqlar soniga qarab
  * mijoz avtomatik eskalatsiyaga o'tishi kerakmi. Chegara `>=` — ya'ni aynan
  * `threshold`-ketma-ket ko'tarilmaganda ishga tushadi.

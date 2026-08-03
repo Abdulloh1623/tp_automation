@@ -20,29 +20,29 @@ model AppSetting {
 }
 
 model User {
-  id              String   @id @default(cuid())
-  name            String
-  username        String   @unique
-  passwordHash    String
-  phone           String?
-  role            String   @default("OPERATOR") // ADMIN | OPERATOR | INSTALLER
-  region          String? // birlamchi viloyat (eski; regions[0])
-  regions         String? // usta/xodim qoplaydigan viloyatlar — vergulli ro'yxat (ko'p viloyat)
-  isActive        Boolean  @default(true)
-  telegramId      String?  @unique // Telegram bot ruxsati/DM uchun
+  id             String   @id @default(cuid())
+  name           String
+  username       String   @unique
+  passwordHash   String
+  phone          String?
+  role           String   @default("OPERATOR") // ADMIN | OPERATOR | INSTALLER
+  region         String? // birlamchi viloyat (eski; regions[0])
+  regions        String? // usta/xodim qoplaydigan viloyatlar — vergulli ro'yxat (ko'p viloyat)
+  isActive       Boolean  @default(true)
+  telegramId     String?  @unique // Telegram bot ruxsati/DM uchun
   // Operatorning kunlik lid kvotasi. `null` = AVTOMATIK: dastur bugungi qayta
   // aloqa ro'yxatini faol operatorlarga bo'lib chiqadi (`/sozlamalar` dagi eng
   // kam/eng ko'p chegaralari ichida). Son kiritilsa — o'sha odam uchun qat'iy
   // (yangi xodim, yarim stavka, ta'tilda 0). Bir kunlik qo'shimcha —
   // `DailyLeadGrant.extraCount`.
-  dailyLimit      Int?
-  shift           String   @default("DAY") // ish smenasi: DAY (kunduzgi) | NIGHT (kechki) — tablo shu bo'yicha filtrlaydi
-  sessionVersion  Int      @default(0) // faol sessiya versiyasi — yangi kirish eskisini bekor qiladi (bitta qurilma)
+  dailyLimit     Int?
+  shift          String   @default("DAY") // ish smenasi: DAY (kunduzgi) | NIGHT (kechki) — tablo shu bo'yicha filtrlaydi
+  sessionVersion Int      @default(0) // faol sessiya versiyasi — yangi kirish eskisini bekor qiladi (bitta qurilma)
   // Kartaga dostupi bor xodim: karta/QR to'lovlari shu odam(lar) tasdig'idan
   // o'tadi (bot DM'iga tugmalar bilan xabar boradi). Rol emas — belgi, chunki
   // bu huquq rol iyerarxiyasidan mustaqil (kassir ham, boshliq ham bo'lishi mumkin).
-  cardVerifier    Boolean  @default(false)
-  createdAt       DateTime @default(now())
+  cardVerifier   Boolean  @default(false)
+  createdAt      DateTime @default(now())
 
   assignedClients      Client[]                @relation("AssignedOperator")
   ustaClients          Client[]                @relation("AssignedUsta")
@@ -432,16 +432,17 @@ model Ticket {
 // natijasida "Taklif" tanlaganda yaratiladi; admin/menejerdagi "Takliflar"
 // bo'limiga tushadi. 1 oy hal qilinmasa har kuni bildirishnoma (runSlaCheck).
 model Suggestion {
-  id           String    @id @default(cuid())
-  clientId     String
-  client       Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  body         String
-  status       String    @default("OPEN") // OPEN | RESOLVED
-  createdById  String? // qayd etgan operator (User.id — Notification kabi, relatsiyasiz)
-  resolvedById String? // hal qilgan admin/menejer (User.id)
-  resolvedAt   DateTime?
-  notifiedAt   DateTime? // oxirgi 1-oylik SLA bildirishnomasi yuborilgan vaqt
-  createdAt    DateTime  @default(now())
+  id             String    @id @default(cuid())
+  clientId       String
+  client         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  body           String
+  status         String    @default("OPEN") // OPEN | RESOLVED
+  createdById    String? // qayd etgan operator (User.id — Notification kabi, relatsiyasiz)
+  resolvedById   String? // hal qilgan admin/menejer (User.id)
+  resolvedAt     DateTime?
+  resolutionNote String? // hal qilishdagi izoh — IXTIYORIY (Ticket.resolutionNote kabi)
+  notifiedAt     DateTime? // oxirgi 1-oylik SLA bildirishnomasi yuborilgan vaqt
+  createdAt      DateTime  @default(now())
 
   @@index([status, createdAt])
   @@index([clientId])
@@ -509,15 +510,16 @@ model EquipmentMovement {
 }
 
 model EquipmentReturnRequest {
-  id         String    @id @default(cuid())
-  clientId   String
-  client     Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  byUserId   String? // arizani bergan operator
-  note       String?
-  status     String    @default("PENDING") // PENDING | APPROVED | IN_PROGRESS | REJECTED | DONE
-  ustaId     String? // tasdiqlangach biriktirilgan usta
-  createdAt  DateTime  @default(now())
-  resolvedAt DateTime?
+  id             String    @id @default(cuid())
+  clientId       String
+  client         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  byUserId       String? // arizani bergan operator
+  note           String? // ariza sababi (yaratishda majburiy)
+  status         String    @default("PENDING") // PENDING | APPROVED | IN_PROGRESS | REJECTED | DONE
+  ustaId         String? // tasdiqlangach biriktirilgan usta
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+  resolutionNote String? // yakunlash (yoki rad etish) izohi — IXTIYORIY
 
   @@index([status])
 }

@@ -490,7 +490,9 @@ export async function rejectReturnRequest(
     data: {
       status: "REJECTED",
       resolvedAt: new Date(),
-      note: safeNote(note) ?? req.note,
+      // Rad etish izohi ALOHIDA maydonga — ilgari `note` ustiga yozilardi va
+      // arizaning asl sababi yo'qolardi.
+      resolutionNote: safeNote(note),
     },
   });
   await logAudit("Qaytarish rad etildi", { entity: "Client", entityId: req.clientId });
@@ -537,8 +539,14 @@ export async function startReturnProgress(requestId: string): Promise<EqState> {
  * Usta biriktirilgach jarayonni TP xodimi (OPERATOR) kuzatadi va yakunlaydi;
  * boshliq (ADMIN/MANAGER) ham yakunlashi mumkin. Biriktirilgan (APPROVED) yoki
  * jarayondagi (IN_PROGRESS) arizadan yakunlanadi.
+ *
+ * `note` — IXTIYORIY yakunlash izohi (masalan "printer shikastlangan holda
+ * qaytdi"). Bo'sh qoldirilishi mumkin: yakunlash izoh tufayli bloklanmaydi.
  */
-export async function confirmReturnCollected(requestId: string): Promise<EqState> {
+export async function confirmReturnCollected(
+  requestId: string,
+  note?: string,
+): Promise<EqState> {
   const session = await requireSession();
   const req = await db.equipmentReturnRequest.findUnique({
     where: { id: requestId },
@@ -577,9 +585,10 @@ export async function confirmReturnCollected(requestId: string): Promise<EqState
     await db.clientEquipment.delete({ where: { id: item.id } });
   }
 
+  const resolutionNote = safeNote(note);
   await db.equipmentReturnRequest.update({
     where: { id: requestId },
-    data: { status: "DONE", resolvedAt: new Date() },
+    data: { status: "DONE", resolvedAt: new Date(), resolutionNote },
   });
   await db.client.update({
     where: { id: req.clientId },
@@ -590,7 +599,9 @@ export async function confirmReturnCollected(requestId: string): Promise<EqState
   await logAudit("Uskuna qaytarib olindi", {
     entity: "Client",
     entityId: req.clientId,
-    detail: req.client.restaurantName,
+    detail: resolutionNote
+      ? `${req.client.restaurantName} — ${resolutionNote}`
+      : req.client.restaurantName,
   });
   revalidatePath("/qaytarish");
   revalidatePath("/ombor");

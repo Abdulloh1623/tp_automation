@@ -29,7 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ClientLink } from "@/components/client-link";
 import { Badge } from "@/components/ui/badge";
-import { confirmDialog } from "@/components/confirm-dialog";
+import { confirmDialog, confirmWithNote } from "@/components/confirm-dialog";
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { SpecialNoteBell } from "@/components/special-note-bell";
 import { formatDate, formatPhone, normalizePhone } from "@/lib/utils";
@@ -45,7 +45,8 @@ export type ReturnQueueItem = {
   specialNote: string | null;
   specialNoteBy: string | null;
   specialNoteAt: string | null;
-  note: string | null;
+  note: string | null; // ariza sababi
+  resolutionNote: string | null; // yakunlash/rad etish izohi (ixtiyoriy)
   byName: string | null;
   ustaName: string | null; // biriktirilgan usta
   ustaPhone: string | null; // TP xodimi usta bilan bog'lanishi uchun
@@ -216,6 +217,24 @@ function Row({
   const hasUsta = r.status === "APPROVED" || r.status === "IN_PROGRESS" || r.status === "DONE";
   const done = r.status === "DONE";
 
+  // Yakunlash — uskuna omborga (usta zaxirasiga) o'tadigan jiddiy amal, shuning
+  // uchun tasdiq so'raladi; izoh esa IXTIYORIY (bo'sh qoldirsa ham yakunlanadi).
+  async function onCollect() {
+    const { ok, note } = await confirmWithNote({
+      title: "Uskuna qaytarib olindi",
+      message: `"${r.restaurantName || r.fullName}" ijara uskunalari ${
+        r.ustaName ?? "usta"
+      } zaxirasiga o'tkaziladi.`,
+      confirmLabel: "Bajarildi",
+      variant: "primary",
+      note: {
+        label: "Yakunlash izohi",
+        placeholder: "Masalan: printer shikastlangan holda qaytdi",
+      },
+    });
+    if (ok) run(() => confirmReturnCollected(r.id, note));
+  }
+
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -248,6 +267,11 @@ function Row({
             )}
           </div>
           {r.note && <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{r.note}</p>}
+          {r.resolutionNote && (
+            <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">
+              Yakun izohi: {r.resolutionNote}
+            </p>
+          )}
           {hasUsta && (
             <p className="mt-1 inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-emerald-700 dark:text-emerald-300">
               <span className="inline-flex items-center gap-1">
@@ -270,7 +294,7 @@ function Row({
 
         <div className="flex shrink-0 flex-col items-end gap-2">
           {r.status === "DONE" ? null : r.status === "IN_PROGRESS" ? (
-            <Button size="sm" disabled={pending} onClick={() => run(() => confirmReturnCollected(r.id))}>
+            <Button size="sm" disabled={pending} onClick={onCollect}>
               <PackageCheck className="h-4 w-4" /> Bajarildi (olib keldi)
             </Button>
           ) : r.status === "APPROVED" ? (
@@ -278,12 +302,7 @@ function Row({
               <Button size="sm" disabled={pending} onClick={() => run(() => startReturnProgress(r.id))}>
                 <PlayCircle className="h-4 w-4" /> Jarayonga o'tkazish
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={pending}
-                onClick={() => run(() => confirmReturnCollected(r.id))}
-              >
+              <Button size="sm" variant="outline" disabled={pending} onClick={onCollect}>
                 <PackageCheck className="h-4 w-4" /> Bajarildi (olib keldi)
               </Button>
             </>
@@ -316,12 +335,13 @@ function Row({
                 className="border-red-300 dark:border-red-700 text-red-700 dark:text-red-300"
                 disabled={pending}
                 onClick={async () => {
-                  const ok = await confirmDialog({
+                  const { ok, note } = await confirmWithNote({
                     title: "Arizani rad etish",
                     message: `"${r.restaurantName || r.fullName}" uchun qaytarish arizasi rad etilsinmi?`,
                     confirmLabel: "Rad etish",
+                    note: { label: "Rad etish sababi", placeholder: "Masalan: mijoz fikridan qaytdi" },
                   });
-                  if (ok) run(() => rejectReturnRequest(r.id));
+                  if (ok) run(() => rejectReturnRequest(r.id, note));
                 }}
               >
                 <X className="h-4 w-4" /> Rad etish

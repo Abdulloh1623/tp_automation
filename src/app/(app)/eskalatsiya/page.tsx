@@ -12,6 +12,7 @@ import { type StaffOption } from "@/components/assign-escalation-staff";
 import { CountStrip, type CountItem } from "@/components/count-strip";
 import { EscalationStatsPanel } from "@/components/escalation-stats-panel";
 import { getEscalationStats } from "@/lib/escalation-stats";
+import { ESCALATION_RESOLVED_NOTE } from "@/lib/escalation";
 import { slaThreshold } from "@/lib/sla";
 import { assignedStaffScope } from "@/lib/visibility";
 
@@ -67,6 +68,13 @@ export default async function EscalationPage() {
       include: {
         assignedTo: { select: { name: true } },
         assignedUsta: { select: { name: true, phone: true } },
+        // Yopishda yozilgan izoh (ixtiyoriy) — oxirgi DONE qo'ng'iroq izohi.
+        callLogs: {
+          where: { result: "DONE" },
+          orderBy: { calledAt: "desc" },
+          take: 1,
+          select: { note: true },
+        },
       },
     }),
     db.user.findMany({
@@ -130,6 +138,11 @@ export default async function EscalationPage() {
     ustaPhone: c.assignedUsta?.phone ?? null,
     operatorName: c.assignedTo?.name ?? null,
     resolvedAt: c.updatedAt.toISOString(),
+    // Standart matn ko'rsatilmaydi — faqat xodim o'zi yozgan izoh.
+    resolveNote:
+      c.callLogs[0]?.note && c.callLogs[0].note !== ESCALATION_RESOLVED_NOTE
+        ? c.callLogs[0].note
+        : null,
   }));
 
   const ustalar: UstaOption[] = ustalarFull.map((u) => ({

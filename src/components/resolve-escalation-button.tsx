@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { resolveEscalation } from "@/actions/usta";
-import { confirmDialog } from "@/components/confirm-dialog";
+import { confirmWithNote } from "@/components/confirm-dialog";
 import { toast } from "@/components/toaster";
 import { Button } from "@/components/ui/button";
 
@@ -20,14 +20,17 @@ export function ResolveEscalationButton({
   const [pending, start] = useTransition();
 
   async function onClick() {
-    const ok = await confirmDialog({
+    const { ok, note } = await confirmWithNote({
       title: "Eskalatsiyani yopish",
       message: `"${label}" hal bo'ldi deb belgilansinmi? Navbatdan chiqib yakunlangan bo'limiga o'tadi.`,
       confirmLabel: "Hal bo'ldi",
+      variant: "primary",
+      // Izoh ixtiyoriy — yozilsa mijoz tarixidagi qo'ng'iroq izohiga tushadi.
+      note: { label: "Qanday hal qilindi", placeholder: "Masalan: telefon orqali sozlab berildi" },
     });
     if (!ok) return;
     start(async () => {
-      const res = await resolveEscalation(clientId);
+      const res = await resolveEscalation(clientId, note);
       if (res.ok) {
         toast("Eskalatsiya hal bo'ldi", "success");
         router.refresh();

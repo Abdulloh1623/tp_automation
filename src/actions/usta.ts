@@ -6,7 +6,12 @@ import { requireSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { createNotification } from "@/lib/notifications";
 import { USTA_STATUS, ustaStatusLabel } from "@/lib/constants";
-import { escalationStagePatch, isEscalationStage } from "@/lib/escalation";
+import {
+  ESCALATION_RESOLVED_NOTE,
+  escalationStagePatch,
+  isEscalationStage,
+} from "@/lib/escalation";
+import { safeNote } from "@/lib/validation";
 
 export type AssignState = { ok: boolean; error?: string };
 
@@ -137,8 +142,15 @@ export async function updateUstaStatus(
  * (yoki boshliq) usta javobini kutmasdan (masalan telefon orqali hal qilinsa)
  * navbatdan/ustadan chiqaradi. Yakunlangan bo'limida ko'rinishi uchun
  * `ustaStatus: DONE` va o'z nomidan `DONE` izohi yoziladi.
+ *
+ * `note` — IXTIYORIY: berilsa qo'ng'iroq izohiga o'sha matn tushadi (qanday hal
+ * qilingani mijoz tarixida qoladi), berilmasa avvalgidek standart matn. Izoh
+ * yozish yopishni HECH QACHON bloklamaydi.
  */
-export async function resolveEscalation(clientId: string): Promise<AssignState> {
+export async function resolveEscalation(
+  clientId: string,
+  note?: string,
+): Promise<AssignState> {
   const session = await requireSession();
   if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
     return { ok: false, error: "Ruxsat yo'q" };
@@ -159,11 +171,12 @@ export async function resolveEscalation(clientId: string): Promise<AssignState> 
       ...escalationStagePatch("RESOLVED", client),
     },
   });
+  const resolutionNote = safeNote(note);
   await db.callLog.create({
     data: {
       clientId,
       result: "DONE",
-      note: "Eskalatsiya hal bo'ldi deb belgilandi",
+      note: resolutionNote ?? ESCALATION_RESOLVED_NOTE,
       operatorId: session.userId,
     },
   });
@@ -171,7 +184,9 @@ export async function resolveEscalation(clientId: string): Promise<AssignState> 
   await logAudit("Eskalatsiya hal bo'ldi", {
     entity: "Client",
     entityId: clientId,
-    detail: client.restaurantName,
+    detail: resolutionNote
+      ? `${client.restaurantName} — ${resolutionNote}`
+      : client.restaurantName,
   });
   revalidatePath("/eskalatsiya");
   revalidatePath(`/mijozlar/${clientId}`);

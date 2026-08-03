@@ -54,6 +54,7 @@ export default async function SuggestionsPage() {
     region: s.client.region,
     createdByName: s.createdById ? nameById.get(s.createdById) ?? null : null,
     resolvedByName: s.resolvedById ? nameById.get(s.resolvedById) ?? null : null,
+    resolutionNote: s.resolutionNote,
     createdAtFmt: formatDateTime(s.createdAt),
     resolvedAtFmt: s.resolvedAt ? formatDateTime(s.resolvedAt) : null,
     overdue: s.status === "OPEN" && s.createdAt < overdueBefore,

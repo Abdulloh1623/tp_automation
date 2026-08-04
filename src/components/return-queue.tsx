@@ -10,6 +10,7 @@ import {
   Wrench,
   PackageCheck,
   PlayCircle,
+  Undo2,
 } from "lucide-react";
 import { TicketTabs } from "@/components/ticket-tabs";
 import { EmptyState } from "@/components/empty-state";
@@ -25,6 +26,7 @@ import {
   rejectReturnRequest,
   startReturnProgress,
   confirmReturnCollected,
+  revertReturnRequest,
 } from "@/actions/equipment";
 import { Button } from "@/components/ui/button";
 import { ClientLink } from "@/components/client-link";
@@ -235,6 +237,15 @@ function Row({
     if (ok) run(() => confirmReturnCollected(r.id, note));
   }
 
+  async function onRevert(message: string) {
+    const ok = await confirmDialog({
+      title: "Orqaga qaytarish",
+      message,
+      confirmLabel: "Orqaga qaytarish",
+    });
+    if (ok) run(() => revertReturnRequest(r.id));
+  }
+
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -294,9 +305,23 @@ function Row({
 
         <div className="flex shrink-0 flex-col items-end gap-2">
           {r.status === "DONE" ? null : r.status === "IN_PROGRESS" ? (
-            <Button size="sm" disabled={pending} onClick={onCollect}>
-              <PackageCheck className="h-4 w-4" /> Bajarildi (olib keldi)
-            </Button>
+            <>
+              <Button size="sm" disabled={pending} onClick={onCollect}>
+                <PackageCheck className="h-4 w-4" /> Bajarildi (olib keldi)
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending}
+                onClick={() =>
+                  onRevert(
+                    `"${r.restaurantName || r.fullName}" — jarayon bekor qilinib, "Biriktirildi" bosqichiga qaytarilsinmi?`,
+                  )
+                }
+              >
+                <Undo2 className="h-4 w-4" /> Orqaga qaytarish
+              </Button>
+            </>
           ) : r.status === "APPROVED" ? (
             <>
               <Button size="sm" disabled={pending} onClick={() => run(() => startReturnProgress(r.id))}>
@@ -305,6 +330,20 @@ function Row({
               <Button size="sm" variant="outline" disabled={pending} onClick={onCollect}>
                 <PackageCheck className="h-4 w-4" /> Bajarildi (olib keldi)
               </Button>
+              {canAssign && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() =>
+                    onRevert(
+                      `"${r.restaurantName || r.fullName}" uchun usta biriktiruvi bekor qilinib, "Yangi" bosqichiga qaytarilsinmi?`,
+                    )
+                  }
+                >
+                  <Undo2 className="h-4 w-4" /> Orqaga qaytarish
+                </Button>
+              )}
             </>
           ) : !canAssign ? (
             <Badge tone="amber">Usta biriktirilishi kutilmoqda</Badge>
@@ -345,6 +384,18 @@ function Row({
                 }}
               >
                 <X className="h-4 w-4" /> Rad etish
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending}
+                onClick={() =>
+                  onRevert(
+                    `"${r.restaurantName || r.fullName}" uchun qaytarish arizasi butunlay bekor qilinsinmi? Bu ariza ro'yxatdan o'chadi.`,
+                  )
+                }
+              >
+                <Undo2 className="h-4 w-4" /> Orqaga qaytarish
               </Button>
             </>
           )}

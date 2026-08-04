@@ -681,6 +681,10 @@ export async function escalateLead(
         ...escalationStagePatch("ESCALATED", current),
       },
     });
+    // Bo'limga o'tkazilgan sana tarixda (qo'ng'iroqlar jurnali) qolishi uchun.
+    await db.callLog.create({
+      data: { clientId, result: "ESCALATED", operatorId: g.session.userId },
+    });
     await logAudit("Boshliqqa eskalatsiya (qo'lda)", {
       entity: "Client",
       entityId: clientId,

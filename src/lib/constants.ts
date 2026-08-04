@@ -134,6 +134,15 @@ export const CALL_RESULT = {
   SMS_SENT: "SMS yuborildi",
   TELEGRAM_SENT: "Telegram yozildi",
   RESOLVED: "Muammo hal qilindi",
+  // Bo'lim o'tkazuvlari (eskalatsiya/muammo) — CallLog'da tarix sifatida
+  // qayd etiladi, shu bilan "qo'ng'iroqlar tarixi"da ham ko'rinadi.
+  ESCALATED: "Eskalatsiyaga o'tkazildi",
+  ESCALATION_STAFF_ASSIGNED: "Eskalatsiya mas'uli biriktirildi",
+  TICKET_IN_PROGRESS: "Muammo jarayonga olindi",
+  TICKET_REOPENED: "Muammo qayta ochildi",
+  TICKET_DISMISSED: "Muammo rad etildi (xato)",
+  TICKET_STAFF_ASSIGNED: "Muammo mas'uli biriktirildi",
+  UNASSIGNED: "Biriktiruv olib tashlandi",
 } as const;
 export type CallResult = keyof typeof CALL_RESULT;
 

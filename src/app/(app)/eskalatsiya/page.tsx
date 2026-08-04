@@ -43,14 +43,22 @@ export default async function EscalationPage() {
         callLogs: {
           orderBy: { calledAt: "desc" },
           take: 1,
-          select: { note: true, operator: { select: { name: true } } },
+          select: { note: true, calledAt: true, operator: { select: { name: true } } },
         },
       },
     }),
     db.client.findMany({
       where: { stage: "FORWARDED", ...scope },
       orderBy: { updatedAt: "desc" },
-      include: { assignedUsta: { select: { name: true, phone: true } }, ...staffInclude },
+      include: {
+        assignedUsta: { select: { name: true, phone: true } },
+        ...staffInclude,
+        callLogs: {
+          orderBy: { calledAt: "desc" },
+          take: 1,
+          select: { note: true, calledAt: true, operator: { select: { name: true } } },
+        },
+      },
     }),
     // Yakunlangan eskalatsiyalar — usta "Bajarildi" degach stage RESOLVED bo'ladi
     // va eskalatsiya belgilari (escalatedAt/escalationStaffId) tozalanadi. Boshliq
@@ -111,6 +119,8 @@ export default async function EscalationPage() {
       staffId: c.escalationStaff?.id ?? null,
       staffName: c.escalationStaff?.name ?? null,
       overdue: isOverdue(c.escalatedAt, c.updatedAt),
+      enteredAt: (c.escalatedAt ?? c.updatedAt).toISOString(),
+      lastActionAt: c.callLogs[0]?.calledAt.toISOString() ?? null,
     };
   });
 
@@ -126,6 +136,8 @@ export default async function EscalationPage() {
     staffId: c.escalationStaff?.id ?? null,
     staffName: c.escalationStaff?.name ?? null,
     overdue: isOverdue(c.escalatedAt, c.updatedAt),
+    enteredAt: (c.escalatedAt ?? c.updatedAt).toISOString(),
+    lastActionAt: c.callLogs[0]?.calledAt.toISOString() ?? null,
   }));
 
   const resolved: ResolvedItem[] = resolvedRaw.map((c) => ({

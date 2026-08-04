@@ -110,10 +110,11 @@ export default async function TicketsPage({
             specialNote: true,
             specialNoteAt: true,
             specialNoteBy: { select: { name: true } },
+            // Eng so'nggi bir nechtasi: birinchisi (calledAt bo'yicha) "oxirgi
+            // harakat sanasi"ga, izohli birinchisi "oxirgi izoh"ga ishlatiladi.
             callLogs: {
-              where: { note: { not: null } },
               orderBy: { calledAt: "desc" },
-              take: 1,
+              take: 5,
               select: {
                 note: true,
                 calledAt: true,
@@ -161,6 +162,15 @@ export default async function TicketsPage({
 
   // Bitta ticket kartasi — barcha tab'larda bir xil.
   function ticketCard(t: (typeof ticketsRaw)[number]) {
+    const lastAction = t.client.callLogs[0] ?? null;
+    const lastNote = t.client.callLogs.find((l) => l.note) ?? null;
+    // Ochilgandan keyin biror harakat bo'lgan bo'lsa (biriktirish/holat
+    // o'zgarishi) alohida ko'rsatamiz — bo'lmasa "Ochilgan" bilan bir xil
+    // sanani takrorlamaymiz.
+    const lastActionAt =
+      lastAction && lastAction.calledAt.getTime() !== t.createdAt.getTime()
+        ? lastAction.calledAt
+        : null;
     return (
       <Card
         key={t.id}
@@ -193,7 +203,11 @@ export default async function TicketsPage({
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400 dark:text-slate-500">
-          <span>{formatDate(t.createdAt)}</span>
+          <span>Ochilgan: {formatDate(t.createdAt)}</span>
+          {lastActionAt && <span>· Oxirgi harakat: {formatDate(lastActionAt)}</span>}
+          {t.status === "RESOLVED" && t.resolvedAt && (
+            <span>· Hal qilindi: {formatDate(t.resolvedAt)}</span>
+          )}
           {t.assignedStaff && <span>· mas'ul: {t.assignedStaff.name}</span>}
           {t.assignedUsta && <span>· usta: {t.assignedUsta.name}</span>}
           <span className="inline-flex items-center gap-1">
@@ -209,12 +223,12 @@ export default async function TicketsPage({
           </span>
         </div>
 
-        {t.client.callLogs[0]?.note && (
+        {lastNote?.note && (
           <div className="mt-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
-            <span className="font-medium">Oxirgi izoh:</span> {t.client.callLogs[0].note}
+            <span className="font-medium">Oxirgi izoh:</span> {lastNote.note}
             <span className="ml-1 text-xs text-amber-700/70 dark:text-amber-300/70">
-              ({formatDate(t.client.callLogs[0].calledAt)}
-              {t.client.callLogs[0].operator ? ` · ${t.client.callLogs[0].operator.name}` : ""})
+              ({formatDate(lastNote.calledAt)}
+              {lastNote.operator ? ` · ${lastNote.operator.name}` : ""})
             </span>
           </div>
         )}

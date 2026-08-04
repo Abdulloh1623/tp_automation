@@ -231,6 +231,16 @@ export async function assignEscalationStaff(
     return { ok: false, error: "Mijoz topilmadi" };
   }
 
+  // Bo'lim ichidagi holat o'zgarishi ham tarixda (qo'ng'iroqlar jurnali) qolsin.
+  await db.callLog.create({
+    data: {
+      clientId,
+      result: staffId ? "ESCALATION_STAFF_ASSIGNED" : "UNASSIGNED",
+      note: staffId ? null : "Eskalatsiya mas'uli olib tashlandi",
+      operatorId: session.userId,
+    },
+  });
+
   await logAudit(staffId ? "Eskalatsiyaga mas'ul biriktirildi" : "Eskalatsiya mas'uli olindi", {
     entity: "Client",
     entityId: clientId,

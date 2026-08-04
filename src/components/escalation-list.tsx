@@ -37,7 +37,7 @@ import {
   uniqueRegions,
 } from "@/components/list-filter";
 import { ustaStatusLabel } from "@/lib/constants";
-import { formatDate, formatPhone, normalizePhone } from "@/lib/utils";
+import { formatDate, formatDateTime, formatPhone, normalizePhone } from "@/lib/utils";
 
 // Boshida ko'rsatiladigan yakunlangan kartalar soni ("Yana ko'rsatish" oshiradi).
 const RESOLVED_PAGE = 20;
@@ -56,6 +56,8 @@ export type EscalatedItem = {
   staffId: string | null;
   staffName: string | null;
   overdue: boolean;
+  enteredAt: string; // eskalatsiyaga tushgan sana
+  lastActionAt: string | null; // bo'lim ichidagi oxirgi harakat sanasi
 };
 
 export type ForwardedItem = {
@@ -70,6 +72,8 @@ export type ForwardedItem = {
   staffId: string | null;
   staffName: string | null;
   overdue: boolean;
+  enteredAt: string; // eskalatsiyaga tushgan sana (dastlabki)
+  lastActionAt: string | null; // jarayonga o'tkazilgan/holat o'zgargan oxirgi sana
 };
 
 export type ResolvedItem = {
@@ -91,6 +95,29 @@ function OverdueBadge() {
     <span className="inline-flex items-center gap-1 rounded-full bg-red-100 dark:bg-red-950 px-2.5 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">
       <AlertTriangle className="h-3 w-3" /> 3 kundan oshgan
     </span>
+  );
+}
+
+/**
+ * Bo'limga o'tkazilgan sana + (bo'lsa) bo'lim ichidagi oxirgi harakat sanasi.
+ * Ikkinchisi birinchisidan farq qilsagina alohida ko'rsatiladi — bir xil
+ * bo'lsa (hali hech narsa o'zgarmagan) takror yozilmaydi.
+ */
+function TransitionDates({
+  enteredAt,
+  lastActionAt,
+  enteredLabel,
+}: {
+  enteredAt: string;
+  lastActionAt: string | null;
+  enteredLabel: string;
+}) {
+  const showLastAction = lastActionAt && lastActionAt !== enteredAt;
+  return (
+    <div className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+      {enteredLabel}: {formatDateTime(enteredAt)}
+      {showLastAction && <> · Oxirgi harakat: {formatDateTime(lastActionAt)}</>}
+    </div>
   );
 }
 
@@ -194,6 +221,7 @@ export function EscalationList({
                 </span>
                 {c.operatorName && <span>· operator: {c.operatorName}</span>}
               </div>
+              <TransitionDates enteredAt={c.enteredAt} lastActionAt={c.lastActionAt} enteredLabel="Eskalatsiyaga tushgan" />
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {c.overdue && <OverdueBadge />}
@@ -298,6 +326,7 @@ export function EscalationList({
                   </span>
                 )}
               </div>
+              <TransitionDates enteredAt={c.enteredAt} lastActionAt={c.lastActionAt} enteredLabel="Eskalatsiyaga tushgan" />
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {c.overdue && <OverdueBadge />}

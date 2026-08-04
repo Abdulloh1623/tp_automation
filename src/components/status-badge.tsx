@@ -44,7 +44,7 @@ export function PaymentStatusBadge({
   return <Badge tone={paymentTone[state]}>{PAYMENT_STATE_LABEL[state]}</Badge>;
 }
 
-const callTone: Record<string, "green" | "red" | "amber" | "blue" | "neutral"> = {
+const callTone: Record<string, "green" | "red" | "amber" | "blue" | "neutral" | "slate"> = {
   TALKED: "green",
   RESOLVED: "green",
   NO_ANSWER: "red",
@@ -52,6 +52,13 @@ const callTone: Record<string, "green" | "red" | "amber" | "blue" | "neutral"> =
   BUSY: "amber",
   SMS_SENT: "blue",
   TELEGRAM_SENT: "blue",
+  ESCALATED: "red",
+  ESCALATION_STAFF_ASSIGNED: "blue",
+  TICKET_IN_PROGRESS: "blue",
+  TICKET_REOPENED: "amber",
+  TICKET_DISMISSED: "slate",
+  TICKET_STAFF_ASSIGNED: "blue",
+  UNASSIGNED: "slate",
 };
 
 export function CallResultBadge({ result }: { result: string }) {

@@ -74,6 +74,16 @@ export async function createTicket(
       assignedToId: client.assignedToId ?? session.userId,
     },
   });
+  // Muammo bo'limiga o'tkazilgan sana qo'ng'iroqlar tarixida ham qolsin
+  // (operator lid natijasidan ochgan ticket bunga saveLeadCell'da allaqachon ega).
+  await db.callLog.create({
+    data: {
+      clientId: client.id,
+      result: "HAS_ISSUE",
+      note: parsed.data.title,
+      operatorId: session.userId,
+    },
+  });
 
   await logAudit("Muammo yaratildi", {
     entity: "Ticket",
@@ -116,6 +126,20 @@ export async function setTicketStatus(
 
   try {
     const ticket = await db.ticket.update({ where: { id: ticketId }, data });
+    // Bo'lim ichidagi holat o'zgarishi tarixda (qo'ng'iroqlar jurnali) qolsin.
+    await db.callLog.create({
+      data: {
+        clientId: ticket.clientId,
+        result:
+          status === "RESOLVED"
+            ? "RESOLVED"
+            : status === "IN_PROGRESS"
+              ? "TICKET_IN_PROGRESS"
+              : "TICKET_REOPENED",
+        note: status === "RESOLVED" ? resolutionNote ?? null : null,
+        operatorId: g.session.userId,
+      },
+    });
     await logAudit(`Muammo holati: ${TICKET_STATUS[status as keyof typeof TICKET_STATUS] ?? status}`, {
       entity: "Ticket",
       entityId: ticketId,
@@ -148,6 +172,9 @@ export async function dismissTicket(
         resolutionNote: "Xato ochilgan (rad etildi)",
       },
       select: { clientId: true, title: true },
+    });
+    await db.callLog.create({
+      data: { clientId: ticket.clientId, result: "TICKET_DISMISSED", operatorId: g.session.userId },
     });
     await logAudit("Muammo rad etildi (xato ochilgan)", {
       entity: "Ticket",
@@ -194,6 +221,14 @@ export async function assignTicketStaff(
         where: { id: ticketId },
         data: { assignedStaffId: null, staffNote: null },
       });
+      await db.callLog.create({
+        data: {
+          clientId: ticket.clientId,
+          result: "UNASSIGNED",
+          note: "Muammo mas'uli olib tashlandi",
+          operatorId: g.session.userId,
+        },
+      });
       await logAudit("Muammo mas'uli olindi", { entity: "Ticket", entityId: ticketId });
       revalidateTicket(ticket.clientId);
       return { ok: true };
@@ -224,6 +259,14 @@ export async function assignTicketStaff(
         status: progressIfOpen(current.status),
       },
       select: { clientId: true, title: true, client: { select: { restaurantName: true } } },
+    });
+    await db.callLog.create({
+      data: {
+        clientId: ticket.clientId,
+        result: "TICKET_STAFF_ASSIGNED",
+        note: `Mas'ul: ${u.name}${cleanNote ? ` — ${cleanNote}` : ""}`,
+        operatorId: g.session.userId,
+      },
     });
     await logAudit(`Muammo mas'uli: ${u.name} (xodim)`, {
       entity: "Ticket",
@@ -263,6 +306,14 @@ export async function assignTicketUsta(
         where: { id: ticketId },
         data: { assignedUstaId: null, ustaNote: null },
       });
+      await db.callLog.create({
+        data: {
+          clientId: ticket.clientId,
+          result: "UNASSIGNED",
+          note: "Muammodan usta olindi",
+          operatorId: g.session.userId,
+        },
+      });
       await logAudit("Muammodan usta olindi", { entity: "Ticket", entityId: ticketId });
       revalidateTicket(ticket.clientId);
       return { ok: true };
@@ -287,6 +338,14 @@ export async function assignTicketUsta(
     const ticket = await db.ticket.update({
       where: { id: ticketId },
       data: { assignedUstaId: ustaId, ustaNote: cleanNote, status: progressIfOpen(current.status) },
+    });
+    await db.callLog.create({
+      data: {
+        clientId: ticket.clientId,
+        result: "ASSIGNED",
+        note: `Usta: ${u.name}${cleanNote ? ` — ${cleanNote}` : ""}`,
+        operatorId: g.session.userId,
+      },
     });
     await logAudit(`Muammoga usta: ${u.name}`, {
       entity: "Ticket",

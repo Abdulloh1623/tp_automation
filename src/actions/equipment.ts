@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { parseRegions } from "@/lib/constants";
+import { refuseClient } from "@/actions/clients";
 
 export type EqState = { ok: boolean; error?: string };
 
@@ -535,13 +536,15 @@ export async function startReturnProgress(requestId: string): Promise<EqState> {
 }
 
 /**
- * Uskuna olib kelindi — ijara uskunalari usta zaxirasiga o'tadi.
- * Usta biriktirilgach jarayonni TP xodimi (OPERATOR) kuzatadi va yakunlaydi;
- * boshliq (ADMIN/MANAGER) ham yakunlashi mumkin. Biriktirilgan (APPROVED) yoki
- * jarayondagi (IN_PROGRESS) arizadan yakunlanadi.
+ * Uskuna olib kelindi — ijara uskunalari usta zaxirasiga o'tadi va mijoz
+ * `refuseClient` orqali Otkazga o'tkaziladi (ijara bekor qilingani = xizmatdan
+ * voz kechgani). Usta biriktirilgach jarayonni TP xodimi (OPERATOR) kuzatadi
+ * va yakunlaydi; boshliq (ADMIN/MANAGER) ham yakunlashi mumkin. Biriktirilgan
+ * (APPROVED) yoki jarayondagi (IN_PROGRESS) arizadan yakunlanadi.
  *
  * `note` — IXTIYORIY yakunlash izohi (masalan "printer shikastlangan holda
- * qaytdi"). Bo'sh qoldirilishi mumkin: yakunlash izoh tufayli bloklanmaydi.
+ * qaytdi"). Bo'sh qoldirilishi mumkin: yakunlash izoh tufayli bloklanmaydi —
+ * otkaz sababi sifatida standart matn ishlatiladi.
  */
 export async function confirmReturnCollected(
   requestId: string,
@@ -596,6 +599,16 @@ export async function confirmReturnCollected(
   });
   await recomputeMode(req.clientId);
 
+  // Ijara uskunasi qaytarib olindi = mijoz xizmatdan voz kechdi — otkazga
+  // o'tkazamiz. Allaqachon otkaz bo'lsa (masalan otkaz avval, uskuna keyin
+  // olib kelingan bo'lsa) qayta urinmaymiz — refuseClient bunga xato qaytaradi.
+  if (req.client.stage !== "REFUSED") {
+    await refuseClient(
+      req.clientId,
+      resolutionNote || "Uskuna qaytarib olindi (ijara bekor qilindi)",
+    );
+  }
+
   await logAudit("Uskuna qaytarib olindi", {
     entity: "Client",
     entityId: req.clientId,
@@ -605,6 +618,76 @@ export async function confirmReturnCollected(
   });
   revalidatePath("/qaytarish");
   revalidatePath("/ombor");
+  revalidatePath(`/mijozlar/${req.clientId}`);
+  return { ok: true };
+}
+
+/**
+ * Qaytarish arizasini bir bosqich orqaga qaytaradi — xato bosilgan tugmani
+ * tuzatish uchun (masalan usta noto'g'ri biriktirildi yoki "jarayonga
+ * o'tkazish" chala bosildi). Ruxsat bosqichning oldingi harakatiga mos:
+ * IN_PROGRESS→APPROVED (startReturnProgress'ni bekor qiladi, STAFF qila
+ * oladi), APPROVED→PENDING (approveReturnRequest'ni bekor qiladi, usta
+ * biriktiruvini yechadi, faqat boshliq), PENDING'da orqasi yo'q — ariza
+ * butunlay bekor qilinadi (faqat boshliq, `rejectReturnRequest` kabi).
+ */
+export async function revertReturnRequest(requestId: string): Promise<EqState> {
+  const session = await requireSession();
+  const req = await db.equipmentReturnRequest.findUnique({
+    where: { id: requestId },
+    include: { client: { select: { restaurantName: true } } },
+  });
+  if (!req) return { ok: false, error: "Ariza topilmadi" };
+
+  if (req.status === "IN_PROGRESS") {
+    if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
+      return { ok: false, error: "Ruxsat yo'q" };
+    }
+    await db.equipmentReturnRequest.update({
+      where: { id: requestId },
+      data: { status: "APPROVED" },
+    });
+    await db.client.update({
+      where: { id: req.clientId },
+      data: { ustaStatus: "ASSIGNED" },
+    });
+    await logAudit("Qaytarish: jarayondan orqaga qaytarildi", {
+      entity: "Client",
+      entityId: req.clientId,
+      detail: req.client.restaurantName,
+    });
+  } else if (req.status === "APPROVED") {
+    if (!["ADMIN", "MANAGER"].includes(session.role)) {
+      return { ok: false, error: "Ruxsat yo'q" };
+    }
+    await db.equipmentReturnRequest.update({
+      where: { id: requestId },
+      data: { status: "PENDING", ustaId: null },
+    });
+    await db.client.update({
+      where: { id: req.clientId },
+      data: { ustaStatus: null, assignedUstaId: null },
+    });
+    await logAudit("Qaytarish: usta biriktiruvi bekor qilindi (orqaga)", {
+      entity: "Client",
+      entityId: req.clientId,
+      detail: req.client.restaurantName,
+    });
+  } else if (req.status === "PENDING") {
+    if (!["ADMIN", "MANAGER"].includes(session.role)) {
+      return { ok: false, error: "Ruxsat yo'q" };
+    }
+    await db.equipmentReturnRequest.delete({ where: { id: requestId } });
+    await logAudit("Qaytarish arizasi bekor qilindi (orqaga)", {
+      entity: "Client",
+      entityId: req.clientId,
+      detail: req.client.restaurantName,
+    });
+  } else {
+    return { ok: false, error: "Bu bosqichda orqaga qaytarib bo'lmaydi" };
+  }
+
+  revalidatePath("/qaytarish");
   revalidatePath(`/mijozlar/${req.clientId}`);
   return { ok: true };
 }

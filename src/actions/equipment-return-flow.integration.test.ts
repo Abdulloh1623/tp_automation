@@ -45,17 +45,15 @@ describe("confirmReturnCollected — mijoz otkazga o'tadi", () => {
     expect(await stockOf(type.id, "USTA", usta.id)).toBe(2);
   });
 
-  it("izohsiz yakunlansa ham standart sabab bilan otkazga o'tadi", async () => {
-    const { req, client } = await makeReturnRequest();
+  it("izohsiz yakunlab bo'lmaydi — izoh majburiy", async () => {
+    const { req } = await makeReturnRequest();
     await loginAs(await makeUser("MANAGER"));
 
-    const res = await confirmReturnCollected(req.id);
+    const res = await confirmReturnCollected(req.id, "");
 
-    expect(res.ok).toBe(true);
-    const after = await db.client.findUnique({ where: { id: client.id } });
-    expect(after!.stage).toBe("REFUSED");
-    const log = await db.callLog.findFirst({ where: { clientId: client.id, result: "REFUSED" } });
-    expect(log!.note).toContain("Uskuna qaytarib olindi");
+    expect(res.ok).toBe(false);
+    const reqAfter = await db.equipmentReturnRequest.findUnique({ where: { id: req.id } });
+    expect(reqAfter!.status).toBe("APPROVED");
   });
 
   it("mijoz allaqachon otkaz bo'lsa xato bermay yakunlanadi", async () => {
@@ -66,7 +64,7 @@ describe("confirmReturnCollected — mijoz otkazga o'tadi", () => {
     });
     await loginAs(await makeUser("MANAGER"));
 
-    const res = await confirmReturnCollected(req.id);
+    const res = await confirmReturnCollected(req.id, "uskuna qaytarildi");
 
     expect(res.ok).toBe(true);
     const reqAfter = await db.equipmentReturnRequest.findUnique({ where: { id: req.id } });

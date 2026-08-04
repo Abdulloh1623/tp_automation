@@ -1,15 +1,14 @@
 // Yakunlash izohlari — HAQIQIY bazaga qarshi.
 //
-// Qoida bitta va uchala oqim uchun bir xil: izoh IXTIYORIY. Yozilsa saqlanadi
-// va keyin o'qib bo'ladi; yozilmasa amal baribir bajariladi (hech qachon
-// "izoh majburiy" deb to'xtatmaydi).
+// Takliflar (Suggestion) uchun izoh IXTIYORIY: yozilsa saqlanadi, yozilmasa
+// amal baribir bajariladi. Qaytarish/eskalatsiya uchun esa izoh MAJBURIY —
+// izohsiz amal bloklanadi.
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "@/lib/db";
 import { resolveSuggestion, reopenSuggestion } from "./suggestions";
 import { confirmReturnCollected } from "./equipment";
 import { resolveEscalation } from "./usta";
-import { ESCALATION_RESOLVED_NOTE } from "@/lib/escalation";
 import { resetDb, makeUser, makeClient, makeEquipment, loginAs, stockOf } from "@/test/fixtures";
 
 async function makeSuggestion(clientId: string) {
@@ -81,7 +80,7 @@ describe("resolveSuggestion — izoh ixtiyoriy", () => {
   });
 });
 
-describe("confirmReturnCollected — izoh ixtiyoriy", () => {
+describe("confirmReturnCollected — izoh majburiy", () => {
   beforeEach(async () => {
     await resetDb();
   });
@@ -100,20 +99,19 @@ describe("confirmReturnCollected — izoh ixtiyoriy", () => {
     expect(await stockOf(type.id, "USTA", usta.id), "uskuna usta zaxirasiga o'tadi").toBe(2);
   });
 
-  it("izohsiz ham yakunlanadi", async () => {
+  it("izohsiz yakunlab bo'lmaydi", async () => {
     const { req } = await makeReturnRequest();
     await loginAs(await makeUser("MANAGER"));
 
-    const res = await confirmReturnCollected(req.id);
+    const res = await confirmReturnCollected(req.id, "");
 
-    expect(res.ok).toBe(true);
+    expect(res.ok).toBe(false);
     const after = await db.equipmentReturnRequest.findUnique({ where: { id: req.id } });
-    expect(after!.status).toBe("DONE");
-    expect(after!.resolutionNote).toBeNull();
+    expect(after!.status).toBe("APPROVED");
   });
 });
 
-describe("resolveEscalation — izoh ixtiyoriy", () => {
+describe("resolveEscalation — izoh majburiy", () => {
   beforeEach(async () => {
     await resetDb();
   });
@@ -133,16 +131,16 @@ describe("resolveEscalation — izoh ixtiyoriy", () => {
     expect(after!.stage).toBe("RESOLVED");
   });
 
-  it("izohsiz yopilsa standart matn yoziladi", async () => {
+  it("izohsiz yopib bo'lmaydi", async () => {
     const manager = await makeUser("MANAGER");
     const client = await makeClient();
     await db.client.update({ where: { id: client.id }, data: { stage: "ESCALATED" } });
     await loginAs(manager);
 
-    const res = await resolveEscalation(client.id);
+    const res = await resolveEscalation(client.id, "");
 
-    expect(res.ok).toBe(true);
-    const log = await db.callLog.findFirst({ where: { clientId: client.id, result: "DONE" } });
-    expect(log!.note).toBe(ESCALATION_RESOLVED_NOTE);
+    expect(res.ok).toBe(false);
+    const after = await db.client.findUnique({ where: { id: client.id } });
+    expect(after!.stage).toBe("ESCALATED");
   });
 });

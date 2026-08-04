@@ -5,6 +5,7 @@ import {
   ReturnQueue,
   type ReturnQueueItem,
   type UstaOpt,
+  type StaffOpt,
 } from "@/components/return-queue";
 import { ReturnStats, type ReturnStatsData } from "@/components/return-stats";
 
@@ -22,12 +23,13 @@ export default async function QaytarishPage() {
     fullName: true,
     phone: true,
     region: true,
+    assignedToId: true,
     specialNote: true,
     specialNoteAt: true,
     specialNoteBy: { select: { name: true } },
   } as const;
 
-  const [openReqs, doneReqs, ustalarFull, users] = await Promise.all([
+  const [openReqs, doneReqs, ustalarFull, users, xodimlarFull] = await Promise.all([
     // Ochiq navbat: yangi, biriktirilgan, jarayonda
     db.equipmentReturnRequest.findMany({
       where: { status: { in: ["PENDING", "APPROVED", "IN_PROGRESS"] } },
@@ -47,6 +49,12 @@ export default async function QaytarishPage() {
       orderBy: { name: "asc" },
     }),
     db.user.findMany({ select: { id: true, name: true, phone: true } }),
+    // Mas'ul TP xodim tanlash uchun ro'yxat (ariza qo'sha oladigan rollar bilan bir xil).
+    db.user.findMany({
+      where: { role: { in: ["ADMIN", "MANAGER", "OPERATOR"] }, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const requests = [...openReqs, ...doneReqs];
@@ -77,10 +85,14 @@ export default async function QaytarishPage() {
     ustaName: r.ustaId ? userById.get(r.ustaId)?.name ?? null : null,
     ustaPhone: r.ustaId ? userById.get(r.ustaId)?.phone ?? null : null,
     matchedUstaId: r.client.region ? regionUsta.get(r.client.region) ?? null : null,
+    staffId: r.staffId,
+    staffName: r.staffId ? userById.get(r.staffId)?.name ?? null : null,
+    matchedStaffId: r.client.assignedToId,
     resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
   }));
 
   const ustalar: UstaOpt[] = ustalarFull.map((u) => ({ id: u.id, name: u.name }));
+  const staffOptions: StaffOpt[] = xodimlarFull.map((u) => ({ id: u.id, name: u.name }));
   const pendingCount = items.filter((i) => i.status === "PENDING").length;
   const approvedCount = items.filter((i) => i.status === "APPROVED").length;
   const inProgressCount = items.filter((i) => i.status === "IN_PROGRESS").length;
@@ -132,7 +144,12 @@ export default async function QaytarishPage() {
         </p>
       </div>
       {stats && <ReturnStats stats={stats} />}
-      <ReturnQueue items={items} ustalar={ustalar} canAssign={isManager} />
+      <ReturnQueue
+        items={items}
+        ustalar={ustalar}
+        staffOptions={staffOptions}
+        canAssign={isManager}
+      />
     </div>
   );
 }

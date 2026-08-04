@@ -5,7 +5,7 @@ import { safeNote } from "@/lib/validation";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { parseRegions } from "@/lib/constants";
+import { createNotification } from "@/lib/notifications";
 import { refuseClient } from "@/actions/clients";
 
 export type EqState = { ok: boolean; error?: string };
@@ -401,6 +401,15 @@ export async function requestEquipmentReturn(
   await db.equipmentReturnRequest.create({
     data: { clientId, byUserId: session.userId, note: noteText, status: "PENDING" },
   });
+  // Ariza ochilishi mijoz tarixida (qo'ng'iroqlar tarixi) ham qolsin.
+  await db.callLog.create({
+    data: {
+      clientId,
+      result: "RETURN_REQUESTED",
+      note: noteText,
+      operatorId: session.userId,
+    },
+  });
   await logAudit("Uskuna qaytarish arizasi", {
     entity: "Client",
     entityId: clientId,
@@ -411,16 +420,28 @@ export async function requestEquipmentReturn(
   return { ok: true };
 }
 
+// Qaytarishga mas'ul qilib biriktirilishi mumkin bo'lgan TP xodimi rollari.
+const RETURN_STAFF_ROLES = ["ADMIN", "MANAGER", "OPERATOR"];
+
 /**
- * Boshliq: qaytarish arizasiga usta biriktiradi. `chosenUstaId` berilsa — o'sha usta;
- * berilmasa — mijoz viloyatiga ko'ra avtomatik tanlanadi.
+ * Boshliq: qaytarish arizasiga mas'ul TP xodim VA usta BIRGA biriktiriladi —
+ * bittasi tanlanib ikkinchisi tanlanmasa ariza "Biriktirildi"ga o'tmaydi.
+ * Izoh MAJBURIY (mas'ul/usta bilan qanday kelishilgani tarixda qolsin).
  */
 export async function approveReturnRequest(
   requestId: string,
-  chosenUstaId?: string,
+  staffId: string,
+  ustaId: string,
+  note: string,
 ): Promise<EqState> {
   const m = await requireManager();
   if (!m.ok) return m;
+
+  if (!staffId || !ustaId) {
+    return { ok: false, error: "Operator va usta ikkalasi ham tanlanishi kerak" };
+  }
+  const noteText = safeNote(note);
+  if (!noteText) return { ok: false, error: "Izoh majburiy" };
 
   const req = await db.equipmentReturnRequest.findUnique({
     where: { id: requestId },
@@ -430,57 +451,63 @@ export async function approveReturnRequest(
     return { ok: false, error: "Ariza topilmadi yoki holati o'zgargan" };
   }
 
-  let usta: { id: string; name: string } | null = null;
-  if (chosenUstaId) {
-    usta = await db.user.findFirst({
-      where: { id: chosenUstaId, role: "INSTALLER", isActive: true },
+  const [staff, usta] = await Promise.all([
+    db.user.findFirst({
+      where: { id: staffId, role: { in: RETURN_STAFF_ROLES }, isActive: true },
       select: { id: true, name: true },
-    });
-    if (!usta) return { ok: false, error: "Tanlangan usta topilmadi" };
-  } else {
-    const region = req.client.region;
-    if (!region) {
-      return { ok: false, error: "Mijoz viloyati yo'q — ustani qo'lda tanlang" };
-    }
-    const candidates = await db.user.findMany({
-      where: { role: "INSTALLER", isActive: true },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, name: true, region: true, regions: true },
-    });
-    const match = candidates.find((u) =>
-      parseRegions(u.regions, u.region).includes(region),
-    );
-    if (!match) {
-      return { ok: false, error: `"${region}" viloyatida faol usta yo'q — qo'lda tanlang.` };
-    }
-    usta = { id: match.id, name: match.name };
-  }
+    }),
+    db.user.findFirst({
+      where: { id: ustaId, role: "INSTALLER", isActive: true },
+      select: { id: true, name: true },
+    }),
+  ]);
+  if (!staff) return { ok: false, error: "Tanlangan xodim topilmadi" };
+  if (!usta) return { ok: false, error: "Tanlangan usta topilmadi" };
 
   await db.equipmentReturnRequest.update({
     where: { id: requestId },
-    data: { status: "APPROVED", ustaId: usta.id },
+    data: { status: "APPROVED", ustaId: usta.id, staffId: staff.id },
   });
   await db.client.update({
     where: { id: req.clientId },
     data: { assignedUstaId: usta.id, ustaStatus: "ASSIGNED" },
   });
-  await logAudit("Qaytarish: usta biriktirildi", {
+  await db.callLog.create({
+    data: {
+      clientId: req.clientId,
+      result: "RETURN_ASSIGNED",
+      note: noteText,
+      operatorId: m.userId,
+    },
+  });
+  await logAudit("Qaytarish: operator/usta biriktirildi", {
     entity: "Client",
     entityId: req.clientId,
-    detail: `${req.client.restaurantName} → ${usta.name}`,
+    detail: `${req.client.restaurantName} → ${staff.name} / ${usta.name}`,
   });
+  // Mas'ul xodimga ilova-ichi bildirishnoma (o'ziga biriktirsa — yubormaydi)
+  if (staff.id !== m.userId) {
+    await createNotification({
+      title: "Sizga yangi qaytarish arizasi biriktirildi",
+      body: req.client.restaurantName,
+      userIds: [staff.id],
+    });
+  }
   revalidatePath("/qaytarish");
   revalidatePath(`/mijozlar/${req.clientId}`);
   return { ok: true };
 }
 
-/** Manager: qaytarish arizasini rad etadi. */
+/** Manager: qaytarish arizasini rad etadi. Rad etish sababi (izoh) MAJBURIY. */
 export async function rejectReturnRequest(
   requestId: string,
-  note?: string,
+  note: string,
 ): Promise<EqState> {
   const m = await requireManager();
   if (!m.ok) return m;
+
+  const noteText = safeNote(note);
+  if (!noteText) return { ok: false, error: "Izoh majburiy" };
 
   const req = await db.equipmentReturnRequest.findUnique({ where: { id: requestId } });
   if (!req || req.status !== "PENDING") {
@@ -493,23 +520,36 @@ export async function rejectReturnRequest(
       resolvedAt: new Date(),
       // Rad etish izohi ALOHIDA maydonga — ilgari `note` ustiga yozilardi va
       // arizaning asl sababi yo'qolardi.
-      resolutionNote: safeNote(note),
+      resolutionNote: noteText,
+    },
+  });
+  await db.callLog.create({
+    data: {
+      clientId: req.clientId,
+      result: "RETURN_REJECTED",
+      note: noteText,
+      operatorId: m.userId,
     },
   });
   await logAudit("Qaytarish rad etildi", { entity: "Client", entityId: req.clientId });
   revalidatePath("/qaytarish");
+  revalidatePath(`/mijozlar/${req.clientId}`);
   return { ok: true };
 }
 
 /**
- * Usta biriktirilgan arizani "Jarayonda"ga o'tkazish — TP xodimi (OPERATOR) usta
- * bilan bog'landi va uskuna olib kelish jarayoni boshlandi. Boshliq ham qila oladi.
+ * Usta biriktirilgan arizani "Jarayonda"ga o'tkazish — TP xodimi (OPERATOR) ustaga
+ * xabar berdi va uskuna olib kelish jarayoni boshlandi. Boshliq ham qila oladi.
+ * Izoh (ustaga qanday xabar berilgani) MAJBURIY.
  */
-export async function startReturnProgress(requestId: string): Promise<EqState> {
+export async function startReturnProgress(requestId: string, note: string): Promise<EqState> {
   const session = await requireSession();
   if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
+  const noteText = safeNote(note);
+  if (!noteText) return { ok: false, error: "Izoh majburiy" };
+
   const req = await db.equipmentReturnRequest.findUnique({
     where: { id: requestId },
     include: { client: { select: { restaurantName: true } } },
@@ -519,11 +559,19 @@ export async function startReturnProgress(requestId: string): Promise<EqState> {
   }
   await db.equipmentReturnRequest.update({
     where: { id: requestId },
-    data: { status: "IN_PROGRESS" },
+    data: { status: "IN_PROGRESS", inProgressAt: new Date(), slaNotifiedAt: null },
   });
   await db.client.update({
     where: { id: req.clientId },
     data: { ustaStatus: "EN_ROUTE" },
+  });
+  await db.callLog.create({
+    data: {
+      clientId: req.clientId,
+      result: "RETURN_IN_PROGRESS",
+      note: noteText,
+      operatorId: session.userId,
+    },
   });
   await logAudit("Qaytarish: jarayonga o'tdi", {
     entity: "Client",
@@ -542,15 +590,17 @@ export async function startReturnProgress(requestId: string): Promise<EqState> {
  * va yakunlaydi; boshliq (ADMIN/MANAGER) ham yakunlashi mumkin. Biriktirilgan
  * (APPROVED) yoki jarayondagi (IN_PROGRESS) arizadan yakunlanadi.
  *
- * `note` — IXTIYORIY yakunlash izohi (masalan "printer shikastlangan holda
- * qaytdi"). Bo'sh qoldirilishi mumkin: yakunlash izoh tufayli bloklanmaydi —
- * otkaz sababi sifatida standart matn ishlatiladi.
+ * `note` — yakunlash izohi (masalan "printer shikastlangan holda qaytdi") —
+ * MAJBURIY.
  */
 export async function confirmReturnCollected(
   requestId: string,
-  note?: string,
+  note: string,
 ): Promise<EqState> {
   const session = await requireSession();
+  const noteText = safeNote(note);
+  if (!noteText) return { ok: false, error: "Izoh majburiy" };
+
   const req = await db.equipmentReturnRequest.findUnique({
     where: { id: requestId },
     include: { client: { include: { equipmentItems: true } } },
@@ -588,33 +638,35 @@ export async function confirmReturnCollected(
     await db.clientEquipment.delete({ where: { id: item.id } });
   }
 
-  const resolutionNote = safeNote(note);
   await db.equipmentReturnRequest.update({
     where: { id: requestId },
-    data: { status: "DONE", resolvedAt: new Date(), resolutionNote },
+    data: { status: "DONE", resolvedAt: new Date(), resolutionNote: noteText },
   });
   await db.client.update({
     where: { id: req.clientId },
     data: { ustaStatus: "DONE" },
   });
   await recomputeMode(req.clientId);
+  await db.callLog.create({
+    data: {
+      clientId: req.clientId,
+      result: "RETURN_DONE",
+      note: noteText,
+      operatorId: session.userId,
+    },
+  });
 
   // Ijara uskunasi qaytarib olindi = mijoz xizmatdan voz kechdi — otkazga
   // o'tkazamiz. Allaqachon otkaz bo'lsa (masalan otkaz avval, uskuna keyin
   // olib kelingan bo'lsa) qayta urinmaymiz — refuseClient bunga xato qaytaradi.
   if (req.client.stage !== "REFUSED") {
-    await refuseClient(
-      req.clientId,
-      resolutionNote || "Uskuna qaytarib olindi (ijara bekor qilindi)",
-    );
+    await refuseClient(req.clientId, noteText);
   }
 
   await logAudit("Uskuna qaytarib olindi", {
     entity: "Client",
     entityId: req.clientId,
-    detail: resolutionNote
-      ? `${req.client.restaurantName} — ${resolutionNote}`
-      : req.client.restaurantName,
+    detail: `${req.client.restaurantName} — ${noteText}`,
   });
   revalidatePath("/qaytarish");
   revalidatePath("/ombor");
@@ -645,11 +697,14 @@ export async function revertReturnRequest(requestId: string): Promise<EqState> {
     }
     await db.equipmentReturnRequest.update({
       where: { id: requestId },
-      data: { status: "APPROVED" },
+      data: { status: "APPROVED", inProgressAt: null, slaNotifiedAt: null },
     });
     await db.client.update({
       where: { id: req.clientId },
       data: { ustaStatus: "ASSIGNED" },
+    });
+    await db.callLog.create({
+      data: { clientId: req.clientId, result: "RETURN_REVERTED", operatorId: session.userId },
     });
     await logAudit("Qaytarish: jarayondan orqaga qaytarildi", {
       entity: "Client",
@@ -662,13 +717,16 @@ export async function revertReturnRequest(requestId: string): Promise<EqState> {
     }
     await db.equipmentReturnRequest.update({
       where: { id: requestId },
-      data: { status: "PENDING", ustaId: null },
+      data: { status: "PENDING", ustaId: null, staffId: null },
     });
     await db.client.update({
       where: { id: req.clientId },
       data: { ustaStatus: null, assignedUstaId: null },
     });
-    await logAudit("Qaytarish: usta biriktiruvi bekor qilindi (orqaga)", {
+    await db.callLog.create({
+      data: { clientId: req.clientId, result: "RETURN_REVERTED", operatorId: session.userId },
+    });
+    await logAudit("Qaytarish: operator/usta biriktiruvi bekor qilindi (orqaga)", {
       entity: "Client",
       entityId: req.clientId,
       detail: req.client.restaurantName,
@@ -678,6 +736,9 @@ export async function revertReturnRequest(requestId: string): Promise<EqState> {
       return { ok: false, error: "Ruxsat yo'q" };
     }
     await db.equipmentReturnRequest.delete({ where: { id: requestId } });
+    await db.callLog.create({
+      data: { clientId: req.clientId, result: "RETURN_REVERTED", operatorId: session.userId },
+    });
     await logAudit("Qaytarish arizasi bekor qilindi (orqaga)", {
       entity: "Client",
       entityId: req.clientId,

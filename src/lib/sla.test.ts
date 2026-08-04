@@ -7,6 +7,8 @@ const {
   ticketUpdate,
   clientFindMany,
   clientUpdate,
+  returnReqFindMany,
+  returnReqUpdate,
   suggestionFindMany,
   suggestionUpdate,
   sendMessage,
@@ -17,6 +19,8 @@ const {
   ticketUpdate: vi.fn(),
   clientFindMany: vi.fn(),
   clientUpdate: vi.fn(),
+  returnReqFindMany: vi.fn(),
+  returnReqUpdate: vi.fn(),
   suggestionFindMany: vi.fn(),
   suggestionUpdate: vi.fn(),
   sendMessage: vi.fn(),
@@ -28,6 +32,7 @@ vi.mock("./db", () => ({
     user: { findMany: userFindMany },
     ticket: { findMany: ticketFindMany, update: ticketUpdate },
     client: { findMany: clientFindMany, update: clientUpdate },
+    equipmentReturnRequest: { findMany: returnReqFindMany, update: returnReqUpdate },
     suggestion: { findMany: suggestionFindMany, update: suggestionUpdate },
   },
 }));
@@ -49,9 +54,11 @@ beforeEach(() => {
   userFindMany.mockResolvedValue([{ id: "mgr1", telegramId: "tg-mgr" }]);
   ticketFindMany.mockResolvedValue([]);
   clientFindMany.mockResolvedValue([]);
+  returnReqFindMany.mockResolvedValue([]);
   suggestionFindMany.mockResolvedValue([]);
   ticketUpdate.mockResolvedValue({});
   clientUpdate.mockResolvedValue({});
+  returnReqUpdate.mockResolvedValue({});
   suggestionUpdate.mockResolvedValue({});
   sendMessage.mockResolvedValue({ ok: true });
   createNotification.mockResolvedValue(undefined);
@@ -88,6 +95,17 @@ function escClient(slaNotifiedAt: Date | null) {
     updatedAt: FOUR_DAYS_AGO,
     slaNotifiedAt,
     escalationStaff: null,
+  };
+}
+
+function returnReq(slaNotifiedAt: Date | null) {
+  return {
+    id: "r1",
+    createdAt: FOUR_DAYS_AGO,
+    inProgressAt: FOUR_DAYS_AGO, // 2-kunlik SLA (RETURN_SLA_DAYS) uchun ham buzilgan
+    slaNotifiedAt,
+    client: { restaurantName: "Osh Markazi" },
+    staff: null,
   };
 }
 
@@ -132,6 +150,30 @@ describe("runSlaCheck — kunlik qayta ogohlantirish", () => {
     clientFindMany.mockResolvedValue([escClient(EARLIER_TODAY)]);
     const r = await runSlaCheck(NOW);
     expect(r.escalations).toBe(0);
+    expect(createNotification).not.toHaveBeenCalled();
+  });
+
+  it("qaytarish 2 kundan oshgan, hali ogohlantirilmagan — yuboradi", async () => {
+    returnReqFindMany.mockResolvedValue([returnReq(null)]);
+    const r = await runSlaCheck(NOW);
+    expect(r.returns).toBe(1);
+    expect(createNotification).toHaveBeenCalledTimes(1);
+    expect(returnReqUpdate).toHaveBeenCalledWith({
+      where: { id: "r1" },
+      data: { slaNotifiedAt: NOW },
+    });
+  });
+
+  it("qaytarish kecha ogohlantirilgan — bugun qayta yuboriladi", async () => {
+    returnReqFindMany.mockResolvedValue([returnReq(YESTERDAY)]);
+    const r = await runSlaCheck(NOW);
+    expect(r.returns).toBe(1);
+  });
+
+  it("qaytarish bugun ogohlantirilgan — o'tkazib yuboriladi", async () => {
+    returnReqFindMany.mockResolvedValue([returnReq(EARLIER_TODAY)]);
+    const r = await runSlaCheck(NOW);
+    expect(r.returns).toBe(0);
     expect(createNotification).not.toHaveBeenCalled();
   });
 

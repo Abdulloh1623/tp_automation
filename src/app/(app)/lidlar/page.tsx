@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { LeadTable, type LeadRow, type LeadHistory } from "@/components/lead-table";
 import { OperatorProgress } from "@/components/operator-progress";
 import { getOperatorDailyStats } from "@/lib/analytics";
-import { ACTIVE_STAGES, NO_CONTACT_STAGES, profileOrder } from "@/lib/constants";
+import { ACTIVE_STAGES, NO_CONTACT_STAGES, OFF_BOARD_STAGES, profileOrder } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
 import { tzDayKey, startOfTzDay } from "@/lib/tz";
 import { getActiveLeadProfile } from "@/lib/settings";
@@ -40,7 +40,9 @@ export default async function LeadsPage({
         assignedToId: viewerId,
         // Otkaz qilingan / o'chirilgan / nofaol mijozlar kunlik taxtaga hech qachon
         // chiqmaydi — qarzdor bo'lsa ham (ular bilan qayta aloqaga chiqilmaydi).
-        stage: { notIn: [...NO_CONTACT_STAGES] },
+        // OFF_BOARD_STAGES (eskalatsiya/qaytarish/muammo) ham xuddi shunday —
+        // boshqa jarayonda, qarzdor bo'lsa ham ro'yxatga sizib chiqmasin.
+        stage: { notIn: [...NO_CONTACT_STAGES, ...OFF_BOARD_STAGES] },
         status: { not: "INACTIVE" },
         // Bugun "otkaz"/"o'chirildi" deb belgilangan (pendingStage) lidlar ham
         // darhol taxtadan chiqadi — kun yakunida rasmiy stage'ga o'tadi. Undefined/

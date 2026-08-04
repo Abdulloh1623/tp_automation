@@ -119,7 +119,7 @@ function AssignRow({
         </select>
         <Button
           size="sm"
-          disabled={pending || !pick}
+          disabled={pending || !pick || !noteText.trim()}
           onClick={() =>
             run(pick, isXodim ? "Mas'ul xodim biriktirildi" : "Ustaga biriktirildi", noteText)
           }
@@ -133,7 +133,7 @@ function AssignRow({
           onChange={(e) => setNoteText(e.target.value)}
           maxLength={500}
           rows={2}
-          placeholder={isXodim ? "Xodimga izoh (ixtiyoriy)…" : "Ustaga izoh (ixtiyoriy)…"}
+          placeholder={isXodim ? "Xodimga izoh (majburiy)…" : "Ustaga izoh (majburiy)…"}
           className="w-full resize-y rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-sm"
         />
       )}

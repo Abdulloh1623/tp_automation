@@ -17,6 +17,32 @@ import {
 
 const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
 
+/**
+ * Ticket RESOLVED bo'lganda chaqiriladi. Muammo ochiq bo'lgan mijoz (`stage:
+ * "ISSUE_OPEN"`) kunlik qo'ng'iroq ro'yxatida ko'rinmaydi (`ACTIVE_STAGES`
+ * dan chiqarilgan) — shu ticket mijozning OXIRGI ochiq ticketi bo'lsa, mijoz
+ * normal tsiklga qaytishi uchun bu yerda qaytariladi (eskalatsiyaning
+ * `resolveEscalation`/`updateUstaStatus` bilan bir xil naqsh). Aks holda
+ * ticket yopilgach ham mijoz abadiy ro'yxatdan tashqarida qolib ketardi.
+ */
+async function releaseIssueOpenIfLastTicket(clientId: string): Promise<void> {
+  const client = await db.client.findUnique({
+    where: { id: clientId },
+    select: { stage: true, nextPaymentDate: true },
+  });
+  if (!client || client.stage !== "ISSUE_OPEN") return;
+
+  const stillOpen = await db.ticket.count({
+    where: { clientId, status: { not: "RESOLVED" } },
+  });
+  if (stillOpen > 0) return;
+
+  await db.client.update({
+    where: { id: clientId },
+    data: { stage: "RESOLVED", nextContactDate: client.nextPaymentDate ?? null },
+  });
+}
+
 function s(v: FormDataEntryValue | null): string | undefined {
   const str = typeof v === "string" ? v.trim() : "";
   return str === "" ? undefined : str;
@@ -116,12 +142,18 @@ export async function setTicketStatus(
   if (!(await canMutateClient(g.session, owner.clientId)))
     return { ok: false, error: "Ruxsat yo'q" };
 
-  const resolutionNote = s(formData.get("resolutionNote"));
+  // Yechim izohi (RESOLVED) va qayta ochish izohi (OPEN) — ikkalasi ham
+  // bo'lim o'tishi bo'lgani uchun MAJBURIY. "Jarayonga olish" (IN_PROGRESS)
+  // — bo'lim ichidagi belgilar (tab o'zgarmaydi), izohsiz qoladi.
+  const note = s(formData.get("resolutionNote")) ?? null;
+  if ((status === "RESOLVED" || status === "OPEN") && !note) {
+    return { ok: false, error: "Izoh majburiy" };
+  }
   const data = {
     status,
     resolvedAt: status === "RESOLVED" ? new Date() : null,
     // RESOLVED bo'lmasa (qayta ochilganda) eski yechim izohi tozalanadi
-    resolutionNote: status === "RESOLVED" ? (resolutionNote ?? null) : null,
+    resolutionNote: status === "RESOLVED" ? note : null,
   };
 
   try {
@@ -136,10 +168,13 @@ export async function setTicketStatus(
             : status === "IN_PROGRESS"
               ? "TICKET_IN_PROGRESS"
               : "TICKET_REOPENED",
-        note: status === "RESOLVED" ? resolutionNote ?? null : null,
+        note: status === "IN_PROGRESS" ? null : note,
         operatorId: g.session.userId,
       },
     });
+    if (status === "RESOLVED") {
+      await releaseIssueOpenIfLastTicket(ticket.clientId);
+    }
     await logAudit(`Muammo holati: ${TICKET_STATUS[status as keyof typeof TICKET_STATUS] ?? status}`, {
       entity: "Ticket",
       entityId: ticketId,
@@ -157,25 +192,37 @@ export async function setTicketStatus(
  * Operator lid natijasini xato tanlab (yoki qo'lda) ochib qo'ygan muammoni
  * boshliq bir bosishda yopadi: RESOLVED holatiga o'tadi, yechim izohida rad
  * sababi qoladi. Sxemada alohida "rad etilgan" holat yo'q — RESOLVED + izoh.
+ * Izoh (nima uchun xato) MAJBURIY.
  */
 export async function dismissTicket(
   ticketId: string,
+  note: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const g = await guardRole(["ADMIN", "MANAGER"]);
   if (!g.ok) return { ok: false, error: g.error };
+  const noteText = note.trim();
+  if (!noteText) return { ok: false, error: "Izoh majburiy" };
+
   try {
+    const resolutionNote = `Xato ochilgan (rad etildi): ${noteText}`;
     const ticket = await db.ticket.update({
       where: { id: ticketId },
       data: {
         status: "RESOLVED",
         resolvedAt: new Date(),
-        resolutionNote: "Xato ochilgan (rad etildi)",
+        resolutionNote,
       },
       select: { clientId: true, title: true },
     });
     await db.callLog.create({
-      data: { clientId: ticket.clientId, result: "TICKET_DISMISSED", operatorId: g.session.userId },
+      data: {
+        clientId: ticket.clientId,
+        result: "TICKET_DISMISSED",
+        note: noteText,
+        operatorId: g.session.userId,
+      },
     });
+    await releaseIssueOpenIfLastTicket(ticket.clientId);
     await logAudit("Muammo rad etildi (xato ochilgan)", {
       entity: "Ticket",
       entityId: ticketId,
@@ -205,7 +252,8 @@ function progressIfOpen(status: string): "IN_PROGRESS" | undefined {
 /**
  * Muammoga mas'ul TP xodimini biriktirish/olib tashlash — faqat boshliq/admin.
  * Mas'ul xodim jarayonni to'liq nazorat qilib yakunlaydi (usta bilan birga
- * bo'lishi mumkin — ular bir-birini almashtirmaydi). `staffId: null` — olib tashlaydi.
+ * bo'lishi mumkin — ular bir-birini almashtirmaydi). `staffId: null` — olib
+ * tashlaydi (izoh talab qilinmaydi). Biriktirishda izoh MAJBURIY.
  */
 export async function assignTicketStaff(
   ticketId: string,
@@ -214,6 +262,10 @@ export async function assignTicketStaff(
 ): Promise<{ ok: boolean; error?: string }> {
   const g = await guardRole(["ADMIN", "MANAGER"]);
   if (!g.ok) return { ok: false, error: g.error };
+
+  if (staffId && !assignNote(note)) {
+    return { ok: false, error: "Izoh majburiy" };
+  }
 
   if (!staffId) {
     try {

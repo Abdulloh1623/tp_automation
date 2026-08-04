@@ -34,6 +34,10 @@ export function AssignUstaForm({
       setError("Usta tanlang");
       return;
     }
+    if (!note.trim()) {
+      setError("Izoh majburiy");
+      return;
+    }
     setError(null);
     start(async () => {
       const res = await assignUsta(clientId, ustaId, note);
@@ -77,10 +81,10 @@ export function AssignUstaForm({
         <Input
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="Ustaga izoh (ixtiyoriy)"
+          placeholder="Ustaga izoh (majburiy)"
           className="h-9 min-w-[180px] flex-1"
         />
-        <Button onClick={submit} disabled={pending} size="sm">
+        <Button onClick={submit} disabled={pending || !ustaId || !note.trim()} size="sm">
           <UserCheck className="h-4 w-4" />
           {pending ? "..." : "Biriktirish"}
         </Button>

@@ -25,8 +25,12 @@ export function ResolveEscalationButton({
       message: `"${label}" hal bo'ldi deb belgilansinmi? Navbatdan chiqib yakunlangan bo'limiga o'tadi.`,
       confirmLabel: "Hal bo'ldi",
       variant: "primary",
-      // Izoh ixtiyoriy — yozilsa mijoz tarixidagi qo'ng'iroq izohiga tushadi.
-      note: { label: "Qanday hal qilindi", placeholder: "Masalan: telefon orqali sozlab berildi" },
+      // Izoh MAJBURIY — mijoz tarixidagi qo'ng'iroq izohiga tushadi.
+      note: {
+        label: "Qanday hal qilindi",
+        placeholder: "Masalan: telefon orqali sozlab berildi",
+        required: true,
+      },
     });
     if (!ok) return;
     start(async () => {

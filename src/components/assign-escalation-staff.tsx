@@ -12,7 +12,8 @@ export type StaffOption = { id: string; name: string };
 /**
  * Eskalatsiyaga mas'ul TP xodimini biriktirish/o'zgartirish — boshliq/admin.
  * Mas'ul jarayonni usta+mijoz bilan yakuniga yetkazadi. Barcha xodimlar
- * mas'ul kimligini ko'radi (faqat boshliq o'zgartira oladi).
+ * mas'ul kimligini ko'radi (faqat boshliq o'zgartira oladi). Biriktirishda
+ * izoh MAJBURIY (olib tashlashda talab qilinmaydi).
  */
 export function AssignEscalationStaff({
   clientId,
@@ -30,12 +31,14 @@ export function AssignEscalationStaff({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [pick, setPick] = useState<string>(staffId ?? "");
+  const [note, setNote] = useState<string>("");
 
-  function run(id: string | null, okMsg: string) {
+  function run(id: string | null, noteArg: string | undefined, okMsg: string) {
     start(async () => {
-      const res = await assignEscalationStaff(clientId, id);
+      const res = await assignEscalationStaff(clientId, id, noteArg);
       if (res.ok) {
         toast(okMsg, "success");
+        setNote("");
         router.refresh();
       } else {
         toast(res.error ?? "Xatolik", "error");
@@ -61,42 +64,52 @@ export function AssignEscalationStaff({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
-        <UserCheck className="h-3.5 w-3.5 text-sky-500" /> Mas'ul xodim:
-      </span>
-      <select
-        value={pick}
-        onChange={(e) => setPick(e.target.value)}
-        className="h-8 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-sm"
-      >
-        <option value="">— tanlang —</option>
-        {options.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.name}
-          </option>
-        ))}
-      </select>
-      <Button
-        size="sm"
-        disabled={pending || !pick || pick === staffId}
-        onClick={() => run(pick, "Mas'ul biriktirildi")}
-      >
-        <Check className="h-3.5 w-3.5" /> {staffId ? "O'zgartirish" : "Biriktirish"}
-      </Button>
-      {staffId && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 px-2 text-xs text-red-600 dark:text-red-400"
-          disabled={pending}
-          onClick={() => {
-            setPick("");
-            run(null, "Mas'ul olib tashlandi");
-          }}
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+          <UserCheck className="h-3.5 w-3.5 text-sky-500" /> Mas'ul xodim:
+        </span>
+        <select
+          value={pick}
+          onChange={(e) => setPick(e.target.value)}
+          className="h-8 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-sm"
         >
-          <X className="h-3.5 w-3.5" /> Olib tashlash
+          <option value="">— tanlang —</option>
+          {options.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
+        <Button
+          size="sm"
+          disabled={pending || !pick || pick === staffId || !note.trim()}
+          onClick={() => run(pick, note, "Mas'ul biriktirildi")}
+        >
+          <Check className="h-3.5 w-3.5" /> {staffId ? "O'zgartirish" : "Biriktirish"}
         </Button>
+        {staffId && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 px-2 text-xs text-red-600 dark:text-red-400"
+            disabled={pending}
+            onClick={() => {
+              setPick("");
+              run(null, undefined, "Mas'ul olib tashlandi");
+            }}
+          >
+            <X className="h-3.5 w-3.5" /> Olib tashlash
+          </Button>
+        )}
+      </div>
+      {pick && pick !== staffId && (
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Izoh (majburiy)"
+          className="h-8 w-full max-w-xs rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-sm"
+        />
       )}
     </div>
   );

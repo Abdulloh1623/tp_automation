@@ -46,7 +46,7 @@ describe("Eskalatsiya — o'tkazilgan/holat o'zgargan sana", () => {
     await db.client.update({ where: { id: client.id }, data: { stage: "ESCALATED" } });
     await loginAs(admin);
 
-    const r1 = await assignEscalationStaff(client.id, staff.id);
+    const r1 = await assignEscalationStaff(client.id, staff.id, "mas'ul biriktirildi");
     expect(r1.ok).toBe(true);
     let log = await lastCallLog(client.id);
     expect(log!.result).toBe("ESCALATION_STAFF_ASSIGNED");
@@ -95,7 +95,7 @@ describe("Muammolar — o'tkazilgan/holat o'zgargan sana", () => {
     expect(log!.result).toBe("RESOLVED");
     expect(log!.note).toBe("Kabel almashtirildi");
 
-    await setTicketStatus(ticket.id, "OPEN", formData({}));
+    await setTicketStatus(ticket.id, "OPEN", formData({ resolutionNote: "Qayta muammo chiqdi" }));
     expect((await lastCallLog(client.id))!.result).toBe("TICKET_REOPENED");
   });
 
@@ -107,7 +107,7 @@ describe("Muammolar — o'tkazilgan/holat o'zgargan sana", () => {
     });
     await loginAs(admin);
 
-    await dismissTicket(ticket.id);
+    await dismissTicket(ticket.id, "xato ochilgan");
 
     expect((await lastCallLog(client.id))!.result).toBe("TICKET_DISMISSED");
   });
@@ -121,7 +121,7 @@ describe("Muammolar — o'tkazilgan/holat o'zgargan sana", () => {
     });
     await loginAs(admin);
 
-    await assignTicketStaff(ticket.id, staff.id);
+    await assignTicketStaff(ticket.id, staff.id, "mas'ul biriktirildi");
     let log = await lastCallLog(client.id);
     expect(log!.result).toBe("TICKET_STAFF_ASSIGNED");
     expect(log!.note).toContain(staff.name);

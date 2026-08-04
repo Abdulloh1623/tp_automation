@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { XCircle } from "lucide-react";
 import { dismissTicket } from "@/actions/tickets";
-import { confirmDialog } from "@/components/confirm-dialog";
+import { confirmWithNote } from "@/components/confirm-dialog";
 import { toast } from "@/components/toaster";
 import { Button } from "@/components/ui/button";
 
@@ -20,14 +20,15 @@ export function TicketDismissButton({
   const [pending, start] = useTransition();
 
   async function onClick() {
-    const ok = await confirmDialog({
+    const { ok, note } = await confirmWithNote({
       title: "Muammoni rad etish",
       message: `"${title}" xato ochilgan deb yopilsinmi? Muammo "Hal qilingan"ga o'tadi.`,
       confirmLabel: "Xato ochilgan",
+      note: { label: "Nima uchun xato", required: true },
     });
     if (!ok) return;
     start(async () => {
-      const res = await dismissTicket(ticketId);
+      const res = await dismissTicket(ticketId, note);
       if (res.ok) {
         toast("Muammo rad etildi", "success");
         router.refresh();

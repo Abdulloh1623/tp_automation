@@ -6,6 +6,7 @@ import {
   CLIENT_STATUS,
   LEAD_STAGE,
   NO_CONTACT_STAGES,
+  OFF_BOARD_STAGES,
   TALKED_RESULTS,
   callResultLabel,
   clientStatusLabel,
@@ -31,7 +32,7 @@ export function dailyLeadWhere(now: Date) {
   const todayEnd = endOfDay(now);
   return {
     assignedToId: { not: null },
-    stage: { notIn: [...NO_CONTACT_STAGES] },
+    stage: { notIn: [...NO_CONTACT_STAGES, ...OFF_BOARD_STAGES] },
     status: { not: "INACTIVE" },
     OR: [
       {

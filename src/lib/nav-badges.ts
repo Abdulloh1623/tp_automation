@@ -4,7 +4,7 @@
 // - lidlar — o'ziga biriktirilgan bugungi ish; boshliq navbatlari (qaytarish/taklif) — boshliqqa.
 import { startOfDay, endOfDay } from "date-fns";
 import { db } from "@/lib/db";
-import { ACTIVE_STAGES, NO_CONTACT_STAGES } from "@/lib/constants";
+import { ACTIVE_STAGES, NO_CONTACT_STAGES, OFF_BOARD_STAGES } from "@/lib/constants";
 import { assignedStaffScope, isManagerRole } from "@/lib/visibility";
 
 /** href → ochiq (o'ziga tegishli) elementlar soni. Nol bo'lganlari badge chiqarmaydi. */
@@ -27,7 +27,7 @@ export async function getNavBadges(
       db.client.count({
         where: {
           assignedToId: userId,
-          stage: { notIn: [...NO_CONTACT_STAGES] },
+          stage: { notIn: [...NO_CONTACT_STAGES, ...OFF_BOARD_STAGES] },
           status: { not: "INACTIVE" },
           OR: [
             {

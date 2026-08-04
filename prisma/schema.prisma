@@ -62,6 +62,7 @@ model User {
   faqEntries           FaqEntry[]              @relation("FaqAuthor")
   cardPaymentsRecorded PendingCardPayment[]    @relation("CardPaymentRecorder")
   cardPaymentsResolved PendingCardPayment[]    @relation("CardPaymentResolver")
+  returnRequestsStaff  EquipmentReturnRequest[] @relation("ReturnRequestStaff")
 }
 
 // FAQ — bilim bazasi. Istalgan xodim (OPERATOR/MANAGER/ADMIN) yangi savol/muammo
@@ -517,11 +518,20 @@ model EquipmentReturnRequest {
   note           String? // ariza sababi (yaratishda majburiy)
   status         String    @default("PENDING") // PENDING | APPROVED | IN_PROGRESS | REJECTED | DONE
   ustaId         String? // tasdiqlangach biriktirilgan usta
+  // Mas'ul TP xodim — usta bilan BIRGA biriktiriladi (Yangi→Biriktirildi ikkalasi
+  // ham tanlanmaguncha bo'lmaydi). Jarayonni usta+mijoz bilan yakuniga yetkazadi.
+  staffId        String?
+  staff          User?     @relation("ReturnRequestStaff", fields: [staffId], references: [id])
   createdAt      DateTime  @default(now())
+  // IN_PROGRESS'ga kirgan vaqt — 2-kunlik SLA hisobi shundan boshlanadi.
+  inProgressAt   DateTime?
+  // Oxirgi 2-kunlik SLA ogohlantirishi yuborilgan vaqt (kuniga bir marta, `lib/sla.ts`).
+  slaNotifiedAt  DateTime?
   resolvedAt     DateTime?
   resolutionNote String? // yakunlash (yoki rad etish) izohi — IXTIYORIY
 
   @@index([status])
+  @@index([staffId])
 }
 
 // Soliqqa ulash arizasi — operator mijozni soliqqa ulash uchun yuboradi,

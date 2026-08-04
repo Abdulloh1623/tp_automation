@@ -48,15 +48,19 @@ export type ReturnQueueItem = {
   specialNoteBy: string | null;
   specialNoteAt: string | null;
   note: string | null; // ariza sababi
-  resolutionNote: string | null; // yakunlash/rad etish izohi (ixtiyoriy)
+  resolutionNote: string | null; // yakunlash/rad etish izohi
   byName: string | null;
   ustaName: string | null; // biriktirilgan usta
   ustaPhone: string | null; // TP xodimi usta bilan bog'lanishi uchun
   matchedUstaId: string | null; // viloyat bo'yicha taklif (PENDING)
+  staffId: string | null; // biriktirilgan mas'ul TP xodim
+  staffName: string | null;
+  matchedStaffId: string | null; // mijozning joriy operatori — taklif (PENDING)
   resolvedAt: string | null; // DONE — uskuna qaytarilgan sana
 };
 
 export type UstaOpt = { id: string; name: string };
+export type StaffOpt = { id: string; name: string };
 
 // Bosqichlar — yuqorida yonma-yon TAB sifatida (eskalatsiya/muammolar bilan
 // bir xil naqsh). Ilgari to'rttasi ustma-ust bo'lim edi: uzun ro'yxatda
@@ -101,10 +105,12 @@ const SECTIONS: {
 export function ReturnQueue({
   items,
   ustalar,
+  staffOptions,
   canAssign,
 }: {
   items: ReturnQueueItem[];
   ustalar: UstaOpt[];
+  staffOptions: StaffOpt[];
   canAssign: boolean; // ADMIN/MANAGER — usta biriktirish va rad etish
 }) {
   const [err, setErr] = useState<string | null>(null);
@@ -178,6 +184,7 @@ export function ReturnQueue({
                       key={r.id}
                       r={r}
                       ustalar={ustalar}
+                      staffOptions={staffOptions}
                       canAssign={canAssign}
                       onError={setErr}
                     />
@@ -195,17 +202,21 @@ export function ReturnQueue({
 function Row({
   r,
   ustalar,
+  staffOptions,
   canAssign,
   onError,
 }: {
   r: ReturnQueueItem;
   ustalar: UstaOpt[];
+  staffOptions: StaffOpt[];
   canAssign: boolean;
   onError: (e: string | null) => void;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [ustaId, setUstaId] = useState<string>(r.matchedUstaId ?? "");
+  const [staffId, setStaffId] = useState<string>(r.matchedStaffId ?? "");
+  const [assignNote, setAssignNote] = useState<string>("");
 
   function run(fn: () => Promise<{ ok: boolean; error?: string }>) {
     onError(null);
@@ -219,8 +230,7 @@ function Row({
   const hasUsta = r.status === "APPROVED" || r.status === "IN_PROGRESS" || r.status === "DONE";
   const done = r.status === "DONE";
 
-  // Yakunlash — uskuna omborga (usta zaxirasiga) o'tadigan jiddiy amal, shuning
-  // uchun tasdiq so'raladi; izoh esa IXTIYORIY (bo'sh qoldirsa ham yakunlanadi).
+  // Yakunlash — uskuna omborga (usta zaxirasiga) o'tadigan jiddiy amal, izoh MAJBURIY.
   async function onCollect() {
     const { ok, note } = await confirmWithNote({
       title: "Uskuna qaytarib olindi",
@@ -232,9 +242,36 @@ function Row({
       note: {
         label: "Yakunlash izohi",
         placeholder: "Masalan: printer shikastlangan holda qaytdi",
+        required: true,
       },
     });
     if (ok) run(() => confirmReturnCollected(r.id, note));
+  }
+
+  // "Jarayonga o'tkazish" = ustaga xabar berildi — izoh MAJBURIY.
+  async function onStartProgress() {
+    const { ok, note } = await confirmWithNote({
+      title: "Ustaga xabar berildi",
+      message: `"${r.restaurantName || r.fullName}" bo'yicha ${r.ustaName ?? "usta"}ga xabar berildi va jarayon boshlandi.`,
+      confirmLabel: "Jarayonga o'tkazish",
+      variant: "primary",
+      note: {
+        label: "Ustaga qanday xabar berildi",
+        placeholder: "Masalan: qo'ng'iroq qildim, ertaga boradi",
+        required: true,
+      },
+    });
+    if (ok) run(() => startReturnProgress(r.id, note));
+  }
+
+  async function onReject() {
+    const { ok, note } = await confirmWithNote({
+      title: "Arizani rad etish",
+      message: `"${r.restaurantName || r.fullName}" uchun qaytarish arizasi rad etilsinmi?`,
+      confirmLabel: "Rad etish",
+      note: { label: "Rad etish sababi", placeholder: "Masalan: mijoz fikridan qaytdi", required: true },
+    });
+    if (ok) run(() => rejectReturnRequest(r.id, note));
   }
 
   async function onRevert(message: string) {
@@ -288,6 +325,11 @@ function Row({
               <span className="inline-flex items-center gap-1">
                 <Wrench className="h-3 w-3" /> Usta: {r.ustaName ?? "—"}
               </span>
+              {r.staffName && (
+                <span className="inline-flex items-center gap-1">
+                  · Mas'ul: {r.staffName}
+                </span>
+              )}
               {!done && r.ustaPhone && (
                 <span className="inline-flex items-center gap-1">
                   <a
@@ -324,7 +366,7 @@ function Row({
             </>
           ) : r.status === "APPROVED" ? (
             <>
-              <Button size="sm" disabled={pending} onClick={() => run(() => startReturnProgress(r.id))}>
+              <Button size="sm" disabled={pending} onClick={onStartProgress}>
                 <PlayCircle className="h-4 w-4" /> Jarayonga o'tkazish
               </Button>
               <Button size="sm" variant="outline" disabled={pending} onClick={onCollect}>
@@ -337,7 +379,7 @@ function Row({
                   disabled={pending}
                   onClick={() =>
                     onRevert(
-                      `"${r.restaurantName || r.fullName}" uchun usta biriktiruvi bekor qilinib, "Yangi" bosqichiga qaytarilsinmi?`,
+                      `"${r.restaurantName || r.fullName}" uchun operator/usta biriktiruvi bekor qilinib, "Yangi" bosqichiga qaytarilsinmi?`,
                     )
                   }
                 >
@@ -346,24 +388,43 @@ function Row({
               )}
             </>
           ) : !canAssign ? (
-            <Badge tone="amber">Usta biriktirilishi kutilmoqda</Badge>
+            <Badge tone="amber">Operator/usta biriktirilishi kutilmoqda</Badge>
           ) : (
             <>
-              <div className="flex items-center gap-2">
-                <select
-                  value={ustaId}
-                  onChange={(e) => setUstaId(e.target.value)}
-                  className="h-9 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-sm"
-                >
-                  <option value="">Usta tanlang (yoki viloyat bo'yicha)</option>
-                  {ustalar.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-                </select>
+              <div className="flex flex-col items-end gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <select
+                    value={staffId}
+                    onChange={(e) => setStaffId(e.target.value)}
+                    className="h-9 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-sm"
+                  >
+                    <option value="">Operator tanlang</option>
+                    {staffOptions.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={ustaId}
+                    onChange={(e) => setUstaId(e.target.value)}
+                    className="h-9 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-sm"
+                  >
+                    <option value="">Usta tanlang (yoki viloyat bo'yicha)</option>
+                    {ustalar.map((u) => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <textarea
+                  value={assignNote}
+                  onChange={(e) => setAssignNote(e.target.value)}
+                  placeholder="Izoh (majburiy) — operator/usta bilan qanday kelishildi"
+                  rows={2}
+                  className="w-full min-w-[220px] resize-y rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-sm"
+                />
                 <Button
                   size="sm"
-                  disabled={pending}
-                  onClick={() => run(() => approveReturnRequest(r.id, ustaId || undefined))}
+                  disabled={pending || !staffId || !ustaId || !assignNote.trim()}
+                  onClick={() => run(() => approveReturnRequest(r.id, staffId, ustaId, assignNote))}
                 >
                   <Check className="h-4 w-4" /> Biriktirish
                 </Button>
@@ -373,15 +434,7 @@ function Row({
                 variant="outline"
                 className="border-red-300 dark:border-red-700 text-red-700 dark:text-red-300"
                 disabled={pending}
-                onClick={async () => {
-                  const { ok, note } = await confirmWithNote({
-                    title: "Arizani rad etish",
-                    message: `"${r.restaurantName || r.fullName}" uchun qaytarish arizasi rad etilsinmi?`,
-                    confirmLabel: "Rad etish",
-                    note: { label: "Rad etish sababi", placeholder: "Masalan: mijoz fikridan qaytdi" },
-                  });
-                  if (ok) run(() => rejectReturnRequest(r.id, note));
-                }}
+                onClick={onReject}
               >
                 <X className="h-4 w-4" /> Rad etish
               </Button>

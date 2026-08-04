@@ -6,7 +6,7 @@ import { startOfDay, endOfDay } from "date-fns";
 import { db } from "@/lib/db";
 import { sendMessage, sendToChannel, escapeHtml } from "@/lib/telegram";
 import { formatMoney, formatPhone } from "@/lib/utils";
-import { ACTIVE_STAGES, NO_CONTACT_STAGES, leadOutcomeLabel } from "@/lib/constants";
+import { ACTIVE_STAGES, NO_CONTACT_STAGES, OFF_BOARD_STAGES, leadOutcomeLabel } from "@/lib/constants";
 
 type Money = { USD: number; UZS: number };
 function money2(m: Money): string {
@@ -52,8 +52,9 @@ export async function buildOperatorReminder(
       where: {
         assignedToId: operatorId,
         status: "ACTIVE",
-        // Otkaz/o'chirilganlar qarzdor bo'lsa ham eslatmaga chiqmaydi
-        stage: { notIn: NO_CONTACT_STAGES as unknown as string[] },
+        // Otkaz/o'chirilgan/boshqa jarayonga o'tganlar qarzdor bo'lsa ham
+        // eslatmaga chiqmaydi
+        stage: { notIn: [...NO_CONTACT_STAGES, ...OFF_BOARD_STAGES] as unknown as string[] },
         nextPaymentDate: { lt: todayStart },
       },
       orderBy: { nextPaymentDate: "asc" },
@@ -136,7 +137,7 @@ export async function buildManagerSummary(): Promise<string> {
       db.client.findMany({
         where: {
           status: "ACTIVE",
-          stage: { notIn: NO_CONTACT_STAGES as unknown as string[] },
+          stage: { notIn: [...NO_CONTACT_STAGES, ...OFF_BOARD_STAGES] as unknown as string[] },
           nextPaymentDate: { lt: todayStart },
         },
         select: { monthlyAmount: true, currency: true },

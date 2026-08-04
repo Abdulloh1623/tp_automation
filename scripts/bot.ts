@@ -124,7 +124,9 @@ async function runReminders(operatorsOnly = false) {
 async function runSla() {
   try {
     const r = await withRetry("SLA", () => runSlaCheck());
-    log(`SLA → muammo:${r.tickets} eskalatsiya:${r.escalations} taklif:${r.suggestions} ogohlantirildi`);
+    log(
+      `SLA → muammo:${r.tickets} eskalatsiya:${r.escalations} qaytarish:${r.returns} taklif:${r.suggestions} ogohlantirildi`,
+    );
     // Javobsiz qolgan karta tasdiqlari — to'lov hisobga olinmay turibdi
     const cards = await withRetry("karta tasdig'i", () => remindStaleCardRequests());
     if (cards > 0) log(`karta tasdig'i → ${cards} ta so'rov eslatildi`);

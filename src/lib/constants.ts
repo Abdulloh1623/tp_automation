@@ -143,6 +143,13 @@ export const CALL_RESULT = {
   TICKET_DISMISSED: "Muammo rad etildi (xato)",
   TICKET_STAFF_ASSIGNED: "Muammo mas'uli biriktirildi",
   UNASSIGNED: "Biriktiruv olib tashlandi",
+  // Qaytarish (uskuna) bo'limi o'tkazuvlari — bir xil naqsh, mijoz tarixida ko'rinadi.
+  RETURN_REQUESTED: "Qaytarish arizasi ochildi",
+  RETURN_ASSIGNED: "Qaytarishga operator/usta biriktirildi",
+  RETURN_IN_PROGRESS: "Ustaga xabar berildi (jarayon boshlandi)",
+  RETURN_REJECTED: "Qaytarish arizasi rad etildi",
+  RETURN_DONE: "Uskuna qaytarib olindi",
+  RETURN_REVERTED: "Qaytarish bosqichi orqaga qaytarildi",
 } as const;
 export type CallResult = keyof typeof CALL_RESULT;
 
@@ -213,23 +220,36 @@ export const LEAD_STAGE = {
 export type LeadStage = keyof typeof LEAD_STAGE;
 
 // Kunlik ish ro'yxatida ko'rinadigan (faol) bo'limlar tartibi.
-// ESCALATED (boshliq navbati), FORWARDED (ustada) va RETURNING (qaytarish
-// navbati) operator boardidan chiqadi — u yerda o'z jarayoni bilan yuriladi.
-// DEACTIVATED (dasturni o'chirib qo'ygan) esa QOLADI: mijozni qaytarib olishga
-// urinamiz, shuning uchun u ham kunlik ro'yxatga tushadi.
+// ESCALATED (boshliq navbati), FORWARDED (ustada), RETURNING (qaytarish
+// navbati) va ISSUE_OPEN (muammo ochiq) operator boardidan chiqadi — u yerda
+// o'z jarayoni (eskalatsiya/qaytarish/muammolar) bilan yuriladi, TP xodimi
+// ularni endi kunlik qo'ng'iroq ro'yxatida ko'rmaydi. DEACTIVATED (dasturni
+// o'chirib qo'ygan) esa QOLADI: mijozni qaytarib olishga urinamiz, shuning
+// uchun u ham kunlik ro'yxatga tushadi.
 export const ACTIVE_STAGES: LeadStage[] = [
   "NEW",
   "NO_ANSWER",
   "LATER",
   "AWAITING_PAYMENT",
   "FOLLOW_UP",
-  "ISSUE_OPEN",
   "DEACTIVATED",
 ];
 
 // Aloqa qilinmaydigan (workflow'dan butunlay chiqqan) bosqich — faqat OTKAZ.
 // Qarzdor bo'lsa ham kunlik ishga/taqsimotga/eslatmaga CHIQMAYDI.
 export const NO_CONTACT_STAGES: LeadStage[] = ["REFUSED"];
+
+// Boshqa jarayonga o'tib ketgan (eskalatsiya/qaytarish/muammo) bosqichlar —
+// ACTIVE_STAGES'da yo'q, lekin RESOLVED/DEACTIVATEDdan farqli o'laroq qarzdor
+// bo'lsa ham kunlik ro'yxatga qaytarilmasligi kerak. Qarzdorlik-fallback
+// so'rovlari (`nextPaymentDate` o'tgan bo'lsa bosqichdan qat'i nazar
+// ko'rsatuvchi filtrlar) bu ro'yxatni ham chiqarib tashlashi shart.
+export const OFF_BOARD_STAGES: LeadStage[] = [
+  "ESCALATED",
+  "FORWARDED",
+  "RETURNING",
+  "ISSUE_OPEN",
+];
 
 // Xodim tanlaydigan qo'ng'iroq natijasi
 export const LEAD_OUTCOME = {

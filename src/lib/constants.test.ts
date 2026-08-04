@@ -5,6 +5,7 @@ import {
   OUTCOME_TO_STAGE,
   ACTIVE_STAGES,
   NO_CONTACT_STAGES,
+  OFF_BOARD_STAGES,
   LEAD_LIMITS,
   MISSED_OUTCOMES,
   normalizeRegion,
@@ -29,13 +30,23 @@ describe("OUTCOME_TO_STAGE — yaxlitlik", () => {
   it("yo'naltirildi → boshliq navbatiga (ESCALATED)", () => {
     expect(OUTCOME_TO_STAGE.FORWARDED).toBe("ESCALATED");
   });
-  it("muammo bor → operatorda qoladi (ISSUE_OPEN), eskalatsiyaga o'tmaydi", () => {
+  it("muammo bor → alohida ISSUE_OPEN bosqichi, kunlik taxtadan chiqadi", () => {
     expect(OUTCOME_TO_STAGE.HAS_ISSUE).toBe("ISSUE_OPEN");
-    expect(ACTIVE_STAGES).toContain("ISSUE_OPEN");
+    expect(ACTIVE_STAGES).not.toContain("ISSUE_OPEN");
+    expect(OFF_BOARD_STAGES).toContain("ISSUE_OPEN");
   });
   it("o'chirib qo'ydi — qaytarib olishga urinamiz, taxtada qoladi", () => {
     expect(ACTIVE_STAGES).toContain("DEACTIVATED");
     expect(NO_CONTACT_STAGES).toEqual(["REFUSED"]);
+  });
+  it("OFF_BOARD_STAGES — eskalatsiya/qaytarish/muammo, ACTIVE_STAGES bilan kesishmaydi", () => {
+    for (const s of OFF_BOARD_STAGES) {
+      expect(LEAD_STAGE).toHaveProperty(s);
+      expect(ACTIVE_STAGES).not.toContain(s);
+    }
+    expect(OFF_BOARD_STAGES).toEqual(
+      expect.arrayContaining(["ESCALATED", "FORWARDED", "RETURNING", "ISSUE_OPEN"]),
+    );
   });
 });
 

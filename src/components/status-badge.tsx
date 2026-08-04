@@ -59,6 +59,12 @@ const callTone: Record<string, "green" | "red" | "amber" | "blue" | "neutral" | 
   TICKET_DISMISSED: "slate",
   TICKET_STAFF_ASSIGNED: "blue",
   UNASSIGNED: "slate",
+  RETURN_REQUESTED: "red",
+  RETURN_ASSIGNED: "blue",
+  RETURN_IN_PROGRESS: "amber",
+  RETURN_REJECTED: "slate",
+  RETURN_DONE: "green",
+  RETURN_REVERTED: "slate",
 };
 
 export function CallResultBadge({ result }: { result: string }) {

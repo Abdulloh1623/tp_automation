@@ -13,10 +13,11 @@ type ConfirmOptions = {
   /** "danger" (default) — qizil tasdiq; "primary" — ko'k. */
   variant?: "danger" | "primary";
   /**
-   * Berilsa oynada izoh maydoni chiqadi. Izoh HAR DOIM IXTIYORIY — bo'sh
-   * qoldirib tasdiqlash mumkin, tugma hech qachon bloklanmaydi.
+   * Berilsa oynada izoh maydoni chiqadi. Standart holatda izoh IXTIYORIY —
+   * bo'sh qoldirib tasdiqlash mumkin. `required: true` bo'lsa izoh
+   * yozilmaguncha tasdiqlash tugmasi bloklanadi (bo'lim o'tishlari kabi).
    */
-  note?: { label?: string; placeholder?: string };
+  note?: { label?: string; placeholder?: string; required?: boolean };
 };
 export type ConfirmResult = { ok: boolean; note: string };
 type Pending = ConfirmOptions & { resolve: (r: ConfirmResult) => void };
@@ -39,9 +40,9 @@ export function confirmDialog(opts: ConfirmOptions): Promise<boolean> {
 }
 
 /**
- * Tasdiqlash + IXTIYORIY izoh. Amal yakunlanayotganda (muammo/eskalatsiya/taklif
- * hal bo'ldi, uskuna qaytarib olindi) xodim xohlasa izoh qoldiradi, xohlamasa —
- * shunchaki tasdiqlaydi:
+ * Tasdiqlash + izoh. Standart holatda izoh IXTIYORIY (xodim xohlasa yozadi,
+ * xohlamasa shunchaki tasdiqlaydi); `note.required: true` bilan bo'lim
+ * o'tishlari kabi izohsiz tasdiqlab bo'lmaydigan hollarda ishlatiladi:
  *   const { ok, note } = await confirmWithNote({ title: "...", note: {} });
  */
 export function confirmWithNote(
@@ -87,6 +88,7 @@ export function ConfirmDialog() {
   const danger = pending.variant !== "primary"; // ko'pchilik tasdiqlar — xavfli amal
   const noteOpts = pending.note;
   const Icon = noteOpts && !danger ? CheckCircle2 : AlertTriangle;
+  const noteMissing = !!noteOpts?.required && !note.trim();
 
   return (
     <div
@@ -128,7 +130,9 @@ export function ConfirmDialog() {
               className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400"
             >
               {noteOpts.label ?? "Izoh"}{" "}
-              <span className="font-normal text-slate-400 dark:text-slate-500">(ixtiyoriy)</span>
+              <span className="font-normal text-slate-400 dark:text-slate-500">
+                {noteOpts.required ? "(majburiy)" : "(ixtiyoriy)"}
+              </span>
             </label>
             <textarea
               id="confirm-note"
@@ -154,6 +158,7 @@ export function ConfirmDialog() {
           <Button
             variant={danger ? "danger" : "primary"}
             size="sm"
+            disabled={noteMissing}
             onClick={() => close(true, note)}
             autoFocus={!danger && !noteOpts}
           >

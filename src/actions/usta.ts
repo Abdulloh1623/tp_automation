@@ -6,11 +6,7 @@ import { requireSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { createNotification } from "@/lib/notifications";
 import { USTA_STATUS, ustaStatusLabel } from "@/lib/constants";
-import {
-  ESCALATION_RESOLVED_NOTE,
-  escalationStagePatch,
-  isEscalationStage,
-} from "@/lib/escalation";
+import { escalationStagePatch, isEscalationStage } from "@/lib/escalation";
 import { safeNote } from "@/lib/validation";
 
 export type AssignState = { ok: boolean; error?: string };
@@ -19,17 +15,19 @@ export type AssignState = { ok: boolean; error?: string };
  * Eskalatsiya qilingan lidni ustaga biriktirish. Boshliq/admin ISTALGANini,
  * mas'ul TP xodim (OPERATOR) esa faqat O'ZIGA biriktirilgan eskalatsiyani
  * ustaga biriktira oladi. Lid "Biriktirildi" (ESCALATED, mas'ul bor) dan
- * "Jarayonda" (FORWARDED) ga o'tadi.
+ * "Jarayonda" (FORWARDED) ga o'tadi. Izoh MAJBURIY.
  */
 export async function assignUsta(
   clientId: string,
   ustaId: string,
-  note?: string,
+  note: string,
 ): Promise<AssignState> {
   const session = await requireSession();
   if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
+  const noteText = safeNote(note);
+  if (!noteText) return { ok: false, error: "Izoh majburiy" };
 
   const usta = await db.user.findUnique({ where: { id: ustaId } });
   if (!usta || usta.role !== "INSTALLER") {
@@ -64,7 +62,7 @@ export async function assignUsta(
     data: {
       clientId,
       result: "ASSIGNED",
-      note: note && note.trim() ? note.trim() : null,
+      note: noteText,
       operatorId: session.userId,
     },
   });
@@ -100,6 +98,13 @@ export async function updateUstaStatus(
   if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
+  // "Bajarildi" — bo'lim yakuni (Jarayonda → Yakunlangan), izoh MAJBURIY.
+  // Boshqa usta-statuslari (Yo'ldaman/Bordim/...) bo'lim ichidagi belgilar,
+  // izohsiz ham qoldiriladi.
+  const noteText = safeNote(note);
+  if (status === "DONE" && !noteText) {
+    return { ok: false, error: "Izoh majburiy" };
+  }
 
   const data: {
     ustaStatus: string;
@@ -122,7 +127,7 @@ export async function updateUstaStatus(
     data: {
       clientId,
       result: status,
-      note: note && note.trim() ? note.trim() : null,
+      note: noteText,
       operatorId: session.userId,
     },
   });
@@ -143,18 +148,19 @@ export async function updateUstaStatus(
  * navbatdan/ustadan chiqaradi. Yakunlangan bo'limida ko'rinishi uchun
  * `ustaStatus: DONE` va o'z nomidan `DONE` izohi yoziladi.
  *
- * `note` — IXTIYORIY: berilsa qo'ng'iroq izohiga o'sha matn tushadi (qanday hal
- * qilingani mijoz tarixida qoladi), berilmasa avvalgidek standart matn. Izoh
- * yozish yopishni HECH QACHON bloklamaydi.
+ * `note` — MAJBURIY: qo'ng'iroq izohiga o'sha matn tushadi (qanday hal
+ * qilingani mijoz tarixida qoladi).
  */
 export async function resolveEscalation(
   clientId: string,
-  note?: string,
+  note: string,
 ): Promise<AssignState> {
   const session = await requireSession();
   if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
+  const resolutionNote = safeNote(note);
+  if (!resolutionNote) return { ok: false, error: "Izoh majburiy" };
 
   const client = await db.client.findUnique({ where: { id: clientId } });
   if (!client) return { ok: false, error: "Mijoz topilmadi" };
@@ -171,12 +177,11 @@ export async function resolveEscalation(
       ...escalationStagePatch("RESOLVED", client),
     },
   });
-  const resolutionNote = safeNote(note);
   await db.callLog.create({
     data: {
       clientId,
       result: "DONE",
-      note: resolutionNote ?? ESCALATION_RESOLVED_NOTE,
+      note: resolutionNote,
       operatorId: session.userId,
     },
   });
@@ -184,9 +189,7 @@ export async function resolveEscalation(
   await logAudit("Eskalatsiya hal bo'ldi", {
     entity: "Client",
     entityId: clientId,
-    detail: resolutionNote
-      ? `${client.restaurantName} — ${resolutionNote}`
-      : client.restaurantName,
+    detail: `${client.restaurantName} — ${resolutionNote}`,
   });
   revalidatePath("/eskalatsiya");
   revalidatePath(`/mijozlar/${clientId}`);
@@ -199,18 +202,23 @@ const ESCALATION_STAFF_ROLES = ["ADMIN", "MANAGER", "OPERATOR"];
 /**
  * Eskalatsiyaga mas'ul TP xodimini biriktirish/olib tashlash — faqat boshliq/admin.
  * Mas'ul xodim usta + mijoz bilan bog'lanib jarayonni yakuniga yetkazadi.
- * `staffId: null` — mas'ulni olib tashlaydi.
+ * `staffId: null` — mas'ulni olib tashlaydi (izoh talab qilinmaydi). Biriktirishda
+ * izoh MAJBURIY.
  */
 export async function assignEscalationStaff(
   clientId: string,
   staffId: string | null,
+  note?: string,
 ): Promise<AssignState> {
   const session = await requireSession();
   if (!["ADMIN", "MANAGER"].includes(session.role)) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
 
+  let noteText: string | null = null;
   if (staffId) {
+    noteText = safeNote(note);
+    if (!noteText) return { ok: false, error: "Izoh majburiy" };
     const staff = await db.user.findUnique({
       where: { id: staffId },
       select: { name: true, role: true, isActive: true },
@@ -236,7 +244,7 @@ export async function assignEscalationStaff(
     data: {
       clientId,
       result: staffId ? "ESCALATION_STAFF_ASSIGNED" : "UNASSIGNED",
-      note: staffId ? null : "Eskalatsiya mas'uli olib tashlandi",
+      note: staffId ? noteText : "Eskalatsiya mas'uli olib tashlandi",
       operatorId: session.userId,
     },
   });

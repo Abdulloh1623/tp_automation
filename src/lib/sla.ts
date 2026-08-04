@@ -10,11 +10,19 @@ import { ESCALATION_STAGES } from "./escalation";
 /** SLA muddati (kun). Muammo/eskalatsiya shu kundan oshsa — buzilgan hisoblanadi. */
 export const SLA_DAYS = 3;
 
+/** Qaytarish "Jarayonda" bosqichi uchun SLA muddati — bu boshqacha, qisqaroq (2 kun). */
+export const RETURN_SLA_DAYS = 2;
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Shu vaqtdan oldingi narsalar SLA'ni buzgan. */
 export function slaThreshold(now: Date = new Date()): Date {
   return new Date(now.getTime() - SLA_DAYS * DAY_MS);
+}
+
+/** Qaytarish "Jarayonda" bosqichi uchun chegara — 2 kundan oshgan. */
+export function returnSlaThreshold(now: Date = new Date()): Date {
+  return new Date(now.getTime() - RETURN_SLA_DAYS * DAY_MS);
 }
 
 function daysSince(from: Date, now: Date): number {
@@ -41,8 +49,9 @@ async function pushTelegram(chatIds: Set<string>, title: string, body: string) {
  */
 export async function runSlaCheck(
   now: Date = new Date(),
-): Promise<{ tickets: number; escalations: number; suggestions: number }> {
+): Promise<{ tickets: number; escalations: number; returns: number; suggestions: number }> {
   const threshold = slaThreshold(now);
+  const returnThreshold = returnSlaThreshold(now);
 
   // Ogohlantiriladigan boshliqlar (admin + menejer) — bir marta olinadi
   const managers = await db.user.findMany({
@@ -126,6 +135,44 @@ export async function runSlaCheck(
     escCount++;
   }
 
+  // --- Qaytarish (EquipmentReturnRequest "Jarayonda") — 2 kundan oshganlar ---
+  const returnReqs = await db.equipmentReturnRequest.findMany({
+    where: {
+      status: "IN_PROGRESS",
+      OR: [
+        { inProgressAt: { lt: returnThreshold } },
+        // inProgressAt yo'q (eski/backfill qilinmagan yozuv) — createdAt bo'yicha taxminlaymiz
+        { inProgressAt: null, createdAt: { lt: returnThreshold } },
+      ],
+    },
+    select: {
+      id: true,
+      createdAt: true,
+      inProgressAt: true,
+      slaNotifiedAt: true,
+      client: { select: { restaurantName: true } },
+      staff: { select: { id: true, telegramId: true } },
+    },
+  });
+  let returnCount = 0;
+  for (const r of returnReqs) {
+    if (notifiedToday(r.slaNotifiedAt)) continue;
+    const days = daysSince(r.inProgressAt ?? r.createdAt, now);
+    const title = "Qaytarish 2 kundan beri yakunlanmadi";
+    const body = `${r.client.restaurantName} (${days} kun). Usta/mijoz bilan bog'lanib yakuniga yetkazing.`;
+
+    const userIds = [...managerIds];
+    if (r.staff) userIds.push(r.staff.id);
+    await createNotification({ title, body, userIds });
+
+    const tg = new Set(managerTg);
+    if (r.staff?.telegramId) tg.add(r.staff.telegramId);
+    await pushTelegram(tg, title, body);
+
+    await db.equipmentReturnRequest.update({ where: { id: r.id }, data: { slaNotifiedAt: now } });
+    returnCount++;
+  }
+
   // --- Takliflar (Suggestion) — 1 oydan oshib hal qilinmaganlar ---
   const monthAgo = subMonths(now, 1);
   const suggestions = await db.suggestion.findMany({
@@ -154,5 +201,10 @@ export async function runSlaCheck(
     suggestionCount++;
   }
 
-  return { tickets: ticketCount, escalations: escCount, suggestions: suggestionCount };
+  return {
+    tickets: ticketCount,
+    escalations: escCount,
+    returns: returnCount,
+    suggestions: suggestionCount,
+  };
 }

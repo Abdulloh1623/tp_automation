@@ -23,7 +23,7 @@ describe("dismissTicket", () => {
     const ticket = await makeTicket(client.id);
 
     await loginAs(manager);
-    const res = await dismissTicket(ticket.id);
+    const res = await dismissTicket(ticket.id, "mijoz bilan aniqlashtirilmagan");
 
     expect(res.ok).toBe(true);
     const after = await db.ticket.findUnique({ where: { id: ticket.id } });
@@ -38,11 +38,24 @@ describe("dismissTicket", () => {
     const ticket = await makeTicket(client.id);
 
     await loginAs(op);
-    const res = await dismissTicket(ticket.id);
+    const res = await dismissTicket(ticket.id, "xato ochilgan");
 
     expect(res.ok).toBe(false);
     const after = await db.ticket.findUnique({ where: { id: ticket.id } });
     expect(after!.status).toBe("OPEN"); // o'zgarmaydi
+  });
+
+  it("izohsiz rad eta OLMAYDI", async () => {
+    const manager = await makeUser("MANAGER");
+    const client = await makeClient();
+    const ticket = await makeTicket(client.id);
+
+    await loginAs(manager);
+    const res = await dismissTicket(ticket.id, "");
+
+    expect(res.ok).toBe(false);
+    const after = await db.ticket.findUnique({ where: { id: ticket.id } });
+    expect(after!.status).toBe("OPEN");
   });
 
   it("audit jurnaliga yoziladi", async () => {
@@ -51,7 +64,7 @@ describe("dismissTicket", () => {
     const ticket = await makeTicket(client.id);
 
     await loginAs(admin);
-    await dismissTicket(ticket.id);
+    await dismissTicket(ticket.id, "xato ochilgan");
 
     const audit = await db.auditLog.findFirst({ where: { action: { contains: "rad etildi" } } });
     expect(audit).not.toBeNull();

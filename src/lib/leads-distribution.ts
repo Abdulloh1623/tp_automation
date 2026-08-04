@@ -5,6 +5,7 @@ import { logAudit } from "@/lib/audit";
 import {
   ACTIVE_STAGES,
   NO_CONTACT_STAGES,
+  OFF_BOARD_STAGES,
   USER_SHIFT,
   leadProfileLabel,
   profileOrder,
@@ -136,11 +137,12 @@ export async function distributeLeadsCore(
           stage: { in: ACTIVE_STAGES as unknown as string[] },
           OR: [{ nextContactDate: { lte: endOfDay(now) } }, { nextContactDate: null }],
         },
-        // Qarzdorlar — bosqichidan qat'i nazar, LEKIN otkaz/o'chirilganlar EMAS
-        // (ular bilan qayta aloqaga chiqilmaydi — qarzi bo'lsa ham).
+        // Qarzdorlar — bosqichidan qat'i nazar, LEKIN otkaz/o'chirilgan/boshqa
+        // jarayonga o'tganlar EMAS (ular bilan qayta aloqaga chiqilmaydi —
+        // qarzi bo'lsa ham).
         {
           nextPaymentDate: { lt: startOfDay(now) },
-          stage: { notIn: NO_CONTACT_STAGES as unknown as string[] },
+          stage: { notIn: [...NO_CONTACT_STAGES, ...OFF_BOARD_STAGES] as unknown as string[] },
           OR: [{ lastContactedAt: null }, { lastContactedAt: { lt: debtorSince } }],
         },
       ],

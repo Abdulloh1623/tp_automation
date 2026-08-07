@@ -21,6 +21,7 @@ import { EmptyState } from "@/components/empty-state";
 import { TICKET_TYPE, TICKET_PRIORITY } from "@/lib/constants";
 import { formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 import { slaThreshold } from "@/lib/sla";
+import { tzDayStartFromInput } from "@/lib/tz";
 import { assignedStaffScope, isManagerRole } from "@/lib/visibility";
 
 // Hal qilingan bo'limida ko'rsatiladigan maksimal karta (tarix o'smasin).
@@ -38,11 +39,21 @@ export async function TicketsSection({
   type,
   priority,
   assignee,
+  usta,
+  resolveType,
+  from,
+  to,
+  q,
 }: {
   session: SessionPayload;
   type?: string;
   priority?: string;
   assignee?: string;
+  usta?: string;
+  resolveType?: string;
+  from?: string;
+  to?: string;
+  q?: string;
 }) {
   const canAssign = isManagerRole(session.role);
 
@@ -50,15 +61,33 @@ export async function TicketsSection({
   // muammolarni ko'radi; ADMIN/MANAGER esa barchasini (va biriktiradi).
   const scope = assignedStaffScope(session.role, session.userId, "assignedStaffId");
 
-  // Filtr shartlari (turi/ustuvorlik/mas'ul) — ham ro'yxatga, ham tab sonlariga
-  // BIR XIL qo'llanadi. AND massivida saqlanadi: mas'ul filtri OR ishlatgani
-  // uchun bo'lim scope'laridagi (Yangi/Biriktirilgan) OR bilan to'qnashmasin.
+  // Filtr shartlari — ham ro'yxatga, ham tab sonlariga BIR XIL qo'llanadi.
+  // AND massivida saqlanadi: mas'ul filtri OR ishlatgani uchun bo'lim
+  // scope'laridagi (Yangi/Biriktirilgan) OR bilan to'qnashmasin.
   const filterAnd: Prisma.TicketWhereInput[] = [];
   if (type) filterAnd.push({ type });
   if (priority) filterAnd.push({ priority });
   // Mas'ul xodim bo'yicha filtr — faqat boshqaruv rollari uchun.
   if (assignee && canAssign) {
     filterAnd.push({ assignedStaffId: assignee });
+  }
+  if (usta) filterAnd.push({ assignedUstaId: usta });
+  if (resolveType) filterAnd.push({ assigneeType: resolveType });
+  const fromDate = tzDayStartFromInput(from);
+  if (fromDate) filterAnd.push({ createdAt: { gte: fromDate } });
+  const toDate = tzDayStartFromInput(to);
+  if (toDate) filterAnd.push({ createdAt: { lt: new Date(toDate.getTime() + 86400000) } });
+  if (q) {
+    const digits = q.replace(/\D/g, "");
+    filterAnd.push({
+      client: {
+        OR: [
+          { restaurantName: { contains: q, mode: "insensitive" } },
+          { fullName: { contains: q, mode: "insensitive" } },
+          ...(digits.length >= 4 ? [{ phone: { contains: digits } }] : []),
+        ],
+      },
+    });
   }
 
   const where: Prisma.TicketWhereInput = { ...scope, AND: filterAnd };
@@ -83,6 +112,7 @@ export async function TicketsSection({
     ticketsRaw,
     clients,
     xodimlar,
+    ustalarFull,
     yangiTotal,
     biriktirilganTotal,
     halTotal,
@@ -128,6 +158,11 @@ export async function TicketsSection({
       select: { id: true, name: true, phone: true },
       orderBy: { name: "asc" },
     }),
+    db.user.findMany({
+      where: { role: "INSTALLER", isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
     db.ticket.count({ where: unassignedScope }),
     db.ticket.count({ where: assignedScope }),
     db.ticket.count({ where: { ...scope, AND: filterAnd, status: "RESOLVED" } }),
@@ -149,7 +184,7 @@ export async function TicketsSection({
   const hal = ticketsRaw.filter((t) => t.status === "RESOLVED");
 
   const openCount = yangiTotal + biriktirilganTotal;
-  const hasFilter = !!(type || priority || assignee);
+  const hasFilter = !!(type || priority || assignee || usta || resolveType || from || to || q);
 
   // Bitta ticket kartasi — barcha tab'larda bir xil.
   function ticketCard(t: (typeof ticketsRaw)[number]) {
@@ -326,9 +361,15 @@ export async function TicketsSection({
               type={type ?? ""}
               priority={priority ?? ""}
               assignee={assignee ?? ""}
+              usta={usta ?? ""}
+              resolveType={resolveType ?? ""}
+              from={from ?? ""}
+              to={to ?? ""}
+              q={q ?? ""}
               types={Object.entries(TICKET_TYPE)}
               priorities={Object.entries(TICKET_PRIORITY)}
               xodimlar={xodimlar}
+              ustalar={ustalarFull}
               canAssign={canAssign}
             />
           </Card>

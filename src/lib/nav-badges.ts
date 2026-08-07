@@ -76,9 +76,9 @@ export async function getNavBadges(
   return {
     "/bildirishnomalar": unread,
     "/lidlar": lidlar,
-    "/muammolar": muammolar,
-    "/eskalatsiya": eskalatsiya,
-    "/qaytarish": qaytarish,
+    // Muammolar/Eskalatsiya/Qaytarish endi bitta nav elementi (/muammolar
+    // ichidagi sub-bo'limlar) — badge shu uchtasining yig'indisi.
+    "/muammolar": muammolar + eskalatsiya + qaytarish,
     "/takliflar": takliflar,
     "/soliq": soliq,
     "/tolovlar": cardResolver ? karta : 0,

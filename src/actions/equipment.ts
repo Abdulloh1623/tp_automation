@@ -417,6 +417,7 @@ export async function requestEquipmentReturn(
   });
   revalidatePath(`/mijozlar/${clientId}`);
   revalidatePath("/qaytarish");
+  revalidatePath("/muammolar");
   return { ok: true };
 }
 
@@ -494,6 +495,7 @@ export async function approveReturnRequest(
     });
   }
   revalidatePath("/qaytarish");
+  revalidatePath("/muammolar");
   revalidatePath(`/mijozlar/${req.clientId}`);
   return { ok: true };
 }
@@ -533,6 +535,7 @@ export async function rejectReturnRequest(
   });
   await logAudit("Qaytarish rad etildi", { entity: "Client", entityId: req.clientId });
   revalidatePath("/qaytarish");
+  revalidatePath("/muammolar");
   revalidatePath(`/mijozlar/${req.clientId}`);
   return { ok: true };
 }
@@ -579,6 +582,7 @@ export async function startReturnProgress(requestId: string, note: string): Prom
     detail: req.client.restaurantName,
   });
   revalidatePath("/qaytarish");
+  revalidatePath("/muammolar");
   revalidatePath(`/mijozlar/${req.clientId}`);
   return { ok: true };
 }
@@ -669,6 +673,7 @@ export async function confirmReturnCollected(
     detail: `${req.client.restaurantName} — ${noteText}`,
   });
   revalidatePath("/qaytarish");
+  revalidatePath("/muammolar");
   revalidatePath("/ombor");
   revalidatePath(`/mijozlar/${req.clientId}`);
   return { ok: true };
@@ -749,6 +754,7 @@ export async function revertReturnRequest(requestId: string): Promise<EqState> {
   }
 
   revalidatePath("/qaytarish");
+  revalidatePath("/muammolar");
   revalidatePath(`/mijozlar/${req.clientId}`);
   return { ok: true };
 }

@@ -13,6 +13,11 @@ type SearchParams = Promise<{
   type?: string;
   priority?: string;
   assignee?: string;
+  usta?: string;
+  resolveType?: string;
+  from?: string;
+  to?: string;
+  q?: string;
 }>;
 
 function parseBolim(value: string | undefined): Bolim {
@@ -24,7 +29,8 @@ export default async function MuammolarPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const { bolim: bolimParam, type, priority, assignee } = await searchParams;
+  const { bolim: bolimParam, type, priority, assignee, usta, resolveType, from, to, q } =
+    await searchParams;
   const bolim = parseBolim(bolimParam);
 
   const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR"]);
@@ -46,7 +52,7 @@ export default async function MuammolarPage({
       ? EscalationSection({ session })
       : bolim === "qaytarish"
         ? ReturnSection({ session })
-        : TicketsSection({ session, type, priority, assignee }),
+        : TicketsSection({ session, type, priority, assignee, usta, resolveType, from, to, q }),
   ]);
 
   return (

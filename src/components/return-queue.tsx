@@ -248,12 +248,12 @@ function Row({
     if (ok) run(() => confirmReturnCollected(r.id, note));
   }
 
-  // "Jarayonga o'tkazish" = ustaga xabar berildi — izoh MAJBURIY.
+  // "Ustaga yetkazildi" = ustaga xabar berildi — izoh MAJBURIY.
   async function onStartProgress() {
     const { ok, note } = await confirmWithNote({
       title: "Ustaga xabar berildi",
       message: `"${r.restaurantName || r.fullName}" bo'yicha ${r.ustaName ?? "usta"}ga xabar berildi va jarayon boshlandi.`,
-      confirmLabel: "Jarayonga o'tkazish",
+      confirmLabel: "Ustaga yetkazildi",
       variant: "primary",
       note: {
         label: "Ustaga qanday xabar berildi",
@@ -367,7 +367,7 @@ function Row({
           ) : r.status === "APPROVED" ? (
             <>
               <Button size="sm" disabled={pending} onClick={onStartProgress}>
-                <PlayCircle className="h-4 w-4" /> Jarayonga o'tkazish
+                <PlayCircle className="h-4 w-4" /> Ustaga yetkazildi
               </Button>
               <Button size="sm" variant="outline" disabled={pending} onClick={onCollect}>
                 <PackageCheck className="h-4 w-4" /> Bajarildi (olib keldi)

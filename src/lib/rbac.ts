@@ -22,6 +22,8 @@ const ROUTE_ROLES: { prefix: string; roles: Role[] }[] = [
   { prefix: "/muammolar", roles: ["ADMIN", "OPERATOR", "MANAGER"] },
   { prefix: "/eskalatsiya", roles: ["ADMIN", "MANAGER", "OPERATOR"] },
   { prefix: "/qaytarish", roles: ["ADMIN", "MANAGER", "OPERATOR"] },
+  // Ustalar aloqasi + uskuna narxlari — o'qish uchun ma'lumotnoma (tahrir /ustalar va /ombor'da).
+  { prefix: "/malumotnoma", roles: ["ADMIN", "MANAGER", "OPERATOR"] },
   { prefix: "/soliq", roles: ["ADMIN", "MANAGER", "OPERATOR"] },
   { prefix: "/otkaz", roles: ["ADMIN", "MANAGER", "OPERATOR"] },
   { prefix: "/takliflar", roles: ["ADMIN", "MANAGER"] },

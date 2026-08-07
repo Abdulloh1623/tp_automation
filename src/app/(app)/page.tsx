@@ -351,10 +351,10 @@ export default async function DashboardPage() {
   const trendItems = dayKeys.map((k) => ({ label: `${k.slice(8)}.${k.slice(5, 7)}`, value: trendMap.get(k) ?? 0 }));
 
   const attention = [
-    { label: "Eskalatsiya navbati", count: escalatedCount, href: "/eskalatsiya" },
+    { label: "Eskalatsiya navbati", count: escalatedCount, href: "/muammolar?bolim=eskalatsiya" },
     { label: "Ochiq muammolar", count: openTicketCount, href: "/muammolar?status=OPEN" },
     { label: "3 kundan oshgan muammo", count: ticketSlaBreached, href: "/muammolar" },
-    { label: "3 kundan oshgan eskalatsiya", count: escSlaBreached, href: "/eskalatsiya" },
+    { label: "3 kundan oshgan eskalatsiya", count: escSlaBreached, href: "/muammolar?bolim=eskalatsiya" },
     { label: "Uskuna qaytarish arizalari", count: pendingReturns, href: "/ombor" },
     { label: "Biriktirilmagan mijozlar", count: unassignedCount, href: "/mijozlar?assigned=__none__" },
     { label: "To'ldirilmagan ma'lumot", count: incompleteCount, href: "/muammoli-mijozlar?bolim=malumot" },

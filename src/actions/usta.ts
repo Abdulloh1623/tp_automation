@@ -73,6 +73,7 @@ export async function assignUsta(
     detail: usta.name,
   });
   revalidatePath("/eskalatsiya");
+  revalidatePath("/muammolar");
   return { ok: true };
 }
 
@@ -138,6 +139,7 @@ export async function updateUstaStatus(
     detail: client.restaurantName,
   });
   revalidatePath("/eskalatsiya");
+  revalidatePath("/muammolar");
   revalidatePath(`/mijozlar/${clientId}`);
   return { ok: true, ustaStatus: status };
 }
@@ -192,6 +194,7 @@ export async function resolveEscalation(
     detail: `${client.restaurantName} — ${resolutionNote}`,
   });
   revalidatePath("/eskalatsiya");
+  revalidatePath("/muammolar");
   revalidatePath(`/mijozlar/${clientId}`);
   return { ok: true };
 }
@@ -262,6 +265,7 @@ export async function assignEscalationStaff(
     });
   }
   revalidatePath("/eskalatsiya");
+  revalidatePath("/muammolar");
   revalidatePath(`/mijozlar/${clientId}`);
   return { ok: true };
 }

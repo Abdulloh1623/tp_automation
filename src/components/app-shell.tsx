@@ -24,6 +24,7 @@ import {
   Ban,
   Lightbulb,
   Landmark,
+  BookOpen,
   Wallet,
   PackageSearch,
   Database,
@@ -67,6 +68,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: "Xizmat",
     items: [
       { href: "/muammolar", label: "Muammolar", icon: Wrench, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
+      { href: "/malumotnoma", label: "Ustalar va narxlar", icon: BookOpen, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
       { href: "/soliq", label: "Soliqqa ulash", icon: Landmark, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
       { href: "/otkaz", label: "Otkaz", icon: Ban, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
       { href: "/takliflar", label: "Takliflar", icon: Lightbulb, roles: ["ADMIN", "MANAGER"] },

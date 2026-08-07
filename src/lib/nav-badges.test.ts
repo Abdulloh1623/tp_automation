@@ -67,8 +67,8 @@ describe("getNavBadges", () => {
   it("boshliq (MANAGER) — barcha bo'limlar sanaladi", async () => {
     const b = await getNavBadges("u1", "MANAGER");
     expect(b["/bildirishnomalar"]).toBe(2);
-    expect(b["/muammolar"]).toBe(3);
-    expect(b["/qaytarish"]).toBe(4);
+    // Muammolar/Eskalatsiya/Qaytarish endi bitta badge — 3 (ticket) + 5 (client, eskalatsiya) + 4 (qaytarish)
+    expect(b["/muammolar"]).toBe(12);
     expect(b["/takliflar"]).toBe(7);
     expect(b["/soliq"]).toBe(6);
     expect(returnCount).toHaveBeenCalledTimes(1);
@@ -77,12 +77,11 @@ describe("getNavBadges", () => {
 
   it("operator — boshliq navbatlari (qaytarish/taklif) so'ralmaydi, 0 qaytadi", async () => {
     const b = await getNavBadges("u1", "OPERATOR");
-    expect(b["/qaytarish"]).toBe(0);
     expect(b["/takliflar"]).toBe(0);
     expect(returnCount).not.toHaveBeenCalled();
     expect(suggestionCount).not.toHaveBeenCalled();
-    // O'ziga tegishli bo'limlar baribir sanaladi
-    expect(b["/muammolar"]).toBe(3);
+    // O'ziga tegishli bo'limlar baribir sanaladi (qaytarish operatorga 0 qo'shadi)
+    expect(b["/muammolar"]).toBe(8);
     expect(b["/lidlar"]).toBe(5);
     // Soliqqa ulash — operator o'zinikini ko'radi (sanaladi)
     expect(b["/soliq"]).toBe(6);
@@ -95,8 +94,6 @@ describe("getNavBadges", () => {
       "/bildirishnomalar",
       "/lidlar",
       "/muammolar",
-      "/eskalatsiya",
-      "/qaytarish",
       "/takliflar",
       "/soliq",
     ]) {

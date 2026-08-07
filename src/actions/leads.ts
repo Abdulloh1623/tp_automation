@@ -42,6 +42,7 @@ async function autoReturnRequest(clientId: string, byUserId: string, note: strin
     },
   });
   revalidatePath("/qaytarish");
+  revalidatePath("/muammolar");
 }
 
 /**
@@ -129,6 +130,7 @@ async function clearPristineAutoRecord(
       where: { clientId, status: "PENDING", createdAt: todayRange },
     });
     revalidatePath("/qaytarish");
+    revalidatePath("/muammolar");
   }
 }
 
@@ -562,6 +564,7 @@ export async function revertLead(
       entityId: clientId,
     });
     revalidatePath("/eskalatsiya");
+    revalidatePath("/muammolar");
     revalidatePath("/lidlar");
   } catch {
     return { ok: false, error: "Xatolik" };

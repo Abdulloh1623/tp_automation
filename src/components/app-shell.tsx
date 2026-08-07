@@ -6,12 +6,10 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   PhoneCall,
-  PackageCheck,
   Users,
   UserX,
   CreditCard,
   Wrench,
-  AlertTriangle,
   Warehouse,
   HardHat,
   BarChart3,
@@ -69,8 +67,6 @@ const NAV_SECTIONS: NavSection[] = [
     title: "Xizmat",
     items: [
       { href: "/muammolar", label: "Muammolar", icon: Wrench, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
-      { href: "/eskalatsiya", label: "Eskalatsiya", icon: AlertTriangle, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
-      { href: "/qaytarish", label: "Qaytarish", icon: PackageCheck, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
       { href: "/soliq", label: "Soliqqa ulash", icon: Landmark, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
       { href: "/otkaz", label: "Otkaz", icon: Ban, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
       { href: "/takliflar", label: "Takliflar", icon: Lightbulb, roles: ["ADMIN", "MANAGER"] },
@@ -115,8 +111,6 @@ const NAV_SECTIONS: NavSection[] = [
 const BADGE_COLOR: Record<string, string> = {
   "/lidlar": "bg-sky-600",
   "/muammolar": "bg-red-600",
-  "/eskalatsiya": "bg-amber-600",
-  "/qaytarish": "bg-violet-600",
   "/takliflar": "bg-emerald-600",
   "/soliq": "bg-teal-600",
   "/bildirishnomalar": "bg-indigo-600",

@@ -29,6 +29,7 @@ import {
   PackageSearch,
   Database,
   HelpCircle,
+  CalendarClock,
 } from "lucide-react";
 import { logout } from "@/actions/auth";
 import { Toaster } from "@/components/toaster";
@@ -94,6 +95,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: "Boshqaruv",
     items: [
       { href: "/foydalanuvchilar", label: "Foydalanuvchilar", icon: UserCog, roles: ["ADMIN"] },
+      { href: "/ish-jadvali", label: "Ish jadvali", icon: CalendarClock, roles: ["ADMIN"] },
       { href: "/audit", label: "Audit", icon: ScrollText, roles: ["ADMIN"] },
       { href: "/malumotlar", label: "Ma'lumotlar", icon: Database, roles: ["ADMIN"] },
       { href: "/sozlamalar", label: "Sozlamalar", icon: SlidersHorizontal, roles: ["ADMIN"] },

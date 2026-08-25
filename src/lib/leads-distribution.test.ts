@@ -6,6 +6,7 @@ const {
   clientFindMany,
   clientUpdateMany,
   callLogFindMany,
+  dutyDayFindMany,
   logAudit,
   getActiveLeadProfile,
   currentShift,
@@ -16,6 +17,7 @@ const {
   clientFindMany: vi.fn(),
   clientUpdateMany: vi.fn(),
   callLogFindMany: vi.fn(),
+  dutyDayFindMany: vi.fn(),
   logAudit: vi.fn(),
   getActiveLeadProfile: vi.fn(),
   currentShift: vi.fn(),
@@ -29,6 +31,7 @@ vi.mock("@/lib/db", () => ({
     client: { findMany: clientFindMany, updateMany: clientUpdateMany },
     callLog: { findMany: callLogFindMany },
     dailyLeadGrant: { findMany: grantFindMany },
+    dutyDay: { findMany: dutyDayFindMany },
   },
 }));
 vi.mock("@/lib/audit", () => ({ logAudit }));
@@ -92,6 +95,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   callLogFindMany.mockResolvedValue([]);
   grantFindMany.mockResolvedValue([]);
+  // Standart: bugungi jadval bo'sh emas (placeholder) — `userFindMany` argumentdan
+  // qat'i nazar mock qilinadi, shuning uchun aynan qaysi id emas, faqat "bo'sh
+  // emasligi" muhim (bo'sh bo'lsa distributeLeadsCore darhol xato bilan qaytadi).
+  // Smena/jadval mantig'ini sinaydigan testlar buni o'zi qayta belgilaydi.
+  dutyDayFindMany.mockResolvedValue([{ userId: "op1", shift: "DAY" }]);
   currentShift.mockReturnValue("DAY");
   // Standart siyosat: oldinga tortish o'chirilgan (min 0) — testlar aynan
   // berilgan hovuz ustida ishlasin.
@@ -282,48 +290,49 @@ describe("distributeLeadsCore", () => {
     expect(all).not.toContain("tegilgan");
   });
 
-  // --- Smena bo'yicha taqsimot ---
+  // --- Kunlik jadval (DutyDay) bo'yicha taqsimot ---
 
-  /** Birinchi so'rov — smena operatorlari; ikkinchisi (select.shift) — barcha operatorlar. */
-  function mockUsers(
-    shiftOps: { id: string; dailyLimit: number }[],
-    all: { id: string; shift: string }[],
-  ) {
-    userFindMany.mockImplementation(({ select }: { select?: { shift?: boolean } }) =>
-      Promise.resolve(select?.shift ? all : shiftOps),
-    );
-  }
-
-  it("faqat berilgan smena operatorlariga taqsimlanadi", async () => {
-    mockUsers([{ id: "night1", dailyLimit: 50 }], [
-      { id: "night1", shift: "NIGHT" },
-      { id: "day1", shift: "DAY" },
+  it("faqat bugungi jadvalda o'sha smenaga tayinlanganlarga taqsimlanadi", async () => {
+    dutyDayFindMany.mockResolvedValue([
+      { userId: "night1", shift: "NIGHT" },
+      { userId: "day1", shift: "DAY" },
     ]);
+    userFindMany.mockResolvedValue([{ id: "night1", dailyLimit: 50 }]);
     setPool([lead("c0")]);
 
     const r = await distributeLeadsCore("NIGHT");
     expect(userFindMany.mock.calls[0][0].where).toMatchObject({
       role: "OPERATOR",
       isActive: true,
-      shift: "NIGHT",
+      id: { in: ["night1"] },
     });
     expect(r.operators).toBe(1);
     expect(assignedIds()).toEqual(["c0"]);
   });
 
-  it("smenada faol operator yo'q — hech narsa o'zgarmaydi", async () => {
-    userFindMany.mockResolvedValue([]);
+  it("smenaga bugun hech kim tayinlanmagan — xato, hech narsa o'zgarmaydi", async () => {
+    dutyDayFindMany.mockResolvedValue([]);
     const r = await distributeLeadsCore("NIGHT");
     expect(r.error).toContain("Kechki");
+    expect(userFindMany).not.toHaveBeenCalled();
+    expect(clientUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("jadvalga tayinlangan lekin nofaol operator — 'faol operator yo'q' xatosi", async () => {
+    dutyDayFindMany.mockResolvedValue([{ userId: "night1", shift: "NIGHT" }]);
+    userFindMany.mockResolvedValue([]); // isActive filtri chiqarib tashladi
+    const r = await distributeLeadsCore("NIGHT");
+    expect(r.error).toBe("Kechki (18:00–09:00) smenasida faol operator yo'q");
     expect(clientUpdateMany).not.toHaveBeenCalled();
   });
 
   it("boshqa smena hali ishlayotgan bo'lsa — uning lidiga tegilmaydi", async () => {
     currentShift.mockReturnValue("NIGHT"); // kechki smena hozir ishlayapti
-    mockUsers([{ id: "day1", dailyLimit: 50 }], [
-      { id: "day1", shift: "DAY" },
-      { id: "night1", shift: "NIGHT" },
+    dutyDayFindMany.mockResolvedValue([
+      { userId: "day1", shift: "DAY" },
+      { userId: "night1", shift: "NIGHT" },
     ]);
+    userFindMany.mockResolvedValue([{ id: "day1", dailyLimit: 50 }]);
     setPool([
       lead("kechkida", { assignedToId: "night1" }),
       lead("bo'sh"),
@@ -338,10 +347,11 @@ describe("distributeLeadsCore", () => {
 
   it("tugagan smenaning ishlanmagan lidi joriy smenaga o'tadi", async () => {
     currentShift.mockReturnValue("NIGHT"); // kunduzgi smena tugagan
-    mockUsers([{ id: "night1", dailyLimit: 50 }], [
-      { id: "day1", shift: "DAY" },
-      { id: "night1", shift: "NIGHT" },
+    dutyDayFindMany.mockResolvedValue([
+      { userId: "day1", shift: "DAY" },
+      { userId: "night1", shift: "NIGHT" },
     ]);
+    userFindMany.mockResolvedValue([{ id: "night1", dailyLimit: 50 }]);
     setPool([lead("ulgurmagan", { assignedToId: "day1" })]);
 
     const r = await distributeLeadsCore("NIGHT");
@@ -352,10 +362,11 @@ describe("distributeLeadsCore", () => {
   it("tugagan smenada ISHLANGAN lid egasida qoladi (bo'shatilmaydi)", async () => {
     currentShift.mockReturnValue("NIGHT");
     callLogFindMany.mockResolvedValue([{ clientId: "ishlangan" }]);
-    mockUsers([{ id: "night1", dailyLimit: 50 }], [
-      { id: "day1", shift: "DAY" },
-      { id: "night1", shift: "NIGHT" },
+    dutyDayFindMany.mockResolvedValue([
+      { userId: "day1", shift: "DAY" },
+      { userId: "night1", shift: "NIGHT" },
     ]);
+    userFindMany.mockResolvedValue([{ id: "night1", dailyLimit: 50 }]);
     setPool([lead("ishlangan", { assignedToId: "day1" })]);
 
     const r = await distributeLeadsCore("NIGHT");
@@ -364,15 +375,28 @@ describe("distributeLeadsCore", () => {
     expect(all).not.toContain("ishlangan");
   });
 
-  it("smenasiz chaqiruv eski xulqni saqlaydi (barcha operatorlar)", async () => {
+  it("smenasiz chaqiruv bugungi jadvaldagi ikkala smenani ham qamraydi", async () => {
+    dutyDayFindMany.mockResolvedValue([
+      { userId: "op1", shift: "DAY" },
+      { userId: "op2", shift: "NIGHT" },
+    ]);
     userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: 50 }]);
     setPool([lead("c0", { assignedToId: "boshqa" })]);
 
     const r = await distributeLeadsCore();
     expect(r.shift).toBeUndefined();
-    // Ikkinchi (smena) so'rovi umuman yuborilmaydi
+    expect(userFindMany.mock.calls[0][0].where.id.in.sort()).toEqual(["op1", "op2"]);
+    // Faqat bitta `user.findMany` so'rovi — smena uchun alohida so'rov yo'q.
     expect(userFindMany).toHaveBeenCalledTimes(1);
     expect(assignedIds()).toEqual(["c0"]);
+  });
+
+  it("bugungi jadval umuman belgilanmagan — xato, hech narsa so'ralmaydi", async () => {
+    dutyDayFindMany.mockResolvedValue([]);
+    const r = await distributeLeadsCore();
+    expect(r.error).toContain("jadvali hali belgilanmagan");
+    expect(userFindMany).not.toHaveBeenCalled();
+    expect(clientFindMany).not.toHaveBeenCalled();
   });
 
   // --- Kunlik kvota: har operatorning o'ziniki + bir kunlik grant ---

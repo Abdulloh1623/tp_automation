@@ -153,15 +153,17 @@ model DailyLeadGrant {
   @@index([date])
 }
 
-// Navbat kuni (yakshanba) ishga chiqqan operator. Dushanba–shanba jadval qat'iy,
-// yakshanbada esa jamoa o'zaro kelishadi — shuning uchun o'sha kuni kim ishlashini
-// tizim OLDINDAN bilmaydi. Operator "Bugun ishdaman" tugmasini bosganda shu yozuv
-// paydo bo'ladi va kunlik ro'yxat faqat chiqqanlarga bo'linadi.
+// Kunlik ish jadvali — ADMIN har kuni (odatda bir kun oldin) qo'lda belgilaydi:
+// kim ishlaydi va qaysi smenada (`/ish-jadvali`, `actions/roster.ts`). Kunlik
+// taqsimot yadrosi (`distributeLeadsCore`) SHU jadvaldan operatorlarni oladi —
+// User.shift/isActive endi taqsimotga bevosita ta'sir qilmaydi (faqat standart
+// taklif sifatida jadval formasida ko'rsatiladi).
 model DutyDay {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   date      DateTime // o'sha kun (00:00, UTC+5)
+  shift     String   @default("DAY") // DAY | NIGHT — o'sha kuni qaysi smenada ishlaydi
   createdAt DateTime @default(now())
 
   @@unique([userId, date])

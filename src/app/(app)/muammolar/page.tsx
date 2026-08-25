@@ -21,7 +21,9 @@ type SearchParams = Promise<{
 }>;
 
 function parseBolim(value: string | undefined): Bolim {
-  return value === "eskalatsiya" || value === "qaytarish" ? value : "muammo";
+  return value === "eskalatsiya" || value === "qaytarish" || value === "versiya"
+    ? value
+    : "muammo";
 }
 
 export default async function MuammolarPage({
@@ -42,18 +44,36 @@ export default async function MuammolarPage({
   // ikkitasi uchun tab-badge'larda ko'rsatiladigan arzon count'lar yetarli.
   // Bo'lim komponenti JSX sifatida emas, funksiya sifatida chaqiriladi —
   // shu bilan uning Promise'i count so'rovlari bilan bir qatorda kutiladi.
-  const [muammoCount, eskalatsiyaCount, qaytarishCount, sectionContent] = await Promise.all([
-    db.ticket.count({ where: { ...ticketScope, status: { not: "RESOLVED" } } }),
-    db.client.count({ where: { ...escScope, stage: "ESCALATED" } }),
-    isManager
-      ? db.equipmentReturnRequest.count({ where: { status: "PENDING" } })
-      : Promise.resolve(0),
-    bolim === "eskalatsiya"
-      ? EscalationSection({ session })
-      : bolim === "qaytarish"
-        ? ReturnSection({ session })
-        : TicketsSection({ session, type, priority, assignee, usta, resolveType, from, to, q }),
-  ]);
+  const [muammoCount, eskalatsiyaCount, qaytarishCount, versiyaCount, sectionContent] =
+    await Promise.all([
+      db.ticket.count({
+        where: { ...ticketScope, type: { not: "VERSION_UPDATE" }, status: { not: "RESOLVED" } },
+      }),
+      db.client.count({ where: { ...escScope, stage: "ESCALATED" } }),
+      isManager
+        ? db.equipmentReturnRequest.count({ where: { status: "PENDING" } })
+        : Promise.resolve(0),
+      db.ticket.count({
+        where: { ...ticketScope, type: "VERSION_UPDATE", status: { not: "RESOLVED" } },
+      }),
+      bolim === "eskalatsiya"
+        ? EscalationSection({ session })
+        : bolim === "qaytarish"
+          ? ReturnSection({ session })
+          : bolim === "versiya"
+            ? TicketsSection({
+                session,
+                bolim: "versiya",
+                priority,
+                assignee,
+                usta,
+                resolveType,
+                from,
+                to,
+                q,
+              })
+            : TicketsSection({ session, bolim: "muammo", type, priority, assignee, usta, resolveType, from, to, q }),
+    ]);
 
   return (
     <div className="space-y-6">
@@ -61,7 +81,12 @@ export default async function MuammolarPage({
 
       <SectionTabs
         active={bolim}
-        counts={{ muammo: muammoCount, eskalatsiya: eskalatsiyaCount, qaytarish: qaytarishCount }}
+        counts={{
+          muammo: muammoCount,
+          eskalatsiya: eskalatsiyaCount,
+          qaytarish: qaytarishCount,
+          versiya: versiyaCount,
+        }}
       />
 
       {sectionContent}

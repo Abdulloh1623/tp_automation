@@ -29,6 +29,7 @@ type Filters = {
  * qolgan (select/sana) maydonlar darhol qo'llanadi.
  */
 export function TicketFilter({
+  bolim,
   type,
   priority,
   assignee,
@@ -42,7 +43,10 @@ export function TicketFilter({
   xodimlar,
   ustalar,
   canAssign,
+  hideType,
 }: {
+  /** Joriy sub-bo'lim ("muammo" bo'lmasa `?bolim=` navigatsiyada saqlanadi). */
+  bolim?: string;
   type: string;
   priority: string;
   assignee: string;
@@ -56,6 +60,8 @@ export function TicketFilter({
   xodimlar: Opt[];
   ustalar: Opt[];
   canAssign: boolean;
+  /** Turi shu bo'lim uchun qulflangan bo'lsa (masalan "Yangi versiya") — filtri ko'rsatilmaydi. */
+  hideType?: boolean;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -68,6 +74,7 @@ export function TicketFilter({
 
   function navigate(next: Filters) {
     const params = new URLSearchParams();
+    if (bolim && bolim !== "muammo") params.set("bolim", bolim);
     if (next.t) params.set("type", next.t);
     if (next.p) params.set("priority", next.p);
     if (next.a) params.set("assignee", next.a);
@@ -142,17 +149,19 @@ export function TicketFilter({
         </div>
       </div>
 
-      <div className="w-40">
-        <label className={labelCls}>Turi</label>
-        <Select value={f.t} onChange={(e) => apply({ t: e.target.value })}>
-          <option value="">Barchasi</option>
-          {types.map(([key, label]) => (
-            <option key={key} value={key}>
-              {label}
-            </option>
-          ))}
-        </Select>
-      </div>
+      {!hideType && (
+        <div className="w-40">
+          <label className={labelCls}>Turi</label>
+          <Select value={f.t} onChange={(e) => apply({ t: e.target.value })}>
+            <option value="">Barchasi</option>
+            {types.map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
 
       <div className="w-40">
         <label className={labelCls}>Ustuvorlik</label>

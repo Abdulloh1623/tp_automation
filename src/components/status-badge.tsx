@@ -139,6 +139,7 @@ const leadOutcomeTone: Record<string, BadgeTone> = {
   PAYMENT_REMINDED: "blue",
   FORWARDED: "slate",
   HAS_ISSUE: "amber",
+  NEEDS_UPDATE: "blue",
   NO_PROBLEM: "green",
   SUGGESTION: "blue",
   PAID: "green",

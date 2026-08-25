@@ -96,6 +96,7 @@ const OUTCOME_CELL: Record<string, string> = {
   PAYMENT_REMINDED: "text-primary-700 dark:text-primary-300",
   FORWARDED: "text-slate-600 dark:text-slate-300",
   HAS_ISSUE: "text-amber-700 dark:text-amber-300",
+  NEEDS_UPDATE: "text-sky-700 dark:text-sky-300",
   NO_PROBLEM: "text-emerald-700 dark:text-emerald-300",
   SUGGESTION: "text-primary-700 dark:text-primary-300",
   PAID: "text-emerald-700 dark:text-emerald-300",

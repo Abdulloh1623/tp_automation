@@ -183,6 +183,7 @@ export const TICKET_TYPE = {
   FEATURE: "Funksiya so'rovi",
   PAYMENT: "To'lov",
   TAX: "Soliq",
+  VERSION_UPDATE: "Yangi versiya",
 } as const;
 export type TicketType = keyof typeof TICKET_TYPE;
 
@@ -267,6 +268,7 @@ export const LEAD_OUTCOME = {
   PAID: "To'lov qildi",
   RESOLVED: "Muammo hal qilindi",
   RETURN_EQUIPMENT: "Uskuna qaytarish kerak",
+  NEEDS_UPDATE: "Yangi versiya o'rnatish kerak",
   REFUSED: "Otkaz (bekor qildi)",
   DEACTIVATED: "O'chirib qo'ydi",
 } as const;
@@ -291,6 +293,9 @@ export const OUTCOME_TO_STAGE: Record<LeadOutcome, LeadStage> = {
   PAID: "RESOLVED",
   RESOLVED: "RESOLVED",
   RETURN_EQUIPMENT: "RETURNING", // boshliqning qaytarish navbatiga
+  // "Yangi versiya o'rnatish kerak" — HAS_ISSUE bilan bir xil: Muammolar
+  // ("Yangi versiya" bo'limi) ichida ticket ochiladi, lid operatorda qoladi.
+  NEEDS_UPDATE: "ISSUE_OPEN",
   REFUSED: "REFUSED", // otkaz — bekor qilganlar bo'limiga
   DEACTIVATED: "DEACTIVATED",
 };

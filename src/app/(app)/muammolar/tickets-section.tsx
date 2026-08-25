@@ -1,5 +1,5 @@
 import { ClientQuickView } from "@/components/client-quick-view";
-import { Phone, Wrench, DownloadCloud, Inbox, UserCheck, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Phone, Wrench, DownloadCloud, Inbox, UserCheck, HardHat, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { SessionPayload } from "@/lib/session";
@@ -106,8 +106,10 @@ export async function TicketsSection({
 
   const where: Prisma.TicketWhereInput = { ...scope, AND: filterAnd };
 
-  // Bo'lim (Yangi/Biriktirilgan/Hal) sanog'i — endi filtrga MOS (turi/ustuvorlik/
-  // mas'ul tanlanganda tab sonlari ham shunga qarab o'zgaradi).
+  // Bo'lim (Yangi/TP xodimiga biriktirildi/Ustaga yetkazildi/Hal) sanog'i —
+  // endi filtrga MOS (turi/ustuvorlik/mas'ul tanlanganda tab sonlari ham
+  // shunga qarab o'zgaradi). Ketma-ketlik: mas'ul xodim biriktirilmaguncha
+  // "yangi", biriktirilgach "xodimga", usta ham qo'shilgach "ustaga".
   const unassignedScope: Prisma.TicketWhereInput = {
     ...scope,
     AND: filterAnd,
@@ -115,11 +117,18 @@ export async function TicketsSection({
     assignedStaffId: null,
     assignedUstaId: null,
   };
-  const assignedScope: Prisma.TicketWhereInput = {
+  const staffOnlyScope: Prisma.TicketWhereInput = {
     ...scope,
     AND: filterAnd,
     status: { not: "RESOLVED" },
-    OR: [{ assignedStaffId: { not: null } }, { assignedUstaId: { not: null } }],
+    assignedStaffId: { not: null },
+    assignedUstaId: null,
+  };
+  const withUstaScope: Prisma.TicketWhereInput = {
+    ...scope,
+    AND: filterAnd,
+    status: { not: "RESOLVED" },
+    assignedUstaId: { not: null },
   };
 
   const [
@@ -128,7 +137,8 @@ export async function TicketsSection({
     xodimlar,
     ustalarFull,
     yangiTotal,
-    biriktirilganTotal,
+    staffOnlyTotal,
+    ustaTotal,
     halTotal,
     slaBreached,
   ] = await Promise.all([
@@ -174,11 +184,12 @@ export async function TicketsSection({
     }),
     db.user.findMany({
       where: { role: "INSTALLER", isActive: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, phone: true },
       orderBy: { name: "asc" },
     }),
     db.ticket.count({ where: unassignedScope }),
-    db.ticket.count({ where: assignedScope }),
+    db.ticket.count({ where: staffOnlyScope }),
+    db.ticket.count({ where: withUstaScope }),
     db.ticket.count({ where: { ...scope, AND: filterAnd, status: "RESOLVED" } }),
     db.ticket.count({
       where: {
@@ -190,14 +201,18 @@ export async function TicketsSection({
     }),
   ]);
 
-  // Ko'rsatilayotgan (filtrlangan) ticketlarni uch bo'limga ajratamiz.
-  const isAssigned = (t: (typeof ticketsRaw)[number]) =>
-    !!t.assignedStaffId || !!t.assignedUstaId;
-  const yangi = ticketsRaw.filter((t) => t.status !== "RESOLVED" && !isAssigned(t));
-  const biriktirilgan = ticketsRaw.filter((t) => t.status !== "RESOLVED" && isAssigned(t));
+  // Ko'rsatilayotgan (filtrlangan) ticketlarni to'rt bosqichga ajratamiz:
+  // Yangi → TP xodimiga biriktirildi → Ustaga yetkazildi → Hal qilindi.
+  const yangi = ticketsRaw.filter(
+    (t) => t.status !== "RESOLVED" && !t.assignedStaffId && !t.assignedUstaId,
+  );
+  const staffAssigned = ticketsRaw.filter(
+    (t) => t.status !== "RESOLVED" && t.assignedStaffId && !t.assignedUstaId,
+  );
+  const withUsta = ticketsRaw.filter((t) => t.status !== "RESOLVED" && t.assignedUstaId);
   const hal = ticketsRaw.filter((t) => t.status === "RESOLVED");
 
-  const openCount = yangiTotal + biriktirilganTotal;
+  const openCount = yangiTotal + staffOnlyTotal + ustaTotal;
   const hasFilter = !!((!isVersion && type) || priority || assignee || usta || resolveType || from || to || q);
 
   // Bitta ticket kartasi — barcha tab'larda bir xil.
@@ -286,6 +301,9 @@ export async function TicketsSection({
             staff={t.assignedStaff ?? null}
             staffNote={t.staffNote}
             xodimlar={xodimlar}
+            usta={t.assignedUsta ?? null}
+            ustaNote={t.ustaNote}
+            ustalar={ustalarFull}
           />
         </div>
 
@@ -322,6 +340,9 @@ export async function TicketsSection({
     );
   }
 
+  // Bosqichlar: Yangi → TP xodimiga biriktirildi → Ustaga yetkazildi → Hal
+  // qilindi. OPERATOR "Yangi"ni ko'rmaydi — scope ularga faqat o'ziga
+  // biriktirilganlarni beradi, shuning uchun bo'sh tab foydasiz bo'lardi.
   const tabs: TicketTab[] = [];
   if (canAssign) {
     tabs.push({
@@ -334,16 +355,26 @@ export async function TicketsSection({
     });
   }
   tabs.push({
-    key: "biriktirilgan",
-    label: "Biriktirilgan",
+    key: "xodimga",
+    label: "TP xodimiga biriktirildi",
     icon: <UserCheck className="h-4 w-4" />,
     // Admin/menejerda sariq (nazorat), xodimda qizil (bajarilishi kutilmoqda)
     tone: canAssign ? "amber" : "red",
-    count: biriktirilganTotal,
+    count: staffOnlyTotal,
     content: panel(
-      biriktirilgan,
-      canAssign ? "Biriktirilgan (jarayondagi) muammo yo'q." : "Sizga biriktirilgan ochiq muammo yo'q.",
+      staffAssigned,
+      canAssign
+        ? "TP xodimiga biriktirilgan (ustaga yetkazilmagan) muammo yo'q."
+        : "Sizga biriktirilgan, ustaga yetkazilmagan muammo yo'q.",
     ),
+  });
+  tabs.push({
+    key: "ustaga",
+    label: "Ustaga yetkazildi",
+    icon: <HardHat className="h-4 w-4" />,
+    tone: "sky",
+    count: ustaTotal,
+    content: panel(withUsta, "Ustaga yetkazilgan muammo yo'q."),
   });
   tabs.push({
     key: "hal",
@@ -397,7 +428,7 @@ export async function TicketsSection({
               hint="Filtrga mos yozuv yo'q."
             />
           ) : (
-            <TicketTabs tabs={tabs} initialKey={canAssign ? "yangi" : "biriktirilgan"} />
+            <TicketTabs tabs={tabs} initialKey={canAssign ? "yangi" : "xodimga"} />
           )}
         </div>
 

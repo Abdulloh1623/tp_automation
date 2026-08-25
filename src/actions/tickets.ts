@@ -342,7 +342,9 @@ export async function assignTicketStaff(
 
 /**
  * Muammoga usta (integrator, joyida) biriktirish/olib tashlash — faqat boshliq/admin.
- * Mas'ul xodim bilan birga bo'lishi mumkin. `ustaId: null` — olib tashlaydi.
+ * Bosqichlar zanjirining oxirgi qadami: Yangi → TP xodimiga biriktirildi →
+ * Ustaga yetkazildi (`TicketIntegratorControl` mas'ul xodim tayinlangandan
+ * keyingina usta tanlovini ko'rsatadi). `ustaId: null` — olib tashlaydi.
  */
 export async function assignTicketUsta(
   ticketId: string,
@@ -389,7 +391,12 @@ export async function assignTicketUsta(
     if (!current) return { ok: false, error: "Muammo topilmadi" };
     const ticket = await db.ticket.update({
       where: { id: ticketId },
-      data: { assignedUstaId: ustaId, ustaNote: cleanNote, status: progressIfOpen(current.status) },
+      data: {
+        assignedUstaId: ustaId,
+        assigneeType: "USTA",
+        ustaNote: cleanNote,
+        status: progressIfOpen(current.status),
+      },
     });
     await db.callLog.create({
       data: {

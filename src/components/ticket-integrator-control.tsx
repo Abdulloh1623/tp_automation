@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Wrench, Monitor, Check, X } from "lucide-react";
-import { assignTicketStaff } from "@/actions/tickets";
+import { assignTicketStaff, assignTicketUsta } from "@/actions/tickets";
 import { toast } from "@/components/toaster";
 import { Button } from "@/components/ui/button";
 import { PhoneCopyButton } from "@/components/phone-copy";
@@ -142,9 +142,10 @@ function AssignRow({
 }
 
 /**
- * Muammoga mas'ul xodim biriktirish. Mas'ul xodim jarayonni nazorat qilib
- * yakunlaydi. (Usta biriktirish muammolar bo'limidan olib tashlangan — usta
- * yuborish eskalatsiya/qaytarish oqami orqali boshqariladi.)
+ * Muammo bosqichlari: Yangi → TP xodimiga biriktirildi → Ustaga yetkazildi →
+ * Hal qilindi. Mas'ul xodim (online nazorat) va usta (joyida hal etish)
+ * biriktiruvi shu yerda ketma-ket ko'rsatiladi — usta tanlovi FAQAT mas'ul
+ * xodim allaqachon biriktirilgan bo'lsa paydo bo'ladi, ketma-ketlik buzilmasin.
  */
 export function TicketIntegratorControl({
   ticketId,
@@ -152,21 +153,39 @@ export function TicketIntegratorControl({
   staff,
   staffNote,
   xodimlar,
+  usta,
+  ustaNote,
+  ustalar,
 }: {
   ticketId: string;
   canAssign: boolean;
   staff: Assigned;
   staffNote: string | null;
   xodimlar: IntegratorOpt[];
+  usta: Assigned;
+  ustaNote: string | null;
+  ustalar: IntegratorOpt[];
 }) {
   return (
-    <AssignRow
-      kind="XODIM"
-      assigned={staff}
-      note={staffNote}
-      options={xodimlar}
-      canAssign={canAssign}
-      action={(id, note) => assignTicketStaff(ticketId, id, note)}
-    />
+    <div className="space-y-2">
+      <AssignRow
+        kind="XODIM"
+        assigned={staff}
+        note={staffNote}
+        options={xodimlar}
+        canAssign={canAssign}
+        action={(id, note) => assignTicketStaff(ticketId, id, note)}
+      />
+      {(staff || usta) && (
+        <AssignRow
+          kind="USTA"
+          assigned={usta}
+          note={ustaNote}
+          options={ustalar}
+          canAssign={canAssign}
+          action={(id, note) => assignTicketUsta(ticketId, id, note)}
+        />
+      )}
+    </div>
   );
 }

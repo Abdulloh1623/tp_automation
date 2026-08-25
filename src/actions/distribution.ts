@@ -2,10 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { guardRole, requireSession } from "@/lib/auth";
+import { guardRole } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { isDutyRotationDay } from "@/lib/shift";
-import { startOfTzDay } from "@/lib/tz";
 import {
   ACTIVE_STAGES,
   isLeadProfileId,
@@ -25,60 +23,6 @@ export type DistributeState = {
 };
 
 export type FocusState = { ok: boolean; error?: string };
-
-export type DutyState = { ok: boolean; assigned?: number; operators?: number; error?: string };
-
-/**
- * Navbat kuni (yakshanba) "Bugun ishdaman" — operatorning o'zi ishga chiqqanini
- * belgilaydi va kunlik ro'yxatni O'SHA KUNI chiqqanlarga bo'lib beradi.
- *
- * Nega tugma: dushanba–shanba jadval qat'iy va taqsimot cron bo'yicha o'zi
- * ketadi, yakshanbada esa jamoa navbatni o'zaro kelishadi — tizim kim ishlashini
- * oldindan bila olmaydi. Cron o'sha kuni ishlamaydi (`scripts/bot.ts`), aks holda
- * ro'yxat ishga chiqmaganlarga ham bo'linib, ulushi kun bo'yi o'lik qolardi.
- *
- * Ikkinchi operator keyinroq chiqsa — tugmani u ham bosadi va taqsimot qayta
- * ishlaydi: bugun allaqachon ishlangan lidlar egasida qoladi (yadro shuni
- * kafolatlaydi), qolgani ikkiga bo'linadi.
- */
-export async function checkInDuty(): Promise<DutyState> {
-  const session = await requireSession();
-  if (session.role !== "OPERATOR") {
-    return { ok: false, error: "Faqat operator ishga chiqishini belgilaydi" };
-  }
-  if (!isDutyRotationDay()) {
-    return { ok: false, error: "Bugun navbat kuni emas — ro'yxat jadval bo'yicha taqsimlanadi" };
-  }
-
-  const date = startOfTzDay(0);
-  await db.dutyDay.upsert({
-    where: { userId_date: { userId: session.userId, date } },
-    create: { userId: session.userId, date },
-    update: {},
-  });
-
-  // Bugun chiqqanlarning HAMMASI — ro'yxat ular orasida bo'linadi.
-  const onDuty = await db.dutyDay.findMany({
-    where: { date },
-    select: { userId: true },
-  });
-
-  const res = await distributeLeadsCore(
-    undefined,
-    onDuty.map((d) => d.userId),
-  );
-  if (res.error) return { ok: false, error: res.error };
-
-  await logAudit("Navbat kuni: ishga chiqdi", {
-    entity: "User",
-    entityId: session.userId,
-    detail: `${session.name} · ${res.assigned} lid → ${res.operators} operator`,
-  });
-
-  revalidatePath("/lidlar");
-  revalidatePath("/analitika");
-  return { ok: true, assigned: res.assigned, operators: res.operators };
-}
 
 export type ReleaseState = { ok: boolean; released?: number; error?: string };
 

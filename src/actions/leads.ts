@@ -75,6 +75,36 @@ async function autoCreateTicket(clientId: string, note: string | null) {
 }
 
 /**
+ * Lid natijasi "Yangi versiya o'rnatish kerak" (NEEDS_UPDATE) bo'lsa —
+ * Muammolar bo'limining "Yangi versiya" sub-bo'limiga ticket ochadi. Boshqa
+ * turdagi ochiq ticket (masalan HAS_ISSUE) borligidan qat'i nazar yaratiladi —
+ * bu alohida, o'z navbati bilan kuzatiladigan so'rov turi.
+ */
+async function autoCreateVersionTicket(clientId: string, note: string | null) {
+  const open = await db.ticket.findFirst({
+    where: { clientId, type: "VERSION_UPDATE", status: { in: ["OPEN", "IN_PROGRESS"] } },
+    select: { id: true },
+  });
+  if (open) return;
+  const client = await db.client.findUnique({
+    where: { id: clientId },
+    select: { assignedToId: true },
+  });
+  const title = note?.trim() ? note.trim().slice(0, 300) : "Yangi versiya o'rnatish kerak";
+  await db.ticket.create({
+    data: {
+      clientId,
+      title,
+      type: "VERSION_UPDATE",
+      priority: "MEDIUM",
+      status: "OPEN",
+      assignedToId: client?.assignedToId ?? null,
+    },
+  });
+  revalidatePath("/muammolar");
+}
+
+/**
  * Lid natijasi "Taklif" (SUGGESTION) bo'lsa — admin/menejerdagi "Takliflar"
  * bo'limiga yozuv qo'shadi (mijoz bergan taklif matni bilan). Mijozda muammo yo'q.
  */
@@ -130,6 +160,18 @@ async function clearPristineAutoRecord(
       where: { clientId, status: "PENDING", createdAt: todayRange },
     });
     revalidatePath("/qaytarish");
+    revalidatePath("/muammolar");
+  } else if (outcome === "NEEDS_UPDATE") {
+    await db.ticket.deleteMany({
+      where: {
+        clientId,
+        type: "VERSION_UPDATE",
+        status: "OPEN",
+        assignedStaffId: null,
+        assignedUstaId: null,
+        createdAt: todayRange,
+      },
+    });
     revalidatePath("/muammolar");
   }
 }
@@ -404,6 +446,9 @@ export async function saveLeadCell(
   }
   if (outcome === "HAS_ISSUE") {
     await autoCreateTicket(clientId, note);
+  }
+  if (outcome === "NEEDS_UPDATE") {
+    await autoCreateVersionTicket(clientId, note);
   }
   if (outcome === "SUGGESTION") {
     await autoCreateSuggestion(clientId, session.userId, note ?? "");

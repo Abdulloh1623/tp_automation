@@ -34,6 +34,7 @@ const ROUTE_ROLES: { prefix: string; roles: Role[] }[] = [
   { prefix: "/hisobot", roles: ["ADMIN", "MANAGER"] },
   { prefix: "/moliya", roles: ["ADMIN", "MANAGER"] },
   { prefix: "/foydalanuvchilar", roles: ["ADMIN"] },
+  { prefix: "/ish-jadvali", roles: ["ADMIN"] },
   { prefix: "/audit", roles: ["ADMIN"] },
   { prefix: "/import", roles: ["ADMIN"] }, // eski manzil — /malumotlar ga yo'naltiradi
   { prefix: "/malumotlar", roles: ["ADMIN"] },

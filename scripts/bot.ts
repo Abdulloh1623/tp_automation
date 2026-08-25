@@ -7,7 +7,7 @@ import "dotenv/config";
 import { writeFileSync } from "fs";
 import cron from "node-cron";
 import { db } from "../src/lib/db";
-import { sendToChannel, sendAlbumToChannel, telegramEnabled, channelId } from "../src/lib/telegram";
+import { sendToChannel, sendAlbumToChannel, sendMessage, telegramEnabled, channelId } from "../src/lib/telegram";
 import { buildReport, buildReportAlbum, type ReportKind, startOfTzDay } from "../src/lib/reports";
 import { SHIFT_REPORT } from "../src/lib/constants";
 import { createBackup } from "../src/lib/backup";
@@ -89,8 +89,12 @@ async function runDistribute(shift?: "DAY" | "NIGHT") {
   const tag = shift ? `taqsimot[${shift}]` : "taqsimot";
   try {
     const r = await withRetry(tag, () => distributeLeadsCore(shift));
-    if (r.error) log(`${tag}:`, r.error);
-    else
+    if (r.error) {
+      log(`${tag}:`, r.error);
+      // Rejalashtirilgan (smenali) chaqiruvda jadval bo'sh bo'lsa — bu jimgina
+      // o'tib ketmasin, admin ko'rmasa kunlik ro'yxat hech kimga bo'linmay qoladi.
+      if (shift) await alertEmptyRoster(shift, r.error);
+    } else
       log(
         `${tag} → ${r.assigned} mijoz ${r.operators} operatorga` +
           (r.released ? ` (tugagan smenadan olindi: ${r.released})` : ""),
@@ -98,6 +102,27 @@ async function runDistribute(shift?: "DAY" | "NIGHT") {
   } catch (e) {
     log(`${tag} XATO:`, e instanceof Error ? e.message : e);
     await reportError(e, { source: "worker", path: "distribute", notifyTransient: true });
+  }
+}
+
+/** Rejalashtirilgan taqsimot bo'sh jadval sababli ishlamasa — adminlarga DM. */
+async function alertEmptyRoster(shift: "DAY" | "NIGHT", error: string) {
+  const admins = await db.user.findMany({
+    where: { role: "ADMIN", isActive: true, telegramId: { not: null } },
+    select: { telegramId: true },
+  });
+  const text = `⚠️ Kunlik taqsimot ishlamadi: ${error}`;
+  if (admins.length === 0) {
+    await sendToChannel(text);
+    return;
+  }
+  for (const a of admins) {
+    if (!a.telegramId) continue;
+    try {
+      await sendMessage(a.telegramId, text);
+    } catch {
+      /* eng yaxshi harakat */
+    }
   }
 }
 
@@ -282,17 +307,16 @@ async function main() {
   // Eslatmalar: ertalab to'liq (operator + boshliq), tushdan keyin operatorlarga eslatish
   cron.schedule("30 9 * * *", () => runReminders(false), { timezone: TZ });
   cron.schedule("0 15 * * *", () => runReminders(true), { timezone: TZ });
-  // Taqsimot smena boshlanishidan oldin: kunduzgi 08:00, kechki 18:00.
+  // Taqsimot smena boshlanishidan oldin: kunduzgi 08:00, kechki 18:00 — HAR
+  // KUNI (yakshanba ham), chunki kim ishlashi endi ADMIN kunlik jadvalidan
+  // (`DutyDay`, `/ish-jadvali`) olinadi — haftaning kuniga bog'liq maxsus
+  // holat yo'q. Admin o'sha kunga jadval qo'ymagan bo'lsa, yadro shunchaki
+  // "hech kim tayinlanmagan" xatosini qaytaradi (log'da ko'rinadi).
+  //
   // Kechki taqsimotda kunduzgi smena ULGURMAGAN (tegilmagan) lidlar bo'shatilib
   // kechki smenaga o'tadi — kun oxirida ular yo'qolib qolmaydi.
-  //
-  // DUSHANBA–SHANBA (`1-6`) — yakshanbada jadval emas, kelishuv ishlaydi:
-  // o'sha kuni kim ishga chiqishini tizim oldindan bilmaydi, shuning uchun
-  // avtomatik taqsimot qilinmaydi (aks holda ro'yxat ishga chiqmaganlarga ham
-  // bo'linib, ulushi kun bo'yi o'lik qolardi). Yakshanbada operator /lidlar da
-  // "Bugun ishdaman" tugmasini bosadi (`checkInDuty`).
-  cron.schedule("0 8 * * 1-6", () => runDistribute("DAY"), { timezone: TZ });
-  cron.schedule("0 18 * * 1-6", () => runDistribute("NIGHT"), { timezone: TZ });
+  cron.schedule("0 8 * * *", () => runDistribute("DAY"), { timezone: TZ });
+  cron.schedule("0 18 * * *", () => runDistribute("NIGHT"), { timezone: TZ });
   // 3-kunlik SLA ogohlantirishi — har kuni 10:00
   cron.schedule("0 10 * * *", () => runSla(), { timezone: TZ });
   // Biznex obuna flaglari — jim churn ogohlantirishidan oldin yangilansin (06:00)

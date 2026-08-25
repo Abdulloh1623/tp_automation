@@ -120,4 +120,53 @@ describe("saveLeadCell — xato natijadan o'tish avto-yozuvni tozalaydi", () => 
 
     expect(await openTickets(client.id)).toBe(1);
   });
+
+  it("NEEDS_UPDATE — 'Yangi versiya' ticket ochadi (izohsiz ham)", async () => {
+    const op = await makeUser("OPERATOR");
+    await loginAs(op);
+    const client = await makeClient({ assignedToId: op.id });
+
+    // HAS_ISSUE'dan farqli — izoh majburiy EMAS.
+    const res = await saveLeadCell(client.id, "NEEDS_UPDATE", null);
+
+    expect(res.error).toBeFalsy();
+    const ticket = await db.ticket.findFirst({ where: { clientId: client.id } });
+    expect(ticket?.type).toBe("VERSION_UPDATE");
+    expect(ticket?.title).toBe("Yangi versiya o'rnatish kerak");
+  });
+
+  it("NEEDS_UPDATE → NO_PROBLEM: xato versiya ticket o'chadi", async () => {
+    const op = await makeUser("OPERATOR");
+    await loginAs(op);
+    const client = await makeClient({ assignedToId: op.id });
+
+    await saveLeadCell(client.id, "NEEDS_UPDATE", null);
+    expect(await openTickets(client.id)).toBe(1);
+
+    await saveLeadCell(client.id, "NO_PROBLEM", "xato bosildi");
+
+    expect(await openTickets(client.id)).toBe(0);
+  });
+
+  it("avvaldan ochiq HAS_ISSUE ticket NEEDS_UPDATE yaratilishiga to'sqinlik qilmaydi", async () => {
+    const op = await makeUser("OPERATOR");
+    await loginAs(op);
+    const client = await makeClient({ assignedToId: op.id });
+
+    // Boshqa kundan qolgan, allaqachon ochiq texnik muammo (biriktirilgan —
+    // pristine emas, shuning uchun bugungi natija almashsa ham o'chmaydi).
+    await db.ticket.create({
+      data: {
+        clientId: client.id,
+        title: "eski texnik muammo",
+        type: "TECHNICAL",
+        status: "IN_PROGRESS",
+        assignedStaffId: op.id,
+      },
+    });
+
+    await saveLeadCell(client.id, "NEEDS_UPDATE", "yangi versiya kerak");
+
+    expect(await openTickets(client.id)).toBe(2);
+  });
 });

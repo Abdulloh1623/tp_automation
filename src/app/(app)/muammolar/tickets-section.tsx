@@ -1,5 +1,5 @@
 import { ClientQuickView } from "@/components/client-quick-view";
-import { Phone, Wrench, Inbox, UserCheck, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Phone, Wrench, DownloadCloud, Inbox, UserCheck, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { SessionPayload } from "@/lib/session";
@@ -23,6 +23,7 @@ import { formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 import { slaThreshold } from "@/lib/sla";
 import { tzDayStartFromInput } from "@/lib/tz";
 import { assignedStaffScope, isManagerRole } from "@/lib/visibility";
+import type { Bolim } from "./section-tabs";
 
 // Hal qilingan bo'limida ko'rsatiladigan maksimal karta (tarix o'smasin).
 const RESOLVED_RENDER_CAP = 30;
@@ -36,6 +37,7 @@ const PRIORITY_ACCENT: Record<string, string> = {
 
 export async function TicketsSection({
   session,
+  bolim = "muammo",
   type,
   priority,
   assignee,
@@ -46,6 +48,8 @@ export async function TicketsSection({
   q,
 }: {
   session: SessionPayload;
+  /** "versiya" bo'lsa turi "Yangi versiya"ga qulflanadi (filtr ko'rsatilmaydi). */
+  bolim?: Bolim;
   type?: string;
   priority?: string;
   assignee?: string;
@@ -55,6 +59,11 @@ export async function TicketsSection({
   to?: string;
   q?: string;
 }) {
+  const isVersion = bolim === "versiya";
+  // "Muammolar" bo'limida "Yangi versiya" turi tanlanmaydi (o'z sub-bo'limi bor).
+  const selectableTypes = Object.entries(TICKET_TYPE).filter(
+    ([k]) => isVersion || k !== "VERSION_UPDATE",
+  );
   const canAssign = isManagerRole(session.role);
 
   // TP xodim (OPERATOR) faqat o'ziga maxsus xodim qilib biriktirilgan
@@ -65,7 +74,12 @@ export async function TicketsSection({
   // AND massivida saqlanadi: mas'ul filtri OR ishlatgani uchun bo'lim
   // scope'laridagi (Yangi/Biriktirilgan) OR bilan to'qnashmasin.
   const filterAnd: Prisma.TicketWhereInput[] = [];
-  if (type) filterAnd.push({ type });
+  // "Yangi versiya" bo'limida turi har doim VERSION_UPDATE'ga qulflangan —
+  // URL orqali (masalan eski havola) boshqa turi kirib qolsa ham e'tiborsiz.
+  // "Muammolar" bo'limida esa VERSION_UPDATE hech qachon ko'rinmaydi — u o'z
+  // sub-bo'limiga ega (aks holda ikkalasida ham dublikat ko'rinardi).
+  if (isVersion) filterAnd.push({ type: "VERSION_UPDATE" });
+  else filterAnd.push({ type: type && type !== "VERSION_UPDATE" ? type : { not: "VERSION_UPDATE" } });
   if (priority) filterAnd.push({ priority });
   // Mas'ul xodim bo'yicha filtr — faqat boshqaruv rollari uchun.
   if (assignee && canAssign) {
@@ -184,7 +198,7 @@ export async function TicketsSection({
   const hal = ticketsRaw.filter((t) => t.status === "RESOLVED");
 
   const openCount = yangiTotal + biriktirilganTotal;
-  const hasFilter = !!(type || priority || assignee || usta || resolveType || from || to || q);
+  const hasFilter = !!((!isVersion && type) || priority || assignee || usta || resolveType || from || to || q);
 
   // Bitta ticket kartasi — barcha tab'larda bir xil.
   function ticketCard(t: (typeof ticketsRaw)[number]) {
@@ -358,7 +372,8 @@ export async function TicketsSection({
         <div className={`space-y-5 ${canAssign ? "lg:col-span-2" : "lg:col-span-3"}`}>
           <Card className="p-4">
             <TicketFilter
-              type={type ?? ""}
+              bolim={bolim}
+              type={isVersion ? "" : (type ?? "")}
               priority={priority ?? ""}
               assignee={assignee ?? ""}
               usta={usta ?? ""}
@@ -366,16 +381,21 @@ export async function TicketsSection({
               from={from ?? ""}
               to={to ?? ""}
               q={q ?? ""}
-              types={Object.entries(TICKET_TYPE)}
+              types={selectableTypes}
               priorities={Object.entries(TICKET_PRIORITY)}
               xodimlar={xodimlar}
               ustalar={ustalarFull}
               canAssign={canAssign}
+              hideType={isVersion}
             />
           </Card>
 
           {ticketsRaw.length === 0 && hasFilter ? (
-            <EmptyState icon={Wrench} title="Muammo topilmadi" hint="Filtrga mos muammo yo'q." />
+            <EmptyState
+              icon={isVersion ? DownloadCloud : Wrench}
+              title={isVersion ? "Versiya so'rovi topilmadi" : "Muammo topilmadi"}
+              hint="Filtrga mos yozuv yo'q."
+            />
           ) : (
             <TicketTabs tabs={tabs} initialKey={canAssign ? "yangi" : "biriktirilgan"} />
           )}
@@ -386,10 +406,14 @@ export async function TicketsSection({
           <div>
             <Card>
               <CardHeader>
-                <CardTitle>Yangi muammo</CardTitle>
+                <CardTitle>{isVersion ? "Yangi versiya so'rovi" : "Yangi muammo"}</CardTitle>
               </CardHeader>
               <CardContent>
-                <TicketForm clients={clients} />
+                <TicketForm
+                  clients={clients}
+                  defaultType={isVersion ? "VERSION_UPDATE" : undefined}
+                  types={selectableTypes}
+                />
               </CardContent>
             </Card>
           </div>

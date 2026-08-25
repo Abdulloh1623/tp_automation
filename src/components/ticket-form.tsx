@@ -18,9 +18,14 @@ const initialState: TicketFormState = {};
 export function TicketForm({
   clientId,
   clients,
+  defaultType,
+  types,
 }: {
   clientId?: string;
   clients?: ClientOption[];
+  defaultType?: string;
+  /** Tanlanadigan turlar ro'yxati (standart — barcha TICKET_TYPE). */
+  types?: [string, string][];
 }) {
   const [state, formAction, pending] = useActionState(
     createTicket,
@@ -76,8 +81,8 @@ export function TicketForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <Label htmlFor="type">Turi</Label>
-          <Select id="type" name="type" defaultValue="TECHNICAL">
-            {Object.entries(TICKET_TYPE).map(([key, label]) => (
+          <Select id="type" name="type" defaultValue={defaultType ?? "TECHNICAL"}>
+            {(types ?? Object.entries(TICKET_TYPE)).map(([key, label]) => (
               <option key={key} value={key}>
                 {label}
               </option>

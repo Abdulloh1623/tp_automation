@@ -60,6 +60,7 @@ export const DEFAULT_RECALL_RULES: RecallRules = {
   PAID: { mode: "DAYS", days: 3 },
   RESOLVED: { mode: "DAYS", days: 1 },
   RETURN_EQUIPMENT: { mode: "NONE", days: 0 }, // uskuna qaytarish navbatiga
+  NEEDS_UPDATE: { mode: "DAYS", days: 1 }, // ticket ochiladi, operator o'zi kuzatadi
   REFUSED: { mode: "NONE", days: 0 },
   DEACTIVATED: { mode: "DAYS", days: 1 }, // qaytarib olishga urinamiz
 };

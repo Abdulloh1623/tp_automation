@@ -1,15 +1,16 @@
 import Link from "next/link";
-import { Wrench, AlertTriangle, PackageCheck } from "lucide-react";
+import { Wrench, AlertTriangle, PackageCheck, DownloadCloud } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type Bolim = "muammo" | "eskalatsiya" | "qaytarish";
+export type Bolim = "muammo" | "eskalatsiya" | "qaytarish" | "versiya";
 
-type Tone = "red" | "amber" | "violet";
+type Tone = "red" | "amber" | "violet" | "sky";
 
 const SECTIONS: { key: Bolim; label: string; icon: typeof Wrench; tone: Tone }[] = [
   { key: "muammo", label: "Muammolar", icon: Wrench, tone: "red" },
   { key: "eskalatsiya", label: "Eskalatsiya", icon: AlertTriangle, tone: "amber" },
   { key: "qaytarish", label: "Qaytarish", icon: PackageCheck, tone: "violet" },
+  { key: "versiya", label: "Yangi versiya", icon: DownloadCloud, tone: "sky" },
 ];
 
 const ACTIVE_TONE: Record<Tone, string> = {
@@ -18,12 +19,14 @@ const ACTIVE_TONE: Record<Tone, string> = {
     "border-amber-500 text-amber-700 bg-amber-50 dark:border-amber-400 dark:text-amber-300 dark:bg-amber-950/40",
   violet:
     "border-violet-500 text-violet-700 bg-violet-50 dark:border-violet-400 dark:text-violet-300 dark:bg-violet-950/40",
+  sky: "border-sky-500 text-sky-700 bg-sky-50 dark:border-sky-400 dark:text-sky-300 dark:bg-sky-950/40",
 };
 
 const BADGE_TONE: Record<Tone, string> = {
   red: "bg-red-500/15 text-red-700 dark:text-red-300",
   amber: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
   violet: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
+  sky: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
 };
 
 /**

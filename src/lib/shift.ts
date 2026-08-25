@@ -13,20 +13,6 @@ import { TZ_MIN, tzTimeAt } from "./tz";
 
 export const SHIFT_HOURS = { dayStart: 9, dayEnd: 18 } as const;
 
-/**
- * Navbat (kelishuv) kuni — YAKSHANBA. Dushanba–shanba jadval qat'iy: kunduzgi
- * smena va kechki smena o'z xodimlari bilan ishlaydi, taqsimot cron bo'yicha
- * o'zi ketadi. Yakshanbada esa kim ishlashi oldindan ma'lum emas (jamoa o'zaro
- * kelishadi), shuning uchun avtomatik taqsimot O'TKAZIB YUBORILADI va ro'yxat
- * faqat "Bugun ishdaman" degan operator(lar)ga bo'linadi.
- *
- * Hafta kuni UTC+5 bo'yicha olinadi — server lokal vaqtiga tayanilmaydi
- * (soat 00:00–05:00 oralig'ida UTC hali oldingi kunda bo'ladi).
- */
-export function isDutyRotationDay(now: Date = new Date()): boolean {
-  return new Date(now.getTime() + TZ_MIN * 60000).getUTCDay() === 0;
-}
-
 /** UTC+5 bo'yicha soat (0–23). */
 function tzHour(d: Date): number {
   return new Date(d.getTime() + TZ_MIN * 60000).getUTCHours();

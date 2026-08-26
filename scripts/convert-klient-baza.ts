@@ -44,15 +44,19 @@ type SheetMap = {
   sold: number;
   desc: number;
   monoblok: number;
+  /** Sheet1'da alohida "Kafe nomi" ustuni bor (boshqa varaqda yo'q). */
+  restaurantName?: number;
   status: "ACTIVE" | "INACTIVE";
   out: string;
 };
 
 const MAPS: SheetMap[] = [
   {
+    // 2026-08-26: sheet qayta tuzilgan — Kafe nomi/Viloyat/Aniq manzil ustunlari
+    // qo'shilib hammasi siljigan. Ustun tartibini har importda tekshir.
     name: "Sheet1",
-    fio: 0, contractDate: 1, amount: 2, newAmount: 3, usta: 6,
-    phone: 7, contract: 8, sold: 10, desc: 11, monoblok: 12,
+    fio: 0, restaurantName: 1, contractDate: 6, amount: 7, newAmount: 8, usta: 5,
+    phone: 4, contract: 11, sold: 13, desc: 14, monoblok: 15,
     status: "ACTIVE",
     out: "klient-baza-faol.csv",
   },
@@ -183,7 +187,9 @@ function convert(map: SheetMap, rows: unknown[][], useOldPrice: boolean) {
     }
     seen.add(phone);
 
-    const { name, venue } = nameAndVenue(rawName);
+    const explicitVenue = cell(r, map.restaurantName);
+    const { name, venue: parsedVenue } = nameAndVenue(rawName);
+    const venue = explicitVenue || parsedVenue;
     const base = money(cell(r, map.amount));
     const updated = map.newAmount !== undefined ? money(cell(r, map.newAmount)) : 0;
     // Sheet1 da ikkita narx ustuni bor: "TOLOV MIQDORI" (shartnomadagi) va

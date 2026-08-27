@@ -59,36 +59,31 @@ export type FinanceOverview = {
   months: MonthPoint[];
 };
 
-/** Kun boshiga tenglashtirilgan bugungi sana. */
-function startOfToday(): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
 function daysBetween(from: Date, to: Date): number {
   return Math.floor((to.getTime() - from.getTime()) / 86_400_000);
 }
 
-/**
- * Moliyaviy panel uchun barcha ko'rsatkich — bitta mijozlar so'rovidan.
- * @param monthsBack necha oy dinamikasi (default 12).
- */
-export async function getFinanceOverview(monthsBack = 12): Promise<FinanceOverview> {
-  const clients = await db.client.findMany({
-    select: {
-      status: true,
-      stage: true,
-      currency: true,
-      monthlyAmount: true,
-      nextPaymentDate: true,
-      createdAt: true,
-      deactivatedAt: true,
-    },
-  });
+export type FinanceClientRow = {
+  status: string;
+  stage: string;
+  currency: string;
+  monthlyAmount: number;
+  nextPaymentDate: Date | null;
+  createdAt: Date;
+  deactivatedAt: Date | null;
+};
 
-  const now = new Date();
-  const today = startOfToday();
+/**
+ * Moliyaviy ko'rsatkichlarning sof hisob-kitob qismi — bazasiz, test qilinadi.
+ * `getFinanceOverview` shu funksiyani mijozlar ro'yxati bilan chaqiradi.
+ */
+export function computeFinanceOverview(
+  clients: FinanceClientRow[],
+  monthsBack = 12,
+  now: Date = new Date(),
+): FinanceOverview {
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
 
   // --- Joriy holat ---
   const mrr = emptyMoney();
@@ -192,4 +187,23 @@ export async function getFinanceOverview(monthsBack = 12): Promise<FinanceOvervi
     aging: [buckets.b30, buckets.b60, buckets.b90, buckets.b90plus],
     months,
   };
+}
+
+/**
+ * Moliyaviy panel uchun barcha ko'rsatkich — bitta mijozlar so'rovidan.
+ * @param monthsBack necha oy dinamikasi (default 12).
+ */
+export async function getFinanceOverview(monthsBack = 12): Promise<FinanceOverview> {
+  const clients = await db.client.findMany({
+    select: {
+      status: true,
+      stage: true,
+      currency: true,
+      monthlyAmount: true,
+      nextPaymentDate: true,
+      createdAt: true,
+      deactivatedAt: true,
+    },
+  });
+  return computeFinanceOverview(clients, monthsBack);
 }

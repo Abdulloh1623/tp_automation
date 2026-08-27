@@ -53,59 +53,59 @@ type NavSection = { title?: string; items: NavItem[] };
 const NAV_SECTIONS: NavSection[] = [
   {
     items: [
-      { href: "/", label: "Boshqaruv paneli", icon: LayoutDashboard, roles: ["ADMIN"] },
-      { href: "/lidlar", label: "Kunlik ish", icon: PhoneCall, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
+      { href: "/", label: "Boshqaruv paneli", icon: LayoutDashboard, roles: ["ADMIN", "VIEWER"] },
+      { href: "/lidlar", label: "Kunlik ish", icon: PhoneCall, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
     ],
   },
   {
     title: "Mijozlar",
     items: [
-      { href: "/mijozlar", label: "Mijozlar", icon: Users, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
-      { href: "/muammoli-mijozlar", label: "Muammoli mijozlar", icon: UserX, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
-      { href: "/tolovlar", label: "To'lovlar", icon: CreditCard, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
+      { href: "/mijozlar", label: "Mijozlar", icon: Users, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
+      { href: "/muammoli-mijozlar", label: "Muammoli mijozlar", icon: UserX, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
+      { href: "/tolovlar", label: "To'lovlar", icon: CreditCard, roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
     ],
   },
   {
     title: "Xizmat",
     items: [
-      { href: "/muammolar", label: "Muammolar", icon: Wrench, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
-      { href: "/malumotnoma", label: "Ustalar va narxlar", icon: BookOpen, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
-      { href: "/soliq", label: "Soliqqa ulash", icon: Landmark, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
-      { href: "/otkaz", label: "Otkaz", icon: Ban, roles: ["ADMIN", "MANAGER", "OPERATOR"] },
-      { href: "/takliflar", label: "Takliflar", icon: Lightbulb, roles: ["ADMIN", "MANAGER"] },
+      { href: "/muammolar", label: "Muammolar", icon: Wrench, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
+      { href: "/malumotnoma", label: "Ustalar va narxlar", icon: BookOpen, roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
+      { href: "/soliq", label: "Soliqqa ulash", icon: Landmark, roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
+      { href: "/otkaz", label: "Otkaz", icon: Ban, roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
+      { href: "/takliflar", label: "Takliflar", icon: Lightbulb, roles: ["ADMIN", "MANAGER", "VIEWER"] },
     ],
   },
   {
     title: "Ombor",
     items: [
-      { href: "/ombor", label: "Ombor", icon: Warehouse, roles: ["ADMIN", "MANAGER"] },
-      { href: "/ustalar", label: "Ustalar", icon: HardHat, roles: ["ADMIN", "MANAGER"] },
-      { href: "/uskuna-analitika", label: "Uskuna analitikasi", icon: PackageSearch, roles: ["ADMIN", "MANAGER"] },
+      { href: "/ombor", label: "Ombor", icon: Warehouse, roles: ["ADMIN", "MANAGER", "VIEWER"] },
+      { href: "/ustalar", label: "Ustalar", icon: HardHat, roles: ["ADMIN", "MANAGER", "VIEWER"] },
+      { href: "/uskuna-analitika", label: "Uskuna analitikasi", icon: PackageSearch, roles: ["ADMIN", "MANAGER", "VIEWER"] },
     ],
   },
   {
     title: "Tahlil",
     items: [
-      { href: "/analitika", label: "Jonli analitika", icon: Activity, roles: ["ADMIN", "MANAGER"] },
-      { href: "/moliya", label: "Moliya", icon: Wallet, roles: ["ADMIN", "MANAGER"] },
-      { href: "/hisobot", label: "Hisobot", icon: BarChart3, roles: ["ADMIN", "MANAGER"] },
+      { href: "/analitika", label: "Jonli analitika", icon: Activity, roles: ["ADMIN", "MANAGER", "VIEWER"] },
+      { href: "/moliya", label: "Moliya", icon: Wallet, roles: ["ADMIN", "MANAGER", "VIEWER"] },
+      { href: "/hisobot", label: "Hisobot", icon: BarChart3, roles: ["ADMIN", "MANAGER", "VIEWER"] },
     ],
   },
   {
     title: "Boshqaruv",
     items: [
-      { href: "/foydalanuvchilar", label: "Foydalanuvchilar", icon: UserCog, roles: ["ADMIN"] },
+      { href: "/foydalanuvchilar", label: "Foydalanuvchilar", icon: UserCog, roles: ["ADMIN", "VIEWER"] },
       { href: "/ish-jadvali", label: "Ish jadvali", icon: CalendarClock, roles: ["ADMIN"] },
-      { href: "/audit", label: "Audit", icon: ScrollText, roles: ["ADMIN"] },
+      { href: "/audit", label: "Audit", icon: ScrollText, roles: ["ADMIN", "VIEWER"] },
       { href: "/malumotlar", label: "Ma'lumotlar", icon: Database, roles: ["ADMIN"] },
       { href: "/sozlamalar", label: "Sozlamalar", icon: SlidersHorizontal, roles: ["ADMIN"] },
     ],
   },
   {
     items: [
-      { href: "/faq", label: "FAQ", icon: HelpCircle, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
-      { href: "/bildirishnomalar", label: "Bildirishnomalar", icon: Bell, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
-      { href: "/profil", label: "Profil", icon: CircleUser, roles: ["ADMIN", "OPERATOR", "MANAGER"] },
+      { href: "/faq", label: "FAQ", icon: HelpCircle, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
+      { href: "/bildirishnomalar", label: "Bildirishnomalar", icon: Bell, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
+      { href: "/profil", label: "Profil", icon: CircleUser, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
     ],
   },
 ];

@@ -75,7 +75,7 @@ function Kpi({
 }
 
 export default async function ReportsPage() {
-  await requireRole(["ADMIN", "MANAGER"]);
+  await requireRole(["ADMIN", "MANAGER", "VIEWER"]);
   const monthStart = startOfMonth(new Date());
 
   const [

@@ -468,7 +468,7 @@ export default async function UskunaAnalitikaPage({
 }: {
   searchParams: Promise<{ oy?: string; kart?: string }>;
 }) {
-  await requireRole(["ADMIN", "MANAGER"]);
+  await requireRole(["ADMIN", "MANAGER", "VIEWER"]);
   const sp = await searchParams;
   const parsed = parseInt(sp.oy ?? "12", 10);
   const months = WINDOWS.includes(parsed) ? parsed : 12;

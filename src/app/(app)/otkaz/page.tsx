@@ -6,7 +6,7 @@ import { resolveClientUsta } from "@/lib/usta-region";
 import { expectedRentalValue } from "@/lib/inventory-stats";
 
 export default async function RefusedPage() {
-  const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR"]);
+  const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR", "VIEWER"]);
   // Operator faqat ko'radi (telefon/izoh) — orqaga qaytarish boshliqda
   const isManager = ["ADMIN", "MANAGER"].includes(session.role);
 

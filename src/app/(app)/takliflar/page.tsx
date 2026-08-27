@@ -7,7 +7,7 @@ import { formatDateTime } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function SuggestionsPage() {
-  await requireRole(["ADMIN", "MANAGER"]);
+  await requireRole(["ADMIN", "MANAGER", "VIEWER"]);
 
   const suggestions = await db.suggestion.findMany({
     orderBy: [{ status: "asc" }, { createdAt: "desc" }], // OPEN oldin, so'ng yangi

@@ -36,7 +36,7 @@ export default async function ClientsPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const session = await requireRole(["ADMIN", "OPERATOR", "MANAGER"]);
+  const session = await requireRole(["ADMIN", "OPERATOR", "MANAGER", "VIEWER"]);
   const canManage = session.role === "ADMIN" || session.role === "MANAGER";
   const sp = await searchParams;
 

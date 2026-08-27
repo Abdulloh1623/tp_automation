@@ -13,6 +13,8 @@ function call(over: Partial<WeekCall> & { calledAt: Date }): WeekCall {
     result: over.result ?? "TALKED",
     note: over.note ?? null,
     calledAt: over.calledAt,
+    stage: over.stage ?? "NEW",
+    status: over.status ?? "ACTIVE",
   };
 }
 
@@ -53,6 +55,15 @@ describe("groupCallsByDay", () => {
     expect(item.result, "kundagi OXIRGI natija").toBe("WILL_PAY");
     expect(item.resultLabel).toBe("To'lov qiladi");
     expect(item.talked).toBe(true);
+  });
+
+  it("mijozning HOZIRGI bosqichi/holati o'tkaziladi (o'sha kungi emas)", () => {
+    const days = groupCallsByDay(
+      [call({ calledAt: new Date("2026-08-03T04:00:00.000Z"), stage: "ESCALATED", status: "ACTIVE" })],
+      NOW,
+    );
+    expect(days[0].items[0].stage).toBe("ESCALATED");
+    expect(days[0].items[0].status).toBe("ACTIVE");
   });
 
   it("kun sarlavhasida gaplashilganlar alohida sanaladi", () => {

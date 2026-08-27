@@ -10,8 +10,9 @@ export const dynamic = "force-dynamic";
 // savol/yechim qo'sha oladi; tahrir/o'chirish faqat ADMIN qo'lida (action'da
 // guardRole bilan qat'iy). RBAC: `/faq` → ROUTE_ROLES (lib/rbac.ts).
 export default async function FaqPage() {
-  const session = await requireRole(["ADMIN", "OPERATOR", "MANAGER"]);
+  const session = await requireRole(["ADMIN", "OPERATOR", "MANAGER", "VIEWER"]);
   const isAdmin = session.role === "ADMIN";
+  const canCreate = session.role !== "VIEWER";
 
   const rows = await db.faqEntry.findMany({
     orderBy: { createdAt: "desc" },
@@ -40,13 +41,15 @@ export default async function FaqPage() {
             FAQ — savol-javob
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Ko'p uchraydigan muammolar va ularning yechimi. Istalgan xodim yangi
-            savol qo'sha oladi{isAdmin ? "" : "; tahrir/o'chirish — faqat admin"}.
+            Ko'p uchraydigan muammolar va ularning yechimi.
+            {canCreate
+              ? ` Istalgan xodim yangi savol qo'sha oladi${isAdmin ? "" : "; tahrir/o'chirish — faqat admin"}.`
+              : " Kuzatuvchi rolida faqat ko'rish mumkin."}
           </p>
         </div>
       </div>
 
-      <FaqList items={items} isAdmin={isAdmin} canCreate />
+      <FaqList items={items} isAdmin={isAdmin} canCreate={canCreate} />
     </div>
   );
 }

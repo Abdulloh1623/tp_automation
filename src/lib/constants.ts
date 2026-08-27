@@ -76,6 +76,9 @@ export const USER_ROLE = {
   MANAGER: "Texnik bo'lim boshlig'i",
   OPERATOR: "Texnik xodim",
   INSTALLER: "Usta",
+  // Admin bilan bir xil ko'rish huquqi, lekin hech narsa o'zgartira olmaydi
+  // (server action'lardagi ruxsat ro'yxatlariga ATAYIN kiritilmagan).
+  VIEWER: "Kuzatuvchi",
 } as const;
 export type UserRole = keyof typeof USER_ROLE;
 

@@ -52,6 +52,13 @@ describe("cardRequestCaption", () => {
     expect(cardRequestCaption(base)).not.toContain("📝");
     expect(cardRequestCaption({ ...base, note: "oldindan" })).toContain("📝 oldindan");
   });
+
+  it("vaqt UTC+5 (Toshkent) bo'yicha, Intl'siz hisoblanadi", () => {
+    // 09:32 UTC -> 14:32 Toshkent. Node'ning standart (small-icu) qurilishida
+    // `toLocaleTimeString("uz-UZ", ...)` bunga bog'liq bo'lganda ish muhitiga
+    // qarab jim tarzda boshqa natija berishi mumkin edi (ICU ma'lumoti yo'q).
+    expect(cardRequestCaption(base)).toContain("14:32");
+  });
 });
 
 describe("tugmalar", () => {

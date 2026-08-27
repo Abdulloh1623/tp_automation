@@ -62,6 +62,35 @@ export async function getEscalationStats(now: Date = new Date()): Promise<Escala
     }),
   ]);
 
+  const { ustaRanking, avgResolveHours } = rankUstasByResolved(resolved);
+
+  return {
+    activeTotal,
+    overdue,
+    overduePct: activeTotal ? Math.round((overdue / activeTotal) * 100) : 0,
+    resolvedLast30: resolved.length,
+    avgResolveHours,
+    ustaRanking,
+  };
+}
+
+export type ResolvedEscalation = {
+  assignedUstaId: string | null;
+  assignedUsta: { name: string } | null;
+  callLogs: { calledAt: Date; result: string }[];
+};
+
+/**
+ * Yakunlangan eskalatsiyalar bo'yicha usta reytingi va o'rtacha hal qilish
+ * vaqti — sof hisob-kitob, bazasiz test qilinadi.
+ *
+ * Hal qilish vaqti: har bir mijoz uchun eng birinchi "ASSIGNED" va eng oxirgi
+ * "DONE" CallLog vaqti orasidagi farq (soatda). ASSIGNED/DONE bo'lmagan yoki
+ * DONE undan oldinroq bo'lgan yozuvlar o'rtachaga kiritilmaydi (timed=false).
+ */
+export function rankUstasByResolved(
+  resolved: ResolvedEscalation[],
+): { ustaRanking: UstaRank[]; avgResolveHours: number | null } {
   type Agg = { name: string; done: number; totalHours: number; timed: number };
   const byUsta = new Map<string, Agg>();
   let sumHours = 0;
@@ -103,12 +132,5 @@ export async function getEscalationStats(now: Date = new Date()): Promise<Escala
     .sort((a, b) => b.done - a.done)
     .slice(0, 5);
 
-  return {
-    activeTotal,
-    overdue,
-    overduePct: activeTotal ? Math.round((overdue / activeTotal) * 100) : 0,
-    resolvedLast30: resolved.length,
-    avgResolveHours: timedCount ? sumHours / timedCount : null,
-    ustaRanking,
-  };
+  return { ustaRanking, avgResolveHours: timedCount ? sumHours / timedCount : null };
 }

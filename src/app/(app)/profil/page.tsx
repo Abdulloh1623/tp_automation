@@ -34,6 +34,7 @@ const ROLE_LABEL: Record<string, string> = {
   MANAGER: "Menejer",
   OPERATOR: "Operator",
   INSTALLER: "Usta",
+  VIEWER: "Kuzatuvchi",
 };
 
 // Bir davr (bugun/hafta/oy) uchun xodim natijalari

@@ -12,10 +12,11 @@ const ROLE_LABEL: Record<string, string> = {
   MANAGER: "Menejer",
   OPERATOR: "Operator",
   INSTALLER: "Usta",
+  VIEWER: "Kuzatuvchi",
 };
 
 export default async function UsersPage() {
-  await requireRole(["ADMIN"]);
+  await requireRole(["ADMIN", "VIEWER"]);
 
   const users = await db.user.findMany({
     orderBy: [{ isActive: "desc" }, { role: "asc" }, { name: "asc" }],

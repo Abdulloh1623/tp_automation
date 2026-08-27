@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { UstaManager, type ManagedUsta } from "@/components/usta-manager";
 
 export default async function UstalarPage() {
-  await requireRole(["ADMIN", "MANAGER"]);
+  await requireRole(["ADMIN", "MANAGER", "VIEWER"]);
 
   const rows = await db.user.findMany({
     where: { role: "INSTALLER" },

@@ -10,7 +10,7 @@ import { isUserShift, MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH } from "@/lib/con
 
 export type UserActionState = { ok: boolean; error?: string };
 
-const ROLES = ["ADMIN", "MANAGER", "OPERATOR", "INSTALLER"];
+const ROLES = ["ADMIN", "MANAGER", "OPERATOR", "INSTALLER", "VIEWER"];
 
 async function requireAdmin(): Promise<{ ok: true } | { ok: false; error: string }> {
   const session = await requireSession();

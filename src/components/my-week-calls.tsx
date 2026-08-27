@@ -11,6 +11,7 @@ import { useState } from "react";
 import { ChevronDown, PhoneCall, PhoneOff } from "lucide-react";
 import { ClientLink } from "@/components/client-link";
 import { PhoneCopyButton } from "@/components/phone-copy";
+import { LeadStageBadge } from "@/components/status-badge";
 import type { DayCallGroup } from "@/lib/week-calls";
 import { cn, formatPhone, normalizePhone } from "@/lib/utils";
 
@@ -112,6 +113,9 @@ export function MyWeekCalls({ days }: { days: DayCallGroup[] }) {
                           )}
                         >
                           {it.resultLabel}
+                        </span>
+                        <span title="Hozirgi bosqich">
+                          <LeadStageBadge stage={it.stage} />
                         </span>
                         <span className="tabular-nums">{it.time}</span>
                       </span>

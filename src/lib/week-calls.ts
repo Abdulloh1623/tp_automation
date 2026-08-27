@@ -29,6 +29,9 @@ export type WeekCall = {
   calledAt: Date;
   result: string;
   note: string | null;
+  /** Mijozning HOZIRGI (tarixiy emas) bosqichi/holati — o'sha qo'ng'iroq paytidagi emas. */
+  stage: string;
+  status: string;
 };
 
 /** Bir kun ichidagi bitta lid (mijoz) — o'sha kundagi oxirgi natijasi bilan. */
@@ -42,6 +45,9 @@ export type DayCallItem = {
   note: string | null;
   calls: number; // shu kundagi qo'ng'iroqlar soni (1 dan ko'p bo'lishi mumkin)
   talked: boolean; // shu kuni HAQIQATAN gaplashilganmi (bir marta bo'lsa ham)
+  /** Mijozning HOZIRGI bosqichi/holati — admin/kuzatuvchi shu lid keyin nima bo'lganini shu yerdan ko'radi. */
+  stage: string;
+  status: string;
 };
 
 export type DayCallGroup = {
@@ -106,6 +112,8 @@ export function groupCallsByDay(calls: WeekCall[], now = new Date()): DayCallGro
       note: c.note,
       calls: 1,
       talked,
+      stage: c.stage,
+      status: c.status,
     };
     seen.set(seenKey, item);
     group.items.push(item);

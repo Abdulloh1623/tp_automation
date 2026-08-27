@@ -69,6 +69,19 @@ export type PaymentRuleClient = {
   assignedToName: string | null;
 };
 
+/** Mijoz bo'yicha ijara/sotib olingan uskuna sonini yig'adi — sof, test qilinadi. */
+export function buildEquipmentQtyMaps(
+  equipment: { clientId: string; quantity: number; ownership: string }[],
+): { rented: Map<string, number>; soldQty: Map<string, number> } {
+  const rented = new Map<string, number>();
+  const soldQty = new Map<string, number>();
+  for (const e of equipment) {
+    const target = e.ownership === "RENTAL" ? rented : soldQty;
+    target.set(e.clientId, (target.get(e.clientId) ?? 0) + e.quantity);
+  }
+  return { rented, soldQty };
+}
+
 /**
  * To'lov/ijara nomuvofiqligi — faqat FAOL mijozlar bo'yicha.
  *
@@ -94,12 +107,7 @@ export async function loadPaymentProblems(): Promise<RuleCheck<PaymentRuleClient
     }),
   ]);
 
-  const rented = new Map<string, number>();
-  const soldQty = new Map<string, number>();
-  for (const e of equipment) {
-    const target = e.ownership === "RENTAL" ? rented : soldQty;
-    target.set(e.clientId, (target.get(e.clientId) ?? 0) + e.quantity);
-  }
+  const { rented, soldQty } = buildEquipmentQtyMaps(equipment);
 
   return check29Rule(
     clients.map((c) => ({
@@ -160,9 +168,14 @@ export async function loadRefusedButActive(): Promise<{
       currency: true,
     },
   });
+  return { clients, mrr: sumMrrByCurrency(clients) };
+}
+
+/** Mijozlar ro'yxatini valyuta bo'yicha oylik summaga yig'adi — sof, test qilinadi. */
+export function sumMrrByCurrency(clients: { currency: string; monthlyAmount: number }[]): Record<string, number> {
   const mrr: Record<string, number> = {};
   for (const c of clients) {
     mrr[c.currency] = (mrr[c.currency] ?? 0) + c.monthlyAmount;
   }
-  return { clients, mrr };
+  return mrr;
 }

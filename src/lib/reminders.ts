@@ -6,7 +6,8 @@ import { startOfDay, endOfDay } from "date-fns";
 import { db } from "@/lib/db";
 import { sendMessage, sendToChannel, escapeHtml } from "@/lib/telegram";
 import { formatMoney, formatPhone } from "@/lib/utils";
-import { ACTIVE_STAGES, NO_CONTACT_STAGES, OFF_BOARD_STAGES, leadOutcomeLabel } from "@/lib/constants";
+import { tzParts } from "@/lib/tz";
+import { ACTIVE_STAGES, NO_CONTACT_STAGES, OFF_BOARD_STAGES, UZBEK_MONTHS, leadOutcomeLabel } from "@/lib/constants";
 
 type Money = { USD: number; UZS: number };
 function money2(m: Money): string {
@@ -17,6 +18,14 @@ function money2(m: Money): string {
 }
 function daysBetween(a: Date, b: Date): number {
   return Math.max(0, Math.floor((a.getTime() - b.getTime()) / 86400000));
+}
+// "27 avgust" — UTC+5, qo'lda formatlangan. Node'ning standart (small-icu)
+// qurilishida `Intl`/`toLocaleDateString("uz-UZ", ...)` jim tarzda inglizcha
+// oy nomiga qaytadi (Dockerfile'da full-icu yo'q) — shu bois hech qachon
+// ishlatilmaydi (intl-hydration-mismatch bilan bir xil sinf xato).
+export function dayMonthLabel(d: Date): string {
+  const p = tzParts(d);
+  return `${p.dd} ${UZBEK_MONTHS[p.month].toLowerCase()}`;
 }
 
 const CALLBACK_CAP = 25;
@@ -64,7 +73,7 @@ export async function buildOperatorReminder(
 
   if (callbacks.length === 0 && overdue.length === 0) return null;
 
-  const dateStr = now.toLocaleDateString("uz-UZ", { day: "2-digit", month: "long" });
+  const dateStr = dayMonthLabel(now);
   const lines: string[] = [`🔔 <b>Bugungi ish</b> — ${escapeHtml(dateStr)}`, ""];
 
   if (callbacks.length) {
@@ -161,7 +170,7 @@ export async function buildManagerSummary(): Promise<string> {
   for (const c of overdue) debt[c.currency === "UZS" ? "UZS" : "USD"] += c.monthlyAmount;
 
   const talkedByOp = new Map(callsByOp.map((g) => [g.operatorId, g._count]));
-  const dateStr = now.toLocaleDateString("uz-UZ", { day: "2-digit", month: "long" });
+  const dateStr = dayMonthLabel(now);
 
   const lines: string[] = [
     `📊 <b>Kunlik holat</b> — ${escapeHtml(dateStr)}`,

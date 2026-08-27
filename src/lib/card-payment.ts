@@ -22,6 +22,7 @@ import {
   type InlineButton,
 } from "./telegram";
 import { formatMoney, formatDate } from "./utils";
+import { tzTimeLabel } from "./tz";
 import {
   CARD_CONFIRM_METHODS,
   CARD_REJECT_REASON,
@@ -71,7 +72,7 @@ export function cardRequestCaption(req: {
     `📞 ${escapeHtml(req.phone)}`,
     `💵 Summa: <b>${formatMoney(req.amount, req.currency)}</b>`,
     `💳 Usul: ${paymentMethodLabel(req.method)}`,
-    `🕒 Vaqt: ${formatDate(req.paidAt)} ${req.paidAt.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Tashkent" })}`,
+    `🕒 Vaqt: ${formatDate(req.paidAt)} ${tzTimeLabel(req.paidAt)}`,
     `🧾 Kiritdi: ${escapeHtml(req.operatorName)}`,
     req.note ? `📝 ${escapeHtml(req.note)}` : null,
     "",

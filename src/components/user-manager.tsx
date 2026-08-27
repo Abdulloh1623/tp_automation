@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { UserPlus, Pencil, KeyRound, Power, AlertCircle } from "lucide-react";
+import Link from "next/link";
+import { UserPlus, Pencil, KeyRound, Power, AlertCircle, Activity } from "lucide-react";
 import {
   createUser,
   updateUser,
@@ -226,6 +227,14 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-1">
+                    {u.role === "OPERATOR" && (
+                      <Link
+                        href={`/profil?operator=${u.id}`}
+                        className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                      >
+                        <Activity className="h-3.5 w-3.5" /> Faoliyat
+                      </Link>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"

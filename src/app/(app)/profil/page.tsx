@@ -50,17 +50,47 @@ function emptyStats(): PeriodStats {
   return { calls: 0, talked: 0, resolved: 0, payments: 0, sums: new Map() };
 }
 
-export default async function ProfilePage() {
+type SearchParams = Promise<{ operator?: string }>;
+
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const pending = await db.passwordResetRequest.findFirst({
-    where: { userId: user.id, status: "PENDING" },
-    orderBy: { createdAt: "desc" },
-    select: { createdAt: true },
-  });
+  // ADMIN/VIEWER — boshqa xodimning natijalarini ko'ra oladi (faqat o'qish;
+  // /foydalanuvchilar'dagi "Faoliyat" havolasi orqali keladi). Boshqa rol
+  // uchun parametr e'tiborsiz qoldiriladi — har doim o'z profili ko'rinadi.
+  const canBrowseOthers = user.role === "ADMIN" || user.role === "VIEWER";
+  const { operator: operatorParam } = await searchParams;
+  const target =
+    canBrowseOthers && operatorParam && operatorParam !== user.id
+      ? await db.user.findUnique({
+          where: { id: operatorParam },
+          select: {
+            id: true,
+            name: true,
+            username: true,
+            role: true,
+            phone: true,
+            region: true,
+          },
+        })
+      : null;
+  const viewed = target ?? user;
+  const isSelf = viewed.id === user.id;
 
-  // --- Mening natijalarim: bugun / shu hafta / shu oy ---
+  const pending = isSelf
+    ? await db.passwordResetRequest.findFirst({
+        where: { userId: user.id, status: "PENDING" },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      })
+    : null;
+
+  // --- Natijalar: bugun / shu hafta / shu oy ---
   const now = new Date();
   const dayStart = startOfDay(now);
   const weekStart = startOfWeek(now, { weekStartsOn: 1 });
@@ -73,16 +103,16 @@ export default async function ProfilePage() {
 
   const [myCalls, myPayments, myTickets, myWeekCalls] = await Promise.all([
     db.callLog.findMany({
-      where: { operatorId: user.id, calledAt: { gte: since } },
+      where: { operatorId: viewed.id, calledAt: { gte: since } },
       select: { calledAt: true, result: true },
     }),
     db.payment.findMany({
-      where: { recordedById: user.id, createdAt: { gte: since } },
+      where: { recordedById: viewed.id, createdAt: { gte: since } },
       select: { createdAt: true, amount: true, currency: true },
     }),
-    // Menga (mas'ul xodim) biriktirilgan hal bo'lmagan muammolar.
+    // Mas'ul xodimga biriktirilgan hal bo'lmagan muammolar.
     db.ticket.findMany({
-      where: { assignedStaffId: user.id, status: { not: "RESOLVED" } },
+      where: { assignedStaffId: viewed.id, status: { not: "RESOLVED" } },
       orderBy: { createdAt: "desc" },
       take: 30,
       select: {
@@ -95,11 +125,11 @@ export default async function ProfilePage() {
         client: { select: { id: true, restaurantName: true } },
       },
     }),
-    // Oxirgi 7 kunlik qo'ng'iroqlarim — kun bo'yicha ro'yxat uchun.
-    // Kunlik chegara: 7 kun × ~100 qo'ng'iroq dan oshmaydi, ortiq yozuv
-    // ro'yxat sifatida baribir o'qilmaydi.
+    // Oxirgi 7 kunlik qo'ng'iroqlar — kun bo'yicha ro'yxat uchun. Kunlik
+    // chegara: 7 kun × ~100 qo'ng'iroq dan oshmaydi, ortiq yozuv ro'yxat
+    // sifatida baribir o'qilmaydi.
     db.callLog.findMany({
-      where: { operatorId: user.id, calledAt: { gte: weekCallsFrom } },
+      where: { operatorId: viewed.id, calledAt: { gte: weekCallsFrom } },
       orderBy: { calledAt: "desc" },
       take: 700,
       select: {
@@ -107,7 +137,14 @@ export default async function ProfilePage() {
         result: true,
         note: true,
         client: {
-          select: { id: true, restaurantName: true, fullName: true, phone: true },
+          select: {
+            id: true,
+            restaurantName: true,
+            fullName: true,
+            phone: true,
+            stage: true,
+            status: true,
+          },
         },
       },
     }),
@@ -122,12 +159,14 @@ export default async function ProfilePage() {
       calledAt: c.calledAt,
       result: c.result,
       note: c.note,
+      stage: c.client.stage,
+      status: c.client.status,
     })),
   );
   const weekLeadCount = weekDays.reduce((n, d) => n + d.leads, 0);
   // Operatorga ro'yxat DOIM ko'rinadi (bo'sh hafta ham ma'lumot); boshqa
   // rollarga esa faqat qo'ng'iroq yozuvi bo'lsa — aks holda quruq karta.
-  const showWeekCalls = user.role === "OPERATOR" || weekLeadCount > 0;
+  const showWeekCalls = viewed.role === "OPERATOR" || weekLeadCount > 0;
 
   const periods: { key: string; label: string; from: Date; stats: PeriodStats }[] = [
     { key: "day", label: "Bugun", from: dayStart, stats: emptyStats() },
@@ -159,16 +198,28 @@ export default async function ProfilePage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Mening profilim</h1>
+        {!isSelf && (
+          <Link
+            href="/foydalanuvchilar"
+            className="mb-1 inline-block text-sm text-primary-600 hover:underline dark:text-primary-400"
+          >
+            ← Foydalanuvchilar
+          </Link>
+        )}
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+          {isSelf ? "Mening profilim" : `${viewed.name} — faoliyat`}
+        </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Shaxsiy ma'lumotlar va parolni tiklash
+          {isSelf
+            ? "Shaxsiy ma'lumotlar va parolni tiklash"
+            : `${ROLE_LABEL[viewed.role] ?? viewed.role} · so'nggi natijalar va gaplashgan lidlar`}
         </p>
       </div>
 
-      {/* Mening natijalarim — xodim o'z ish natijalarini ko'radi */}
+      {/* Xodim o'z ish natijalarini ko'radi; admin/kuzatuvchi — boshqa xodimnikini */}
       <Card>
         <CardHeader>
-          <CardTitle>Mening natijalarim</CardTitle>
+          <CardTitle>{isSelf ? "Mening natijalarim" : "Natijalar"}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -231,7 +282,7 @@ export default async function ProfilePage() {
         </CardContent>
       </Card>
 
-      {/* Oxirgi 7 kun — har bir kun uchun o'zim gaplashgan lidlar ro'yxati */}
+      {/* Oxirgi 7 kun — har bir kun uchun gaplashgan lidlar ro'yxati, hozirgi bosqichi bilan */}
       {showWeekCalls && (
         <Card>
           <CardHeader>
@@ -239,7 +290,7 @@ export default async function ProfilePage() {
               <CardTitle>
                 <span className="inline-flex items-center gap-2">
                   <PhoneCall className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                  Men gaplashgan lidlar
+                  {isSelf ? "Men gaplashgan lidlar" : `${viewed.name} gaplashgan lidlar`}
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                     {weekLeadCount}
                   </span>
@@ -262,14 +313,14 @@ export default async function ProfilePage() {
         </Card>
       )}
 
-      {/* Menga biriktirilgan muammolar — admin/menejer biriktirgach shu yerda ko'rinadi */}
+      {/* Biriktirilgan muammolar — admin/menejer biriktirgach shu yerda ko'rinadi */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
             <CardTitle>
               <span className="inline-flex items-center gap-2">
                 <Wrench className="h-4 w-4 text-sky-600 dark:text-sky-400" />
-                Menga biriktirilgan muammolar
+                {isSelf ? "Menga biriktirilgan muammolar" : "Biriktirilgan muammolar"}
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                   {myTickets.length}
                 </span>
@@ -288,7 +339,7 @@ export default async function ProfilePage() {
         <CardContent>
           {myTickets.length === 0 ? (
             <p className="text-sm text-slate-400 dark:text-slate-500">
-              Sizga biriktirilgan hal qilinmagan muammo yo'q.
+              {isSelf ? "Sizga" : `${viewed.name}ga`} biriktirilgan hal qilinmagan muammo yo'q.
             </p>
           ) : (
             <div className="space-y-2">
@@ -318,31 +369,33 @@ export default async function ProfilePage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className={isSelf ? "grid gap-5 lg:grid-cols-2" : ""}>
         <Card>
           <CardHeader>
             <CardTitle>Ma'lumotlar</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <Row icon={UserIcon} label="Ism" value={user.name} />
-            <Row icon={Shield} label="Login" value={user.username} />
-            <Row icon={Shield} label="Rol" value={ROLE_LABEL[user.role] ?? user.role} />
-            <Row icon={Phone} label="Telefon" value={user.phone ?? "—"} />
-            <Row icon={MapPin} label="Viloyat" value={user.region ?? "—"} />
+            <Row icon={UserIcon} label="Ism" value={viewed.name} />
+            <Row icon={Shield} label="Login" value={viewed.username} />
+            <Row icon={Shield} label="Rol" value={ROLE_LABEL[viewed.role] ?? viewed.role} />
+            <Row icon={Phone} label="Telefon" value={viewed.phone ?? "—"} />
+            <Row icon={MapPin} label="Viloyat" value={viewed.region ?? "—"} />
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Parolni tiklash</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ProfilePasswordForm
-              hasPending={!!pending}
-              requestedAt={pending ? formatDateTime(pending.createdAt) : undefined}
-            />
-          </CardContent>
-        </Card>
+        {isSelf && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Parolni tiklash</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ProfilePasswordForm
+                hasPending={!!pending}
+                requestedAt={pending ? formatDateTime(pending.createdAt) : undefined}
+              />
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

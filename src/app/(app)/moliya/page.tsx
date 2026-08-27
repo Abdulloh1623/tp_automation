@@ -73,7 +73,7 @@ function Kpi({
 }
 
 export default async function FinancePage() {
-  await requireRole(["ADMIN", "MANAGER"]);
+  await requireRole(["ADMIN", "MANAGER", "VIEWER"]);
   const [fin, silent] = await Promise.all([getFinanceOverview(12), getSilentChurn(10)]);
 
   const hasUsd = fin.months.some((m) => m.mrr.USD > 0);

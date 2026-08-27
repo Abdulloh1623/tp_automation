@@ -33,7 +33,7 @@ export default async function ProblemClientsPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const session = await requireRole(["ADMIN", "OPERATOR", "MANAGER"]);
+  const session = await requireRole(["ADMIN", "OPERATOR", "MANAGER", "VIEWER"]);
   const canDelete = session.role === "ADMIN" || session.role === "MANAGER";
   const sp = await searchParams;
   const tab: TabKey = isTab(sp.bolim) ? sp.bolim : "malumot";

@@ -5,7 +5,7 @@ import { BackupButton } from "@/components/backup-button";
 import { formatDateTime } from "@/lib/utils";
 
 export default async function AuditPage() {
-  await requireRole(["ADMIN"]);
+  await requireRole(["ADMIN", "VIEWER"]);
 
   const logs = await db.auditLog.findMany({
     orderBy: { createdAt: "desc" },

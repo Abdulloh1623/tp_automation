@@ -7,21 +7,41 @@ describe("roleHome", () => {
     expect(roleHome("MANAGER")).toBe("/ombor");
     expect(roleHome("OPERATOR")).toBe("/lidlar");
     expect(roleHome("INSTALLER")).toBe("/login"); // ustalar tizimga kirmaydi
+    expect(roleHome("VIEWER")).toBe("/");
   });
 });
 
 describe("canAccess", () => {
-  it("bosh sahifa faqat ADMIN", () => {
+  it("bosh sahifa — ADMIN va VIEWER", () => {
     expect(canAccess("ADMIN", "/")).toBe(true);
+    expect(canAccess("VIEWER", "/")).toBe(true);
     expect(canAccess("MANAGER", "/")).toBe(false);
     expect(canAccess("OPERATOR", "/")).toBe(false);
   });
 
-  it("admin-only bo'limlar", () => {
-    for (const p of ["/foydalanuvchilar", "/audit", "/import"]) {
+  it("admin (+ VIEWER ko'rish uchun) bo'limlar", () => {
+    for (const p of ["/foydalanuvchilar", "/audit"]) {
       expect(canAccess("ADMIN", p), p).toBe(true);
+      expect(canAccess("VIEWER", p), p).toBe(true);
       expect(canAccess("MANAGER", p), p).toBe(false);
       expect(canAccess("OPERATOR", p), p).toBe(false);
+    }
+  });
+
+  it("/import — faqat ADMIN (eski manzil, VIEWER'ga ham yo'q)", () => {
+    expect(canAccess("ADMIN", "/import")).toBe(true);
+    expect(canAccess("VIEWER", "/import")).toBe(false);
+    expect(canAccess("MANAGER", "/import")).toBe(false);
+    expect(canAccess("OPERATOR", "/import")).toBe(false);
+  });
+
+  it("VIEWER — ADMIN bilan bir xil ko'rish, lekin sof boshqaruv vositalari YO'Q", () => {
+    for (const p of ["/foydalanuvchilar", "/audit", "/mijozlar", "/tolovlar", "/muammolar", "/ombor", "/ustalar", "/analitika", "/moliya", "/hisobot", "/uskuna-analitika", "/lidlar", "/faq", "/tablo"]) {
+      expect(canAccess("VIEWER", p), p).toBe(true);
+    }
+    // Sof boshqaruv vositalari (ommaviy yuklash/tiklash, jadval, sozlamalar) — VIEWER'ga yo'q.
+    for (const p of ["/malumotlar", "/sozlamalar", "/ish-jadvali", "/import"]) {
+      expect(canAccess("VIEWER", p), p).toBe(false);
     }
   });
 
@@ -70,8 +90,9 @@ describe("canAccess", () => {
     expect(canAccess("HACKER", "/faq")).toBe(false);
   });
 
-  it("/malumotlar — faqat ADMIN", () => {
+  it("/malumotlar — faqat ADMIN (sof boshqaruv vositasi, VIEWER'ga ham yo'q)", () => {
     expect(canAccess("ADMIN", "/malumotlar")).toBe(true);
+    expect(canAccess("VIEWER", "/malumotlar")).toBe(false);
     expect(canAccess("MANAGER", "/malumotlar")).toBe(false);
     expect(canAccess("OPERATOR", "/malumotlar")).toBe(false);
   });

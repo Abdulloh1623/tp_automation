@@ -44,7 +44,7 @@ const REASON_META: Record<string, { label: string; tone: "red" | "amber" | "blue
 };
 
 export default async function DashboardPage() {
-  const session = await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN", "VIEWER"]);
   const now = new Date();
   const today = endOfDay(now);
   const todayStart = startOfDay(now);

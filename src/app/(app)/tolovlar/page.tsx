@@ -55,7 +55,7 @@ function totalByCurrency(items: { amount: number; currency: string }[]): string 
 }
 
 export default async function PaymentsPage() {
-  const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR"]);
+  const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR", "VIEWER"]);
   const monthStart = startOfMonth(new Date());
 
   // To'rtta mustaqil so'rov BIR VAQTDA (ilgari ketma-ket edi — sahifa ularning

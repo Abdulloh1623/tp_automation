@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
+import { canViewAll, isManagerRole } from "@/lib/visibility";
 import { SoliqQueue, type SoliqQueueItem } from "@/components/soliq-queue";
 
 export const dynamic = "force-dynamic";
@@ -10,11 +11,11 @@ function docUrl(p: string | null): string | null {
 }
 
 export default async function SoliqPage() {
-  const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR"]);
-  const isManager = ["ADMIN", "MANAGER"].includes(session.role);
+  const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR", "VIEWER"]);
+  const isManager = isManagerRole(session.role);
 
-  // Operator faqat o'zi yuborganlarni; boshliq hammasini ko'radi.
-  const where = isManager ? {} : { byUserId: session.userId };
+  // Operator faqat o'zi yuborganlarni; boshliq va Kuzatuvchi (VIEWER) hammasini ko'radi.
+  const where = canViewAll(session.role) ? {} : { byUserId: session.userId };
 
   const [rows, users] = await Promise.all([
     db.taxConnection.findMany({
@@ -60,8 +61,10 @@ export default async function SoliqPage() {
       <div>
         <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Soliqqa ulash</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          {isManager
-            ? "Yuborilgan arizalarni ko'ring va ulangach «Ulandi» deb belgilang."
+          {canViewAll(session.role)
+            ? isManager
+              ? "Yuborilgan arizalarni ko'ring va ulangach «Ulandi» deb belgilang."
+              : "Barcha yuborilgan soliqqa ulash arizalari va ularning holati."
             : "O'zingiz yuborgan soliqqa ulash arizalari va ularning holati."}
           {" "}Kutilmoqda: {pendingCount} · Ulangan: {connectedCount}
         </p>

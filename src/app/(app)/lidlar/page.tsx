@@ -24,7 +24,10 @@ export default async function LeadsPage({
   const session = await requireSession();
   const { operator } = await searchParams;
   const isAdmin = session.role === "ADMIN";
-  const viewerId = isAdmin && operator ? operator : session.userId;
+  // VIEWER — ADMIN kabi istalgan operator taxtasini ko'ra oladi (faqat ko'rish,
+  // yozuv action'da bloklanadi); lekin LeadFocusCard'ni tahrirlay olmaydi.
+  const canBrowseBoards = isAdmin || session.role === "VIEWER";
+  const viewerId = canBrowseBoards && operator ? operator : session.userId;
   const now = new Date();
   const today = endOfDay(now);
   const todayStart = startOfDay(now);
@@ -83,7 +86,7 @@ export default async function LeadsPage({
         },
       },
     }),
-    isAdmin
+    canBrowseBoards
       ? db.user.findMany({
           where: { role: { in: ["OPERATOR", "ADMIN"] }, isActive: true },
           select: { id: true, name: true },
@@ -195,7 +198,7 @@ export default async function LeadsPage({
 
       <OperatorProgress initial={dailyStats} />
 
-      {isAdmin && (
+      {canBrowseBoards && (
         <Card className="p-4">
           <form className="flex flex-wrap items-end gap-3" method="get">
             <div className="w-56">

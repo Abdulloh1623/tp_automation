@@ -310,12 +310,28 @@ describe("distributeLeadsCore", () => {
     expect(assignedIds()).toEqual(["c0"]);
   });
 
-  it("smenaga bugun hech kim tayinlanmagan — xato, hech narsa o'zgarmaydi", async () => {
+  it("smenaga bugun hech kim tayinlanmagan va zaxira brigadadan ham hech kim topilmasa — xato", async () => {
     dutyDayFindMany.mockResolvedValue([]);
+    userFindMany.mockResolvedValue([]); // zaxira ismlariga mos faol operator yo'q
     const r = await distributeLeadsCore("NIGHT");
     expect(r.error).toContain("Kechki");
-    expect(userFindMany).not.toHaveBeenCalled();
     expect(clientUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("smena jadvalda bo'sh bo'lsa — zaxira brigada (ism bo'yicha) avtomatik ishlatiladi", async () => {
+    dutyDayFindMany.mockResolvedValue([]);
+    userFindMany.mockImplementation(({ where }: { where?: { OR?: unknown; id?: { in: string[] } } }) => {
+      // Birinchi chaqiruv — zaxira brigada qidiruvi (OR: name startsWith)
+      if (where?.OR) return Promise.resolve([{ id: "mehroj-id", name: "Mehroj Aliyev" }]);
+      // Ikkinchi chaqiruv — topilgan zaxira operatorining o'zi (rosterIds bo'yicha)
+      return Promise.resolve([{ id: "mehroj-id", dailyLimit: 50 }]);
+    });
+    setPool([lead("c0")]);
+
+    const r = await distributeLeadsCore("NIGHT");
+    expect(r.usedFallbackRoster).toBe(true);
+    expect(r.operators).toBe(1);
+    expect(assignedIds()).toEqual(["c0"]);
   });
 
   it("jadvalga tayinlangan lekin nofaol operator — 'faol operator yo'q' xatosi", async () => {

@@ -13,6 +13,7 @@ import { TicketFilter } from "@/components/ticket-filter";
 import { TicketStatusControl } from "@/components/ticket-status-control";
 import { TicketDismissButton } from "@/components/ticket-dismiss-button";
 import { TicketIntegratorControl } from "@/components/ticket-integrator-control";
+import { VersionTicketStatusControl } from "@/components/version-ticket-status-control";
 import { TicketForm } from "@/components/ticket-form";
 import { TicketTabs, type TicketTab } from "@/components/ticket-tabs";
 import { PhoneCopyButton } from "@/components/phone-copy";
@@ -304,11 +305,16 @@ export async function TicketsSection({
             usta={t.assignedUsta ?? null}
             ustaNote={t.ustaNote}
             ustalar={ustalarFull}
+            hideUsta={isVersion}
           />
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <TicketStatusControl ticketId={t.id} status={t.status} />
+          {isVersion ? (
+            <VersionTicketStatusControl ticketId={t.id} status={t.status} />
+          ) : (
+            <TicketStatusControl ticketId={t.id} status={t.status} />
+          )}
           {/* Xato ochilgan muammoni boshliq bir bosishda yopadi */}
           {canAssign && t.status !== "RESOLVED" && (
             <TicketDismissButton ticketId={t.id} title={t.title} />
@@ -340,8 +346,10 @@ export async function TicketsSection({
     );
   }
 
-  // Bosqichlar: Yangi → TP xodimiga biriktirildi → Ustaga yetkazildi → Hal
-  // qilindi. OPERATOR "Yangi"ni ko'rmaydi — scope ularga faqat o'ziga
+  // Bosqichlar: "Muammolar" — Yangi → TP xodimiga biriktirildi → Ustaga
+  // yetkazildi → Hal qilindi. "Yangi versiya" — usta bosqichi yo'q (joyida
+  // hal etish talab qilinmaydi): Yangi → TP xodimiga biriktirildi → Versiya
+  // yangilandi. OPERATOR "Yangi"ni ko'rmaydi — scope ularga faqat o'ziga
   // biriktirilganlarni beradi, shuning uchun bo'sh tab foydasiz bo'lardi.
   const tabs: TicketTab[] = [];
   if (canAssign) {
@@ -351,7 +359,7 @@ export async function TicketsSection({
       icon: <Inbox className="h-4 w-4" />,
       tone: "red", // yangi tushgan muammolar — qizil (e'tibor talab qiladi)
       count: yangiTotal,
-      content: panel(yangi, "Biriktirilmagan yangi muammo yo'q."),
+      content: panel(yangi, isVersion ? "Yangi versiya so'rovi yo'q." : "Biriktirilmagan yangi muammo yo'q."),
     });
   }
   tabs.push({
@@ -363,33 +371,43 @@ export async function TicketsSection({
     count: staffOnlyTotal,
     content: panel(
       staffAssigned,
-      canAssign
-        ? "TP xodimiga biriktirilgan (ustaga yetkazilmagan) muammo yo'q."
-        : "Sizga biriktirilgan, ustaga yetkazilmagan muammo yo'q.",
+      isVersion
+        ? canAssign
+          ? "TP xodimiga biriktirilgan versiya so'rovi yo'q."
+          : "Sizga biriktirilgan versiya so'rovi yo'q."
+        : canAssign
+          ? "TP xodimiga biriktirilgan (ustaga yetkazilmagan) muammo yo'q."
+          : "Sizga biriktirilgan, ustaga yetkazilmagan muammo yo'q.",
     ),
   });
-  tabs.push({
-    key: "ustaga",
-    label: "Ustaga yetkazildi",
-    icon: <HardHat className="h-4 w-4" />,
-    tone: "sky",
-    count: ustaTotal,
-    content: panel(withUsta, "Ustaga yetkazilgan muammo yo'q."),
-  });
+  if (!isVersion) {
+    tabs.push({
+      key: "ustaga",
+      label: "Ustaga yetkazildi",
+      icon: <HardHat className="h-4 w-4" />,
+      tone: "sky",
+      count: ustaTotal,
+      content: panel(withUsta, "Ustaga yetkazilgan muammo yo'q."),
+    });
+  }
   tabs.push({
     key: "hal",
-    label: "Hal qilingan",
-    icon: <CheckCircle2 className="h-4 w-4" />,
+    label: isVersion ? "Versiya yangilandi" : "Hal qilingan",
+    icon: isVersion ? <DownloadCloud className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />,
     tone: "emerald",
     count: halTotal,
-    content: panel(hal, "Hal qilingan muammo yo'q.", true),
+    content: panel(
+      hal,
+      isVersion ? "Versiyasi yangilangan so'rov yo'q." : "Hal qilingan muammo yo'q.",
+      true,
+    ),
   });
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          {openCount} ta ochiq · {halTotal} ta hal qilingan
+          {openCount} ta ochiq · {halTotal} ta {isVersion ? "versiya yangilangan" : "hal qilingan"}
         </p>
         {slaBreached > 0 && (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300">

@@ -7,7 +7,7 @@ import { guardRole } from "@/lib/auth";
 import { canMutateClient } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { createNotification } from "@/lib/notifications";
-import { TICKET_STATUS } from "@/lib/constants";
+import { clientAppVersionLabel, isClientAppVersion, TICKET_STATUS } from "@/lib/constants";
 import {
   ticketTypeEnum,
   ticketPriorityEnum,
@@ -193,6 +193,58 @@ export async function setTicketStatus(
     // mavjud bo'lmagan ticketId
     return { ok: false, error: "Xatolik" };
   }
+}
+
+/**
+ * "Yangi versiya" so'rovini yakunlash — mijoz dasturi haqiqatan yangilangan
+ * versiyani belgilaydi (`Client.appVersion`) VA ticketni RESOLVED qiladi
+ * bitta amalda. Faqat VERSION_UPDATE turidagi ticketlar uchun — bosqichlar:
+ * Yangi → TP xodimiga biriktirildi → Versiya yangilandi (usta bosqichi bu
+ * turda yo'q, `TicketIntegratorControl` uni yashiradi).
+ */
+export async function resolveVersionTicket(
+  ticketId: string,
+  version: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const g = await guardRole(STAFF);
+  if (!g.ok) return { ok: false, error: g.error };
+  if (!isClientAppVersion(version)) return { ok: false, error: "Versiyani tanlang" };
+
+  const ticket = await db.ticket.findUnique({
+    where: { id: ticketId },
+    select: { clientId: true, type: true },
+  });
+  if (!ticket) return { ok: false, error: "Muammo topilmadi" };
+  if (ticket.type !== "VERSION_UPDATE") {
+    return { ok: false, error: "Bu amal faqat versiya so'rovlari uchun" };
+  }
+  if (!(await canMutateClient(g.session, ticket.clientId))) {
+    return { ok: false, error: "Ruxsat yo'q" };
+  }
+
+  const label = clientAppVersionLabel(version);
+  const resolutionNote = `Versiya yangilandi: ${label}`;
+  await db.$transaction([
+    db.ticket.update({
+      where: { id: ticketId },
+      data: { status: "RESOLVED", resolvedAt: new Date(), resolutionNote },
+    }),
+    db.client.update({ where: { id: ticket.clientId }, data: { appVersion: version } }),
+  ]);
+  await db.callLog.create({
+    data: {
+      clientId: ticket.clientId,
+      result: "RESOLVED",
+      note: resolutionNote,
+      operatorId: g.session.userId,
+    },
+  });
+  await releaseIssueOpenIfLastTicket(ticket.clientId);
+  await logAudit(resolutionNote, { entity: "Ticket", entityId: ticketId });
+  revalidateTicket(ticket.clientId);
+  revalidatePath("/mijozlar");
+  revalidatePath("/lidlar");
+  return { ok: true };
 }
 
 /**

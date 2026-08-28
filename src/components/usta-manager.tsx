@@ -45,7 +45,7 @@ export function UstaManager({ ustalar }: { ustalar: ManagedUsta[] }) {
     setMode({ kind: "create" });
   }
   function openEdit(u: ManagedUsta) {
-    setName(u.name); setRegions(parseRegions(u.regions, u.region)); setPhone(u.phone ?? "");
+    setName(u.name); setUsername(u.username); setRegions(parseRegions(u.regions, u.region)); setPhone(u.phone ?? "");
     setError(null);
     setMode({ kind: "edit", usta: u });
   }
@@ -70,7 +70,7 @@ export function UstaManager({ ustalar }: { ustalar: ManagedUsta[] }) {
   function submit() {
     if (!mode) return;
     if (mode.kind === "create") act(() => createUsta({ name, username, password, regions, phone }));
-    else if (mode.kind === "edit") act(() => updateUsta(mode.usta.id, { name, regions, phone }));
+    else if (mode.kind === "edit") act(() => updateUsta(mode.usta.id, { name, username, regions, phone }));
     else act(() => resetUstaPassword(mode.usta.id, password));
   }
 
@@ -199,22 +199,20 @@ export function UstaManager({ ustalar }: { ustalar: ManagedUsta[] }) {
                   <Label>Ism</Label>
                   <Input value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
+                <div>
+                  <Label>Login</Label>
+                  <Input value={username} onChange={(e) => setUsername(e.target.value)} />
+                </div>
                 {mode.kind === "create" && (
-                  <>
-                    <div>
-                      <Label>Login</Label>
-                      <Input value={username} onChange={(e) => setUsername(e.target.value)} />
-                    </div>
-                    <div>
-                      <Label>Parol</Label>
-                      <Input
-                        type="text"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder={`kamida ${MIN_PASSWORD_LENGTH} belgi`}
-                      />
-                    </div>
-                  </>
+                  <div>
+                    <Label>Parol</Label>
+                    <Input
+                      type="text"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={`kamida ${MIN_PASSWORD_LENGTH} belgi`}
+                    />
+                  </div>
                 )}
                 <div>
                   <Label>Telefon</Label>

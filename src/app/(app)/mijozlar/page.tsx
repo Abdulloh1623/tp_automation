@@ -122,6 +122,7 @@ export default async function ClientsPage({
   const clients: ClientRow[] = clientsRaw.map((c) => ({
     id: c.id,
     restaurantName: c.restaurantName,
+    appVersion: c.appVersion,
     fullName: c.fullName,
     region: c.region,
     phone: c.phone,

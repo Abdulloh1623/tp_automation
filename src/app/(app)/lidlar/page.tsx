@@ -145,6 +145,7 @@ export default async function LeadsPage({
       overdue,
       overdueDays,
       restaurantName: c.restaurantName,
+      appVersion: c.appVersion,
       fullName: c.fullName,
       region: c.region,
       phone: c.phone,

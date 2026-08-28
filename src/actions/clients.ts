@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { guardRole } from "@/lib/auth";
 import { resolveAssignee } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
-import { normalizeRegion } from "@/lib/constants";
+import { isClientAppVersion, normalizeRegion } from "@/lib/constants";
 import { computeNextPaymentDate } from "@/lib/billing";
 import { getRecallSettings } from "@/lib/settings";
 import {
@@ -509,6 +509,35 @@ export async function quickCompleteClient(
   });
   revalidatePath("/muammoli-mijozlar");
   revalidatePath("/mijozlar");
+  return { ok: true };
+}
+
+/**
+ * Mijozda o'rnatilgan dastur versiyasini belgilash — FAQAT mijoz profilidan
+ * (`ClientVersionPicker`). `quickCompleteClient` kabi egalik tekshiruvisiz
+ * (istalgan STAFF to'g'irlashi mumkin) — audit jurnaliga yoziladi.
+ */
+export async function setClientAppVersion(
+  clientId: string,
+  version: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const g = await guardRole(STAFF);
+  if (!g.ok) return { ok: false, error: g.error };
+  if (!isClientAppVersion(version)) return { ok: false, error: "Noto'g'ri versiya" };
+
+  try {
+    await db.client.update({ where: { id: clientId }, data: { appVersion: version } });
+  } catch {
+    return { ok: false, error: "Mijoz topilmadi" };
+  }
+  await logAudit("Dastur versiyasi belgilandi", {
+    entity: "Client",
+    entityId: clientId,
+    detail: version,
+  });
+  revalidatePath(`/mijozlar/${clientId}`);
+  revalidatePath("/mijozlar");
+  revalidatePath("/lidlar");
   return { ok: true };
 }
 

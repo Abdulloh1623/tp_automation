@@ -8,6 +8,20 @@ export const CLIENT_STATUS = {
 } as const;
 export type ClientStatus = keyof typeof CLIENT_STATUS;
 
+// Mijozda o'rnatilgan dastur (POS) versiyasi — V0 eng eski, V4 eng yangi.
+// Kiritilmagan bo'lsa (Client.appVersion = null) — "v?" ko'rsatiladi (qizil,
+// e'tibor talab qiladi). Faqat mijoz profili orqali kiritiladi
+// (`setClientAppVersion`, actions/clients.ts) — boshqa hamma joyda faqat o'qiladi.
+export const CLIENT_APP_VERSIONS = ["V0", "V1", "V2", "V3", "V4"] as const;
+export type ClientAppVersion = (typeof CLIENT_APP_VERSIONS)[number];
+export function isClientAppVersion(v: string): v is ClientAppVersion {
+  return (CLIENT_APP_VERSIONS as readonly string[]).includes(v);
+}
+/** Ko'rsatish uchun kichik harfli yorliq: "V2" → "v2", kiritilmagan → "v?". */
+export function clientAppVersionLabel(v?: string | null): string {
+  return v && isClientAppVersion(v) ? v.toLowerCase() : "v?";
+}
+
 export const CURRENCY = {
   USD: "$",
   UZS: "so'm",

@@ -179,6 +179,9 @@ model Client {
   contractNumber  String?
   contractDate    DateTime?
   installerName   String?
+  // Dastur (POS) versiyasi — V0..V4, ro'yxati src/lib/constants.ts da
+  // (CLIENT_APP_VERSIONS). null = hali kiritilmagan (UI'da "v?" qizil bilan).
+  appVersion      String?
   monoblokCount   Int       @default(1)
   equipment       String?
   equipmentMode   String    @default("PROGRAM_ONLY") // RENTAL | SOLD | PROGRAM_ONLY

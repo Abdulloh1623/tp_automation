@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { LeadStageBadge } from "@/components/status-badge";
+import { ClientAppVersionBadge, LeadStageBadge } from "@/components/status-badge";
 import {
   PaymentReceiptModal,
   type PayTarget,
@@ -68,6 +68,7 @@ export type LeadRow = {
   overdue: boolean;
   overdueDays: number;
   restaurantName: string;
+  appVersion: string | null;
   fullName: string;
   region: string | null;
   phone: string;
@@ -766,6 +767,7 @@ function JoriyTable({
                   >
                     {leadName(r)}
                   </button>
+                  <ClientAppVersionBadge version={r.appVersion} />
                   {r.specialNote && (
                     <button
                       title="Maxsus izoh"
@@ -925,6 +927,7 @@ function JoriyTable({
                 >
                   {leadName(r)}
                 </button>
+                <ClientAppVersionBadge version={r.appVersion} />
                 {r.specialNote && (
                   <button
                     title="Maxsus izoh"
@@ -1099,6 +1102,7 @@ function TarixTable({
                     >
                       {leadName(r)}
                     </button>
+                    <ClientAppVersionBadge version={r.appVersion} />
                     {r.specialNote && (
                       <button
                         title="Maxsus izoh"

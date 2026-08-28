@@ -121,6 +121,7 @@ export async function updateUser(
   id: string,
   input: {
     name: string;
+    username?: string;
     role: string;
     regions?: string[];
     phone?: string;
@@ -141,17 +142,32 @@ export async function updateUser(
     return { ok: false, error: "Rol noto'g'ri" };
   }
 
+  const before = await db.user.findUnique({ where: { id }, select: { role: true, username: true } });
+  if (!before) return { ok: false, error: "Xodim topilmadi" };
   // Rol o'zgarsa — ochiq sessiyalarni bekor qilamiz. Aks holda tushirilgan
   // xodimning cookie'sidagi eski rol token amal qilgunicha (7 kun) kuchda
   // qolardi va u admin amallarini bajaraverardi.
-  const before = await db.user.findUnique({ where: { id }, select: { role: true } });
-  const roleChanged = !!before && before.role !== parsed.data.role;
+  const roleChanged = before.role !== parsed.data.role;
+
+  // Login o'zgarishi ixtiyoriy — kiritilgan bo'lsa va eskisidan farq qilsa
+  // yangilanadi, boshqa login band bo'lsa rad etiladi.
+  let username: string | undefined;
+  if (input.username !== undefined) {
+    const trimmed = input.username.trim().toLowerCase();
+    if (trimmed !== before.username) {
+      if (trimmed.length < 3) return { ok: false, error: "Login kamida 3 belgi" };
+      const exists = await db.user.findUnique({ where: { username: trimmed } });
+      if (exists) return { ok: false, error: "Bu login band" };
+      username = trimmed;
+    }
+  }
 
   try {
     await db.user.update({
       where: { id },
       data: {
         name: parsed.data.name.trim(),
+        ...(username !== undefined ? { username } : {}),
         role: parsed.data.role,
         ...regionData(input.regions),
         phone: clean(parsed.data.phone),
@@ -163,7 +179,7 @@ export async function updateUser(
       },
     });
   } catch {
-    return { ok: false, error: "Saqlashda xato (Telegram ID band bo'lishi mumkin)" };
+    return { ok: false, error: "Saqlashda xato (login yoki Telegram ID band bo'lishi mumkin)" };
   }
 
   await logAudit("Xodim tahrirlandi", {

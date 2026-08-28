@@ -14,6 +14,7 @@ import { TicketStatusControl } from "@/components/ticket-status-control";
 import { TicketDismissButton } from "@/components/ticket-dismiss-button";
 import { TicketIntegratorControl } from "@/components/ticket-integrator-control";
 import { VersionTicketStatusControl } from "@/components/version-ticket-status-control";
+import { VersionAssigneeControl } from "@/components/version-assignee-control";
 import { TicketForm } from "@/components/ticket-form";
 import { TicketTabs, type TicketTab } from "@/components/ticket-tabs";
 import { PhoneCopyButton } from "@/components/phone-copy";
@@ -211,6 +212,12 @@ export async function TicketsSection({
     (t) => t.status !== "RESOLVED" && t.assignedStaffId && !t.assignedUstaId,
   );
   const withUsta = ticketsRaw.filter((t) => t.status !== "RESOLVED" && t.assignedUstaId);
+  // "Yangi versiya"da mas'ul XOH xodim, XOH usta bo'lishi mumkin — bitta
+  // bosqich (`VersionAssigneeControl` bir vaqtda faqat bittasini yozadi, shu
+  // bois o'zaro eksklyuziv — birlashtirish xavfsiz).
+  const assignedActive = isVersion ? ticketsRaw.filter(
+    (t) => t.status !== "RESOLVED" && (t.assignedStaffId || t.assignedUstaId),
+  ) : staffAssigned;
   const hal = ticketsRaw.filter((t) => t.status === "RESOLVED");
 
   const openCount = yangiTotal + staffOnlyTotal + ustaTotal;
@@ -296,17 +303,29 @@ export async function TicketsSection({
         )}
 
         <div className="mt-3">
-          <TicketIntegratorControl
-            ticketId={t.id}
-            canAssign={canAssign}
-            staff={t.assignedStaff ?? null}
-            staffNote={t.staffNote}
-            xodimlar={xodimlar}
-            usta={t.assignedUsta ?? null}
-            ustaNote={t.ustaNote}
-            ustalar={ustalarFull}
-            hideUsta={isVersion}
-          />
+          {isVersion ? (
+            <VersionAssigneeControl
+              ticketId={t.id}
+              canAssign={canAssign}
+              staff={t.assignedStaff ?? null}
+              staffNote={t.staffNote}
+              usta={t.assignedUsta ?? null}
+              ustaNote={t.ustaNote}
+              xodimlar={xodimlar}
+              ustalar={ustalarFull}
+            />
+          ) : (
+            <TicketIntegratorControl
+              ticketId={t.id}
+              canAssign={canAssign}
+              staff={t.assignedStaff ?? null}
+              staffNote={t.staffNote}
+              xodimlar={xodimlar}
+              usta={t.assignedUsta ?? null}
+              ustaNote={t.ustaNote}
+              ustalar={ustalarFull}
+            />
+          )}
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -364,16 +383,16 @@ export async function TicketsSection({
   }
   tabs.push({
     key: "xodimga",
-    label: "TP xodimiga biriktirildi",
+    label: isVersion ? "Biriktirildi" : "TP xodimiga biriktirildi",
     icon: <UserCheck className="h-4 w-4" />,
     // Admin/menejerda sariq (nazorat), xodimda qizil (bajarilishi kutilmoqda)
     tone: canAssign ? "amber" : "red",
-    count: staffOnlyTotal,
+    count: isVersion ? staffOnlyTotal + ustaTotal : staffOnlyTotal,
     content: panel(
-      staffAssigned,
+      assignedActive,
       isVersion
         ? canAssign
-          ? "TP xodimiga biriktirilgan versiya so'rovi yo'q."
+          ? "Biriktirilgan versiya so'rovi yo'q."
           : "Sizga biriktirilgan versiya so'rovi yo'q."
         : canAssign
           ? "TP xodimiga biriktirilgan (ustaga yetkazilmagan) muammo yo'q."

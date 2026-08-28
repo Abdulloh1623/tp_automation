@@ -3,12 +3,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { UserPlus, Pencil, KeyRound, Power, AlertCircle, Activity } from "lucide-react";
+import { UserPlus, Pencil, KeyRound, Power, AlertCircle, Activity, Shuffle } from "lucide-react";
 import {
   createUser,
   updateUser,
   resetPassword,
   setUserActive,
+  redistributeStaffWork,
 } from "@/actions/users";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { RegionMultiSelect } from "@/components/region-multi-select";
+import { confirmDialog } from "@/components/confirm-dialog";
+import { toast } from "@/components/toaster";
 import {
   USER_ROLE,
   USER_SHIFT,
@@ -166,6 +169,30 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
     });
   }
 
+  // Faolsizlantirilgan (ishdan ketgan) xodimning ochiq ishlarini (muammo/
+  // eskalatsiya/qaytarish) qolgan faol TP xodimlari orasida teng taqsimlaydi.
+  async function redistribute(u: ManagedUser) {
+    const ok = await confirmDialog({
+      title: "Ishlarini taqsimlash",
+      message: `"${u.name}"ning ochiq muammo/eskalatsiya/qaytarish ishlari qolgan faol TP xodimlari orasida teng taqsimlansinmi?`,
+      confirmLabel: "Taqsimlash",
+      variant: "primary",
+    });
+    if (!ok) return;
+    start(async () => {
+      const res = await redistributeStaffWork(u.id);
+      if (res.ok) {
+        toast(
+          `${res.tickets} ta muammo, ${res.escalations} ta eskalatsiya, ${res.returns} ta qaytarish taqsimlandi (${res.recipients.join(", ")})`,
+          "success",
+        );
+        router.refresh();
+      } else {
+        toast(res.error, "error");
+      }
+    });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
@@ -234,6 +261,17 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                       >
                         <Activity className="h-3.5 w-3.5" /> Faoliyat
                       </Link>
+                    )}
+                    {!u.isActive && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        disabled={pending}
+                        onClick={() => redistribute(u)}
+                      >
+                        <Shuffle className="h-3.5 w-3.5" /> Ishlarini taqsimlash
+                      </Button>
                     )}
                     <Button
                       variant="ghost"

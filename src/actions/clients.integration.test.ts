@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "@/lib/db";
-import { updateClient, deactivateRefusedClients } from "./clients";
+import { updateClient, deactivateRefusedClients, setClientAppVersion } from "./clients";
 import { resetDb, makeUser, makeClient, loginAs, logout } from "@/test/fixtures";
 import { RedirectError } from "@/test/integration-setup";
 
@@ -238,5 +238,50 @@ describe("deactivateRefusedClients (otkaz, lekin hali faol)", () => {
 
     expect(res.ok).toBe(true);
     expect(res.fixed).toBe(0);
+  });
+});
+
+describe("setClientAppVersion — mijoz profilidagi dastur versiyasi", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("STAFF (OPERATOR) versiyani belgilay oladi", async () => {
+    await loginAs(await makeUser("OPERATOR"));
+    const c = await makeClient();
+
+    const res = await setClientAppVersion(c.id, "V3");
+
+    expect(res.ok).toBe(true);
+    const after = await db.client.findUnique({ where: { id: c.id } });
+    expect(after!.appVersion).toBe("V3");
+  });
+
+  it("noto'g'ri versiya qiymati rad etiladi", async () => {
+    await loginAs(await makeUser("ADMIN"));
+    const c = await makeClient();
+
+    const res = await setClientAppVersion(c.id, "V9");
+
+    expect(res.ok).toBe(false);
+    const after = await db.client.findUnique({ where: { id: c.id } });
+    expect(after!.appVersion).toBeNull();
+  });
+
+  it("sessiyasiz chaqirilsa rad etiladi", async () => {
+    logout();
+    const c = await makeClient();
+
+    const res = await setClientAppVersion(c.id, "V1");
+
+    expect(res.ok).toBe(false);
+  });
+
+  it("mavjud bo'lmagan mijoz — xato", async () => {
+    await loginAs(await makeUser("ADMIN"));
+
+    const res = await setClientAppVersion("yoq-id", "V1");
+
+    expect(res.ok).toBe(false);
   });
 });

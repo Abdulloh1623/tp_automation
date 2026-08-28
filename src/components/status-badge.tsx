@@ -1,17 +1,21 @@
 import { Badge } from "@/components/ui/badge";
 import {
   callResultLabel,
+  clientAppVersionLabel,
   clientStatusLabel,
+  isClientAppVersion,
   leadOutcomeLabel,
   leadStageLabel,
   TICKET_PRIORITY,
   TICKET_STATUS,
   TICKET_TYPE,
   type CallResult,
+  type ClientAppVersion,
   type TicketPriority,
   type TicketStatus,
   type TicketType,
 } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 type BadgeTone = "neutral" | "blue" | "green" | "amber" | "red" | "slate";
 import {
@@ -24,6 +28,43 @@ export function ClientStatusBadge({ status }: { status: string }) {
   const tone =
     status === "ACTIVE" ? "green" : status === "PENDING" ? "amber" : "slate";
   return <Badge tone={tone}>{clientStatusLabel(status)}</Badge>;
+}
+
+// Dastur versiyasi bo'yicha rang — eskidan yangiga qadar bosqichma-bosqich
+// (sovuqdan ilikka), "kiritilmagan" (v?) esa har doim qizil (e'tibor talab
+// qiladi) — Badge komponentining 6 tonasidan tashqari, o'ziga xos palitra.
+const APP_VERSION_TONE: Record<ClientAppVersion, string> = {
+  V0: "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200",
+  V1: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  V2: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
+  V3: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
+  V4: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+};
+const APP_VERSION_UNKNOWN_TONE =
+  "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300";
+
+export function ClientAppVersionBadge({
+  version,
+  className,
+}: {
+  version?: string | null;
+  className?: string;
+}) {
+  const tone =
+    version && isClientAppVersion(version)
+      ? APP_VERSION_TONE[version]
+      : APP_VERSION_UNKNOWN_TONE;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums",
+        tone,
+        className,
+      )}
+    >
+      {clientAppVersionLabel(version)}
+    </span>
+  );
 }
 
 const paymentTone: Record<PaymentState, "red" | "amber" | "blue" | "green" | "neutral"> =

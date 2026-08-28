@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "@/lib/db";
-import { confirmReturnCollected, revertReturnRequest } from "./equipment";
+import { confirmReturnCollected, revertReturnRequest, startReturnProgress } from "./equipment";
 import { resetDb, makeUser, makeClient, makeEquipment, loginAs, stockOf } from "@/test/fixtures";
 
 async function makeReturnRequest(status = "APPROVED") {
@@ -124,5 +124,45 @@ describe("revertReturnRequest — bosqichlarni orqaga qaytarish", () => {
     expect(res.ok).toBe(true);
     const after = await db.equipmentReturnRequest.findUnique({ where: { id: req.id } });
     expect(after).toBeNull();
+  });
+});
+
+describe("usta o'zi (veb login) — faqat o'ziga biriktirilgan arizani", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("startReturnProgress: biriktirilgan usta APPROVED -> IN_PROGRESS qila oladi", async () => {
+    const { req, usta } = await makeReturnRequest("APPROVED");
+    await loginAs(usta);
+
+    const res = await startReturnProgress(req.id, "yo'lga chiqdim");
+
+    expect(res.ok).toBe(true);
+    const after = await db.equipmentReturnRequest.findUnique({ where: { id: req.id } });
+    expect(after!.status).toBe("IN_PROGRESS");
+  });
+
+  it("startReturnProgress: boshqa usta qila OLMAYDI", async () => {
+    const { req } = await makeReturnRequest("APPROVED");
+    const boshqaUsta = await makeUser("INSTALLER");
+    await loginAs(boshqaUsta);
+
+    const res = await startReturnProgress(req.id, "yo'lga chiqdim");
+
+    expect(res.ok).toBe(false);
+    const after = await db.equipmentReturnRequest.findUnique({ where: { id: req.id } });
+    expect(after!.status).toBe("APPROVED");
+  });
+
+  it("confirmReturnCollected: biriktirilgan usta IN_PROGRESS -> DONE qila oladi", async () => {
+    const { req, usta } = await makeReturnRequest("IN_PROGRESS");
+    await loginAs(usta);
+
+    const res = await confirmReturnCollected(req.id, "uskuna olib kelindi");
+
+    expect(res.ok).toBe(true);
+    const after = await db.equipmentReturnRequest.findUnique({ where: { id: req.id } });
+    expect(after!.status).toBe("DONE");
   });
 });

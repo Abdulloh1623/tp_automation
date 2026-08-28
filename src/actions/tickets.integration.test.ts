@@ -144,4 +144,49 @@ describe("resolveVersionTicket", () => {
 
     expect(res.ok).toBe(false);
   });
+
+  it("o'ziga biriktirilgan usta versiyani yangilay oladi", async () => {
+    const usta = await makeUser("INSTALLER");
+    const client = await makeClient();
+    const ticket = await db.ticket.create({
+      data: {
+        clientId: client.id,
+        title: "Yangi versiya o'rnatish kerak",
+        type: "VERSION_UPDATE",
+        status: "IN_PROGRESS",
+        assignedUstaId: usta.id,
+      },
+    });
+    await loginAs(usta);
+
+    const res = await resolveVersionTicket(ticket.id, "V2");
+
+    expect(res.ok).toBe(true);
+    const afterTicket = await db.ticket.findUnique({ where: { id: ticket.id } });
+    expect(afterTicket!.status).toBe("RESOLVED");
+    const afterClient = await db.client.findUnique({ where: { id: client.id } });
+    expect(afterClient!.appVersion).toBe("V2");
+  });
+
+  it("boshqa ustaga biriktirilganini yangilay OLMAYDI", async () => {
+    const usta = await makeUser("INSTALLER");
+    const boshqaUsta = await makeUser("INSTALLER");
+    const client = await makeClient();
+    const ticket = await db.ticket.create({
+      data: {
+        clientId: client.id,
+        title: "Yangi versiya o'rnatish kerak",
+        type: "VERSION_UPDATE",
+        status: "IN_PROGRESS",
+        assignedUstaId: usta.id,
+      },
+    });
+    await loginAs(boshqaUsta);
+
+    const res = await resolveVersionTicket(ticket.id, "V2");
+
+    expect(res.ok).toBe(false);
+    const afterTicket = await db.ticket.findUnique({ where: { id: ticket.id } });
+    expect(afterTicket!.status).toBe("IN_PROGRESS");
+  });
 });

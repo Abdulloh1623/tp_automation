@@ -68,9 +68,18 @@ export async function getNavBadges(
             where: { id: userId, cardVerifier: true },
             select: { id: true },
           }),
-      // Vazifalarim — ustaga biriktirilgan, hal qilinmagan muammolar
+      // Vazifalarim — ustaga biriktirilgan ochiq eskalatsiya+qaytarish+versiya
+      // so'rovlari yig'indisi (muammolar — oddiy ticketlar — bu sahifada YO'Q).
       role === "INSTALLER"
-        ? db.ticket.count({ where: { assignedUstaId: userId, status: { not: "RESOLVED" } } })
+        ? Promise.all([
+            db.client.count({ where: { assignedUstaId: userId, stage: "FORWARDED" } }),
+            db.equipmentReturnRequest.count({
+              where: { ustaId: userId, status: { in: ["APPROVED", "IN_PROGRESS"] } },
+            }),
+            db.ticket.count({
+              where: { assignedUstaId: userId, type: "VERSION_UPDATE", status: { not: "RESOLVED" } },
+            }),
+          ]).then(([esc, ret, ver]) => esc + ret + ver)
         : Promise.resolve(0),
     ]);
 

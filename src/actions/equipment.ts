@@ -547,9 +547,6 @@ export async function rejectReturnRequest(
  */
 export async function startReturnProgress(requestId: string, note: string): Promise<EqState> {
   const session = await requireSession();
-  if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
-    return { ok: false, error: "Ruxsat yo'q" };
-  }
   const noteText = safeNote(note);
   if (!noteText) return { ok: false, error: "Izoh majburiy" };
 
@@ -559,6 +556,13 @@ export async function startReturnProgress(requestId: string, note: string): Prom
   });
   if (!req || req.status !== "APPROVED") {
     return { ok: false, error: "Ariza topilmadi yoki holati o'zgargan" };
+  }
+  // TP xodimi/boshliq ISTALGAN arizani, usta esa faqat O'ZIGA biriktirilganini
+  // (`confirmReturnCollected` bilan bir xil naqsh).
+  const canStart =
+    ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) || req.ustaId === session.userId;
+  if (!canStart) {
+    return { ok: false, error: "Ruxsat yo'q" };
   }
   await db.equipmentReturnRequest.update({
     where: { id: requestId },

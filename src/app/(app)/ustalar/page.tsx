@@ -10,6 +10,7 @@ export default async function UstalarPage() {
     select: {
       id: true,
       name: true,
+      username: true,
       region: true,
       regions: true,
       phone: true,

@@ -10,7 +10,7 @@ export type Role = "ADMIN" | "MANAGER" | "OPERATOR" | "INSTALLER" | "VIEWER";
 
 /** Foydalanuvchi roli uchun asosiy sahifa (login-redirect, ruxsatsiz holatda). */
 export function roleHome(role: string): string {
-  if (role === "INSTALLER") return "/login"; // ustalar tizimga kirmaydi
+  if (role === "INSTALLER") return "/vazifalarim";
   if (role === "OPERATOR") return "/lidlar";
   if (role === "MANAGER") return "/ombor";
   return "/"; // ADMIN, VIEWER
@@ -52,9 +52,10 @@ const ROUTE_ROLES: { prefix: string; roles: Role[] }[] = [
   // FAQ — barcha xodim o'qiydi va qo'sha oladi; tahrir/o'chirish faqat ADMIN
   // (action guardRole bilan). O'qish/qo'shish uchun uch rol ham ochiq.
   { prefix: "/faq", roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
-  // Jonli tablo — barcha xodimlar (ustalar login qilmaydi). Sessiya baribir
-  // talab qilinadi (tablo/page.tsx da requireSession).
+  // Jonli tablo — xodimlar (ustalar bu yerga kirmaydi, ular /vazifalarim'da).
   { prefix: "/tablo", roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
+  // Usta (INSTALLER) — faqat o'ziga biriktirilgan muammolar; boshqa hech qayerga kirmaydi.
+  { prefix: "/vazifalarim", roles: ["INSTALLER"] },
 ];
 
 /** Foydalanuvchi shu sahifaga kira oladimi. */

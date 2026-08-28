@@ -110,11 +110,6 @@ export async function login(
     return { error: "Login yoki parol noto'g'ri" };
   }
 
-  // Ustalar (INSTALLER) tizimga kirmaydi — ular faqat boshliq tomonidan boshqariladi
-  if (user.role === "INSTALLER") {
-    return { error: "Ustalar tizimga kira olmaydi — boshliqqa murojaat qiling" };
-  }
-
   attempts.delete(ipKey); // muvaffaqiyatda nollash
   attempts.delete(userKey);
 

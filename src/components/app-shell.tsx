@@ -108,6 +108,11 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/profil", label: "Profil", icon: CircleUser, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
     ],
   },
+  {
+    items: [
+      { href: "/vazifalarim", label: "Vazifalarim", icon: HardHat, roles: ["INSTALLER"] },
+    ],
+  },
 ];
 
 // Nav yonidagi badge foni — har bo'limga mos rang (oq matn bilan kontrast uchun -600).
@@ -254,22 +259,34 @@ export function AppShell({
         </nav>
 
         <div className="relative border-t border-slate-200 p-3 dark:border-slate-800/80">
-          <Link
-            href="/profil"
-            className="mb-2 flex items-center gap-2.5 rounded-xl px-2 py-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800/70"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-700 to-slate-900 text-xs font-bold text-white ring-1 ring-inset ring-white/10 dark:from-slate-600 dark:to-slate-800">
-              {initialsOf(user.name)}
-            </span>
-            <div className="min-w-0 leading-tight">
-              <div className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                {user.name}
-              </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">
-                {userRoleLabel(user.role)}
-              </div>
-            </div>
-          </Link>
+          {(() => {
+            const identity = (
+              <>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-700 to-slate-900 text-xs font-bold text-white ring-1 ring-inset ring-white/10 dark:from-slate-600 dark:to-slate-800">
+                  {initialsOf(user.name)}
+                </span>
+                <div className="min-w-0 leading-tight">
+                  <div className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {user.name}
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    {userRoleLabel(user.role)}
+                  </div>
+                </div>
+              </>
+            );
+            // Usta uchun /profil yo'q — sof ko'rinish sifatida (link emas).
+            return user.role === "INSTALLER" ? (
+              <div className="mb-2 flex items-center gap-2.5 px-2 py-2">{identity}</div>
+            ) : (
+              <Link
+                href="/profil"
+                className="mb-2 flex items-center gap-2.5 rounded-xl px-2 py-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800/70"
+              >
+                {identity}
+              </Link>
+            );
+          })()}
           <button
             type="button"
             onClick={handleLogout}

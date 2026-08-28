@@ -6,7 +6,7 @@ describe("roleHome", () => {
     expect(roleHome("ADMIN")).toBe("/");
     expect(roleHome("MANAGER")).toBe("/ombor");
     expect(roleHome("OPERATOR")).toBe("/lidlar");
-    expect(roleHome("INSTALLER")).toBe("/login"); // ustalar tizimga kirmaydi
+    expect(roleHome("INSTALLER")).toBe("/vazifalarim");
     expect(roleHome("VIEWER")).toBe("/");
   });
 });
@@ -95,6 +95,20 @@ describe("canAccess", () => {
     expect(canAccess("VIEWER", "/malumotlar")).toBe(false);
     expect(canAccess("MANAGER", "/malumotlar")).toBe(false);
     expect(canAccess("OPERATOR", "/malumotlar")).toBe(false);
+  });
+
+  it("/vazifalarim — faqat INSTALLER (usta)", () => {
+    expect(canAccess("INSTALLER", "/vazifalarim")).toBe(true);
+    expect(canAccess("ADMIN", "/vazifalarim")).toBe(false);
+    expect(canAccess("MANAGER", "/vazifalarim")).toBe(false);
+    expect(canAccess("OPERATOR", "/vazifalarim")).toBe(false);
+    expect(canAccess("VIEWER", "/vazifalarim")).toBe(false);
+  });
+
+  it("INSTALLER boshqa hech qayerga kirmaydi", () => {
+    for (const p of ["/", "/lidlar", "/mijozlar", "/muammolar", "/ustalar", "/tablo"]) {
+      expect(canAccess("INSTALLER", p), p).toBe(false);
+    }
   });
 
   it("/api/* bu yerda bloklanmaydi — handler o'zi tekshiradi", () => {

@@ -1,5 +1,5 @@
-// Ishdan ketgan xodimning ochiq ishlarini (muammo/eskalatsiya/qaytarish)
-// qolgan faol TP xodimlari orasida teng taqsimlash — HAQIQIY bazaga qarshi.
+// Xodimning (ishdan ketgan yoki egasiz) ochiq ishlarini (muammo/eskalatsiya/
+// qaytarish) qolgan faol TP xodimlari orasida taqsimlash — HAQIQIY bazaga qarshi.
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "@/lib/db";
@@ -11,7 +11,7 @@ describe("redistributeStaffWork", () => {
     await resetDb();
   });
 
-  it("muammo/eskalatsiya/qaytarishni faol operatorlar orasida round-robin taqsimlaydi", async () => {
+  it("muammo/eskalatsiya/qaytarishni faol operatorlar orasida taqsimlaydi", async () => {
     const admin = await makeUser("ADMIN");
     const departed = await makeUser("OPERATOR", { name: "Biloliddin", isActive: false });
     const op1 = await makeUser("OPERATOR", { name: "Anvar" });
@@ -52,16 +52,97 @@ describe("redistributeStaffWork", () => {
     expect(res.returns).toBe(1);
     expect(res.recipients.sort()).toEqual(["Anvar", "Bahtiyor"]);
 
+    const pool = [op1.id, op2.id];
     const ticket1 = await db.ticket.findUnique({ where: { id: t1.id } });
     const ticket2 = await db.ticket.findUnique({ where: { id: t2.id } });
-    expect(ticket1!.assignedStaffId).toBe(op1.id);
-    expect(ticket2!.assignedStaffId).toBe(op2.id);
+    expect(pool).toContain(ticket1!.assignedStaffId);
+    expect(pool).toContain(ticket2!.assignedStaffId);
 
     const client3 = await db.client.findUnique({ where: { id: c3.id } });
-    expect(client3!.escalationStaffId).toBe(op1.id);
+    expect(pool).toContain(client3!.escalationStaffId);
 
     const returnReq = await db.equipmentReturnRequest.findUnique({ where: { id: ret.id } });
-    expect(returnReq!.staffId).toBe(op1.id);
+    expect(pool).toContain(returnReq!.staffId);
+  });
+
+  it("ustaga yo'naltirilgan (FORWARDED) bosqichdagi eskalatsiyani ham taqsimlaydi", async () => {
+    const admin = await makeUser("ADMIN");
+    const departed = await makeUser("OPERATOR", { isActive: false });
+    const op1 = await makeUser("OPERATOR");
+    const usta = await makeUser("INSTALLER");
+    await loginAs(admin);
+
+    const client = await makeClient();
+    await db.client.update({
+      where: { id: client.id },
+      // Usta biriktirilganda mas'ul TP xodim (escalationStaffId) o'zgarmay qoladi
+      data: { stage: "FORWARDED", escalationStaffId: departed.id, assignedUstaId: usta.id },
+    });
+
+    const res = await redistributeStaffWork(departed.id);
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.escalations).toBe(1);
+    const after = await db.client.findUnique({ where: { id: client.id } });
+    expect(after!.escalationStaffId).toBe(op1.id);
+  });
+
+  it("egasiz (ustaga yo'naltirilgan, hech qanday xodimga biriktirilmagan) muammoni ham taqsimlaydi", async () => {
+    const admin = await makeUser("ADMIN");
+    const departed = await makeUser("OPERATOR", { isActive: false });
+    const op1 = await makeUser("OPERATOR");
+    const usta = await makeUser("INSTALLER");
+    await loginAs(admin);
+
+    const client = await makeClient();
+    const orphan = await db.ticket.create({
+      data: {
+        clientId: client.id,
+        title: "Egasiz muammo",
+        type: "TECHNICAL",
+        status: "IN_PROGRESS",
+        assignedStaffId: null,
+        assignedUstaId: usta.id,
+      },
+    });
+
+    const res = await redistributeStaffWork(departed.id);
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.tickets).toBe(1);
+    const after = await db.ticket.findUnique({ where: { id: orphan.id } });
+    expect(after!.assignedStaffId).toBe(op1.id);
+  });
+
+  it("'Yangi versiya' turidagi, faqat ustaga biriktirilgan muammoni EGASIZ deb hisoblamaydi", async () => {
+    const admin = await makeUser("ADMIN");
+    const departed = await makeUser("OPERATOR", { isActive: false });
+    await makeUser("OPERATOR");
+    const usta = await makeUser("INSTALLER");
+    await loginAs(admin);
+
+    const client = await makeClient();
+    const versionTicket = await db.ticket.create({
+      data: {
+        clientId: client.id,
+        title: "Yangi versiya",
+        type: "VERSION_UPDATE",
+        status: "OPEN",
+        assignedStaffId: null,
+        assignedUstaId: usta.id,
+      },
+    });
+
+    const res = await redistributeStaffWork(departed.id);
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.tickets).toBe(0);
+    const after = await db.ticket.findUnique({ where: { id: versionTicket.id } });
+    expect(after!.assignedStaffId).toBeNull();
+    expect(after!.assignedUstaId).toBe(usta.id);
   });
 
   it("faol operator qolmasa xato qaytaradi", async () => {

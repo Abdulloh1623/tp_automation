@@ -170,12 +170,14 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
     });
   }
 
-  // Faolsizlantirilgan (ishdan ketgan) xodimning ochiq ishlarini (muammo/
-  // eskalatsiya/qaytarish) qolgan faol TP xodimlari orasida teng taqsimlaydi.
+  // Xodimning (ishdan ketgan yoki hali faol) ochiq muammo/eskalatsiya/
+  // qaytarish ishlarini — shuningdek ustaga yo'naltirilgan, ammo hech kimga
+  // biriktirilmagan "egasiz" ishlarni ham — qolgan faol TP xodimlari orasida
+  // tasodifiy taqsimlaydi.
   async function redistribute(u: ManagedUser) {
     const ok = await confirmDialog({
       title: "Ishlarini taqsimlash",
-      message: `"${u.name}"ning ochiq muammo/eskalatsiya/qaytarish ishlari qolgan faol TP xodimlari orasida teng taqsimlansinmi?`,
+      message: `"${u.name}"ning ochiq muammo/eskalatsiya/qaytarish ishlari (shuningdek egasiz ishlar) qolgan faol TP xodimlari orasida tasodifiy taqsimlansinmi?`,
       confirmLabel: "Taqsimlash",
       variant: "primary",
     });
@@ -263,7 +265,7 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                         <Activity className="h-3.5 w-3.5" /> Faoliyat
                       </Link>
                     )}
-                    {!u.isActive && (
+                    {u.role === "OPERATOR" && (
                       <Button
                         variant="ghost"
                         size="sm"

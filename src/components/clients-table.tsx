@@ -7,7 +7,7 @@ import { bulkAssignOperator } from "@/actions/clients";
 import { toast } from "@/components/toaster";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { ClientStatusBadge, PaymentStatusBadge } from "@/components/status-badge";
+import { ClientAppVersionBadge, ClientStatusBadge, PaymentStatusBadge } from "@/components/status-badge";
 import { formatDate, formatMoney, formatPhone, normalizePhone } from "@/lib/utils";
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { SpecialNoteBell } from "@/components/special-note-bell";
@@ -18,6 +18,7 @@ import { ClientQuickView } from "@/components/client-quick-view";
 export type ClientRow = {
   id: string;
   restaurantName: string;
+  appVersion: string | null;
   fullName: string;
   region: string | null;
   phone: string;
@@ -168,6 +169,7 @@ export function ClientsTable({
                 </th>
               )}
               <SortHeader col="restaurantName" label="Mijoz" />
+              <th className="px-4 py-3 font-medium">Versiya</th>
               <SortHeader col="region" label="Viloyat" />
               <th className="px-4 py-3 font-medium">Telefon</th>
               <th className="px-4 py-3 font-medium">Oxirgi operator</th>
@@ -180,7 +182,7 @@ export function ClientsTable({
           <tbody>
             {clients.length === 0 && (
               <tr>
-                <td colSpan={canManage ? 9 : 8} className="px-4 py-8">
+                <td colSpan={canManage ? 10 : 9} className="px-4 py-8">
                   <ClientNotFound />
                 </td>
               </tr>
@@ -220,6 +222,7 @@ export function ClientsTable({
                     <SoliqConnectDialog compact clientId={c.id} clientName={c.restaurantName || c.fullName || "—"} />
                   </div>
                 </td>
+                <td className="px-4 py-3"><ClientAppVersionBadge version={c.appVersion} /></td>
                 <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{c.region ?? "—"}</td>
                 <td className="px-4 py-3">
                   <span className="inline-flex items-center gap-1">
@@ -289,6 +292,7 @@ export function ClientsTable({
                   <SoliqConnectDialog compact clientId={c.id} clientName={c.restaurantName || c.fullName || "—"} />
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <ClientAppVersionBadge version={c.appVersion} />
                   <ClientStatusBadge status={c.status} />
                   <PaymentStatusBadge nextPaymentDate={c.nextPaymentDate ? new Date(c.nextPaymentDate) : null} />
                 </div>

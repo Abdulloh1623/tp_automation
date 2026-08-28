@@ -46,6 +46,7 @@ import {
 import { CallLogForm } from "@/components/call-log-form";
 import { CallLogActions } from "@/components/call-log-actions";
 import { SpecialNoteBell } from "@/components/special-note-bell";
+import { ClientVersionPicker } from "@/components/client-version-picker";
 import { ClientRefuseButton } from "@/components/client-refuse-button";
 import { PaymentForm } from "@/components/payment-form";
 import { PaymentHistoryActions } from "@/components/payment-history-actions";
@@ -433,6 +434,7 @@ export async function ClientProfile({ id }: { id: string }) {
                   {client.fullName}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <ClientVersionPicker clientId={client.id} version={client.appVersion} />
                   <ClientStatusBadge status={client.status} />
                   {client.stage === "REFUSED" && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/20 px-2.5 py-0.5 text-xs font-medium text-rose-300 ring-1 ring-inset ring-rose-500/30">

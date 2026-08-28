@@ -7,6 +7,9 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { isUserShift, MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH } from "@/lib/constants";
+import { assignTicketStaff } from "./tickets";
+import { assignEscalationStaff } from "./usta";
+import { createNotification } from "@/lib/notifications";
 
 export type UserActionState = { ok: boolean; error?: string };
 
@@ -225,6 +228,96 @@ export async function updateUserDailyLimit(
   revalidatePath("/analitika");
   revalidatePath("/foydalanuvchilar");
   return { ok: true };
+}
+
+export type RedistributeState =
+  | { ok: true; tickets: number; escalations: number; returns: number; recipients: string[] }
+  | { ok: false; error: string };
+
+/**
+ * Ishdan ketgan (faolsizlantirilgan) xodimning ochiq ishlarini — muammo
+ * (Ticket.assignedStaffId), eskalatsiya (Client.escalationStaffId) va
+ * qaytarish (EquipmentReturnRequest.staffId) — qolgan faol TP xodimlari
+ * orasida navbat bilan (round-robin) teng taqsimlaydi. Mavjud biriktirish
+ * action'lari orqali o'tkaziladi — shu bilan CallLog/audit/bildirishnoma bir
+ * xil naqshda qoladi. Kunlik lid biriktiruvi (Client.assignedToId) BU YERGA
+ * kirmaydi — u alohida (duty roster asosidagi) taqsimot tizimi bilan boshqariladi.
+ */
+export async function redistributeStaffWork(departedUserId: string): Promise<RedistributeState> {
+  const session = await requireSession();
+  if (session.role !== "ADMIN") return { ok: false, error: "Ruxsat yo'q" };
+
+  const departed = await db.user.findUnique({
+    where: { id: departedUserId },
+    select: { name: true },
+  });
+  if (!departed) return { ok: false, error: "Xodim topilmadi" };
+
+  const pool = await db.user.findMany({
+    where: { role: "OPERATOR", isActive: true, id: { not: departedUserId } },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+  if (pool.length === 0) {
+    return { ok: false, error: "Faol TP xodim yo'q — taqsimlashga hech kim qolmagan" };
+  }
+
+  const note = `Ishdan ketgan xodim (${departed.name}) ishlari taqsimlandi`;
+
+  const [tickets, escalations, returns] = await Promise.all([
+    db.ticket.findMany({
+      where: { assignedStaffId: departedUserId, status: { not: "RESOLVED" } },
+      select: { id: true },
+    }),
+    db.client.findMany({
+      where: { escalationStaffId: departedUserId, stage: "ESCALATED" },
+      select: { id: true },
+    }),
+    db.equipmentReturnRequest.findMany({
+      where: { staffId: departedUserId, status: { in: ["APPROVED", "IN_PROGRESS"] } },
+      select: { id: true, clientId: true },
+    }),
+  ]);
+
+  for (let i = 0; i < tickets.length; i++) {
+    await assignTicketStaff(tickets[i].id, pool[i % pool.length].id, note);
+  }
+  for (let i = 0; i < escalations.length; i++) {
+    await assignEscalationStaff(escalations[i].id, pool[i % pool.length].id, note);
+  }
+  for (let i = 0; i < returns.length; i++) {
+    const staff = pool[i % pool.length];
+    const r = returns[i];
+    await db.equipmentReturnRequest.update({ where: { id: r.id }, data: { staffId: staff.id } });
+    await db.callLog.create({
+      data: { clientId: r.clientId, result: "RETURN_ASSIGNED", note, operatorId: session.userId },
+    });
+    if (staff.id !== session.userId) {
+      await createNotification({
+        title: "Sizga qaytarish arizasi biriktirildi",
+        body: note,
+        userIds: [staff.id],
+      });
+    }
+    revalidatePath(`/mijozlar/${r.clientId}`);
+  }
+
+  await logAudit("Ishdan ketgan xodim ishlari taqsimlandi", {
+    entity: "User",
+    entityId: departedUserId,
+    detail: `${departed.name}: ${tickets.length} muammo, ${escalations.length} eskalatsiya, ${returns.length} qaytarish → ${pool.map((p) => p.name).join(", ")}`,
+  });
+  revalidatePath("/muammolar");
+  revalidatePath("/qaytarish");
+  revalidatePath("/eskalatsiya");
+  revalidatePath("/foydalanuvchilar");
+  return {
+    ok: true,
+    tickets: tickets.length,
+    escalations: escalations.length,
+    returns: returns.length,
+    recipients: pool.map((p) => p.name),
+  };
 }
 
 export async function setUserActive(

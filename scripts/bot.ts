@@ -94,11 +94,16 @@ async function runDistribute(shift?: "DAY" | "NIGHT") {
       // Rejalashtirilgan (smenali) chaqiruvda jadval bo'sh bo'lsa — bu jimgina
       // o'tib ketmasin, admin ko'rmasa kunlik ro'yxat hech kimga bo'linmay qoladi.
       if (shift) await alertEmptyRoster(shift, r.error);
-    } else
+    } else {
       log(
         `${tag} → ${r.assigned} mijoz ${r.operators} operatorga` +
           (r.released ? ` (tugagan smenadan olindi: ${r.released})` : ""),
       );
+      // Ish ishladi (zaxira brigada bilan bo'lsa ham) — lekin admin jadval
+      // kiritishni unutgani haqida bilishi kerak, aks holda har kuni jimgina
+      // takrorlanaveradi.
+      if (r.usedFallbackRoster) await alertFallbackRoster();
+    }
   } catch (e) {
     log(`${tag} XATO:`, e instanceof Error ? e.message : e);
     await reportError(e, { source: "worker", path: "distribute", notifyTransient: true });
@@ -116,6 +121,26 @@ async function alertEmptyRoster(shift: "DAY" | "NIGHT", error: string) {
     await sendToChannel(text);
     return;
   }
+  for (const a of admins) {
+    if (!a.telegramId) continue;
+    try {
+      await sendMessage(a.telegramId, text);
+    } catch {
+      /* eng yaxshi harakat */
+    }
+  }
+}
+
+/** Jadval belgilanmagani uchun zaxira brigada ishlatilgani haqida adminlarga eslatma. */
+async function alertFallbackRoster() {
+  const admins = await db.user.findMany({
+    where: { role: "ADMIN", isActive: true, telegramId: { not: null } },
+    select: { telegramId: true },
+  });
+  const text =
+    "⚠️ Bugungi ish jadvali /ish-jadvali'da belgilanmagan edi — zaxira brigada " +
+    "(Javohir/Abdulla/Shaxzod kunduzgi, Mehroj kechki) avtomatik ishlatildi. " +
+    "Ertaga uchun jadvalni to'ldirishni unutmang.";
   for (const a of admins) {
     if (!a.telegramId) continue;
     try {

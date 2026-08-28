@@ -93,6 +93,19 @@ export function isUserShift(v: string): v is UserShift {
 }
 
 /**
+ * ZAXIRA brigada — admin o'sha kunga/smenaga `/ish-jadvali`da HECH KIMNI
+ * belgilamay qo'ysa (unutib qolsa) ishlatiladi. `distributeLeadsCore` faqat
+ * shu holatda (smena ro'yxati bo'sh bo'lganda) murojaat qiladi — ish jadvali
+ * tizimining o'rnini bosmaydi, faqat "unutilgan kun" uchun xavfsizlik to'ri.
+ * Ism bilan (case-insensitive, `startsWith`) mos operator qidiriladi; hech
+ * kim topilmasa oldingi xatti-harakat (xato + adminlarga DM) ishlaydi.
+ */
+export const DEFAULT_DUTY_ROSTER: Record<UserShift, string[]> = {
+  DAY: ["Javohir", "Abdulla", "Shaxzod"],
+  NIGHT: ["Mehroj"],
+};
+
+/**
  * Smena hisobotlari (UTC+5). Kunlik hisobot ikkiga bo'lingan: kunduzgi smena
  * 17:30 da yuboriladi va 09:30 dan beri bo'lgan ishni ko'rsatadi; kechki smena
  * 09:30 da yuboriladi va kecha 17:30 dan beri.

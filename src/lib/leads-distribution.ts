@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import {
   ACTIVE_STAGES,
+  DEFAULT_DUTY_ROSTER,
   NO_CONTACT_STAGES,
   OFF_BOARD_STAGES,
   USER_SHIFT,
@@ -44,6 +45,8 @@ export type DistributeResult = {
   profileLabel?: string;
   todayOnly?: boolean;
   error?: string;
+  /** Admin jadval belgilamagani uchun DEFAULT_DUTY_ROSTER (zaxira brigada) ishlatildi. */
+  usedFallbackRoster?: boolean;
 };
 
 /** Hovuz uchun kerakli ustunlar — segmentlash va saralash shularga tayanadi. */
@@ -69,6 +72,44 @@ function shuffle(ids: string[]): void {
   }
 }
 
+type DutyRow = { userId: string; shift: string };
+
+/**
+ * Smena uchun `/ish-jadvali`da HECH KIM belgilanmagan bo'lsa, `DEFAULT_DUTY_ROSTER`
+ * (zaxira brigada) bilan to'ldiradi — admin jadval kiritishni unutgan kun uchun
+ * xavfsizlik to'ri, ish jadvali tizimining o'rnini bosmaydi (admin biror kishini
+ * bo'lса ham belgilagan smena TEGILMAYDI). Faqat ANIQ smena bilan chaqirilganda
+ * ishlaydi — bu aynan HAR KUNI 08:00/18:00 avtomatik (cron) taqsimot yo'li;
+ * `shiftFilter` berilmasa (qo'lda "Qayta taqsimla", butun kunni qamraydigan
+ * chaqiruv) hech narsa o'zgartirilmaydi — bu holat allaqachon ADMIN'ning
+ * ko'z oldida bajariladigan aniq amal, xato xabari yetarli.
+ */
+async function fillMissingWithDefaultRoster(
+  dutyRows: DutyRow[],
+  shiftFilter?: UserShift,
+): Promise<{ rows: DutyRow[]; usedFallback: boolean }> {
+  if (!shiftFilter || dutyRows.some((d) => d.shift === shiftFilter)) {
+    return { rows: dutyRows, usedFallback: false };
+  }
+
+  const wanted = DEFAULT_DUTY_ROSTER[shiftFilter].map((name) => ({ name, shift: shiftFilter }));
+  const candidates = await db.user.findMany({
+    where: {
+      role: "OPERATOR",
+      isActive: true,
+      OR: wanted.map((w) => ({ name: { startsWith: w.name, mode: "insensitive" as const } })),
+    },
+    select: { id: true, name: true },
+  });
+
+  const extra: DutyRow[] = [];
+  for (const w of wanted) {
+    const match = candidates.find((c) => c.name.toLowerCase().startsWith(w.name.toLowerCase()));
+    if (match) extra.push({ userId: match.id, shift: w.shift });
+  }
+  return { rows: [...dutyRows, ...extra], usedFallback: extra.length > 0 };
+}
+
 /**
  * Muddati kelgan faol lidlarni faol operatorlarga ulashadi. Doimiy biriktirish
  * emas — har kuni qayta chaqiriladi.
@@ -92,10 +133,11 @@ function shuffle(ids: string[]): void {
 export async function distributeLeadsCore(shift?: UserShift): Promise<DistributeResult> {
   // Bugungi jadval — bir marta o'qiladi: kimga taqsimlanishi (shift bo'yicha
   // filtrlanadi) va "boshqa smena kim edi" (shiftOf) shundan chiqadi.
-  const dutyRows = await db.dutyDay.findMany({
+  const dutyRowsRaw = await db.dutyDay.findMany({
     where: { date: startOfTzDay(0) },
     select: { userId: true, shift: true },
   });
+  const { rows: dutyRows, usedFallback } = await fillMissingWithDefaultRoster(dutyRowsRaw, shift);
   const shiftOf = new Map(dutyRows.map((d) => [d.userId, d.shift as UserShift]));
   const rosterIds = shift ? dutyRows.filter((d) => d.shift === shift).map((d) => d.userId) : dutyRows.map((d) => d.userId);
 
@@ -287,7 +329,8 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
       (pulled ? ` · oldinga tortildi: ${pulled}` : "") +
       ` · avto kvota: ${auto}` +
       (released ? ` · tugagan smenadan olindi: ${released}` : "") +
-      ` · navbatda: ${unassigned.length}`,
+      ` · navbatda: ${unassigned.length}` +
+      (usedFallback ? " · ⚠️ jadval belgilanmagan, zaxira brigada ishlatildi" : ""),
   });
   return {
     assigned,
@@ -304,5 +347,6 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
     profile: active.id,
     profileLabel: label,
     todayOnly: active.todayOnly,
+    usedFallbackRoster: usedFallback,
   };
 }

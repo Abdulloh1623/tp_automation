@@ -142,6 +142,7 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
       } else if (mode.kind === "edit") {
         res = await updateUser(mode.user.id, {
           name: form.name,
+          username: form.username,
           role: form.role,
           regions: form.regions,
           phone: form.phone,
@@ -370,26 +371,24 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                     onChange={(e) => set("name", e.target.value)}
                   />
                 </div>
+                <div>
+                  <Label htmlFor="username">Login</Label>
+                  <Input
+                    id="username"
+                    value={form.username}
+                    onChange={(e) => set("username", e.target.value)}
+                  />
+                </div>
                 {mode.kind === "create" && (
-                  <>
-                    <div>
-                      <Label htmlFor="username">Login</Label>
-                      <Input
-                        id="username"
-                        value={form.username}
-                        onChange={(e) => set("username", e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="password">Parol</Label>
-                      <Input
-                        id="password"
-                        type="text"
-                        value={form.password}
-                        onChange={(e) => set("password", e.target.value)}
-                      />
-                    </div>
-                  </>
+                  <div>
+                    <Label htmlFor="password">Parol</Label>
+                    <Input
+                      id="password"
+                      type="text"
+                      value={form.password}
+                      onChange={(e) => set("password", e.target.value)}
+                    />
+                  </div>
                 )}
                 <div>
                   <Label htmlFor="role">Rol</Label>

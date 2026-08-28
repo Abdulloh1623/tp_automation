@@ -9,7 +9,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "@/lib/db";
-import { createUser } from "./users";
+import { createUser, updateUser } from "./users";
 import { resetDb, makeUser, loginAs } from "@/test/fixtures";
 
 describe("createUser", () => {
@@ -69,5 +69,69 @@ describe("createUser", () => {
     // bo'sh satr yozilsa u "TG bor" deb hisoblanib, xabar hech kimga bormasdi.
     const created = await db.user.findUnique({ where: { username: "boshtg" } });
     expect(created?.telegramId).toBeNull();
+  });
+});
+
+describe("updateUser — login (username) o'zgartirish", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  function form(over: Partial<Record<string, string>> = {}) {
+    return {
+      name: "Test Xodim",
+      role: "OPERATOR",
+      shift: "DAY",
+      ...over,
+    };
+  }
+
+  it("bosh admin xodimning loginini o'zgartira oladi", async () => {
+    const admin = await makeUser("ADMIN");
+    const staff = await makeUser("OPERATOR", { username: "eski-login" });
+    await loginAs(admin);
+
+    const res = await updateUser(staff.id, form({ username: "yangi-login" }));
+
+    expect(res.ok).toBe(true);
+    const after = await db.user.findUnique({ where: { id: staff.id } });
+    expect(after?.username).toBe("yangi-login");
+  });
+
+  it("band loginga o'zgartira olmaydi", async () => {
+    const admin = await makeUser("ADMIN");
+    await makeUser("OPERATOR", { username: "band-login" });
+    const staff = await makeUser("OPERATOR", { username: "eski-login" });
+    await loginAs(admin);
+
+    const res = await updateUser(staff.id, form({ username: "band-login" }));
+
+    expect(res.ok).toBe(false);
+    const after = await db.user.findUnique({ where: { id: staff.id } });
+    expect(after?.username).toBe("eski-login");
+  });
+
+  it("login berilmasa (o'zgarmasa) eskisi saqlanadi", async () => {
+    const admin = await makeUser("ADMIN");
+    const staff = await makeUser("OPERATOR", { username: "eski-login" });
+    await loginAs(admin);
+
+    const res = await updateUser(staff.id, form({ username: "eski-login" }));
+
+    expect(res.ok).toBe(true);
+    const after = await db.user.findUnique({ where: { id: staff.id } });
+    expect(after?.username).toBe("eski-login");
+  });
+
+  it("MANAGER/OPERATOR loginni o'zgartira OLMAYDI (faqat ADMIN)", async () => {
+    const manager = await makeUser("MANAGER");
+    const staff = await makeUser("OPERATOR", { username: "eski-login" });
+    await loginAs(manager);
+
+    const res = await updateUser(staff.id, form({ username: "yangi-login" }));
+
+    expect(res.ok).toBe(false);
+    const after = await db.user.findUnique({ where: { id: staff.id } });
+    expect(after?.username).toBe("eski-login");
   });
 });

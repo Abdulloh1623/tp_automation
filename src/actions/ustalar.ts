@@ -102,7 +102,7 @@ export async function resetUstaPassword(id: string, password: string): Promise<U
 
 export async function updateUsta(
   id: string,
-  input: { name: string; regions?: string[]; phone?: string },
+  input: { name: string; username?: string; regions?: string[]; phone?: string },
 ): Promise<UstaState> {
   const m = await requireMgr();
   if (!m.ok) return m;
@@ -113,14 +113,31 @@ export async function updateUsta(
     return { ok: false, error: "Usta topilmadi" };
   }
 
-  await db.user.update({
-    where: { id },
-    data: {
-      name: input.name.trim(),
-      ...regionData(input.regions),
-      phone: clean(input.phone),
-    },
-  });
+  // Login o'zgarishi ixtiyoriy — eski (avtomatik texnik) loginni haqiqiy,
+  // eslab qolinadigan loginga almashtirish uchun (avval faqat yaratishda
+  // berilardi, login qilmaydigan davrdan qolgan ustalar texnik login bilan
+  // qolib ketgan edi).
+  let username: string | undefined;
+  if (input.username !== undefined && input.username.trim().toLowerCase() !== target.username) {
+    username = input.username.trim().toLowerCase();
+    if (username.length < 3) return { ok: false, error: "Login kamida 3 belgi" };
+    const exists = await db.user.findUnique({ where: { username } });
+    if (exists) return { ok: false, error: "Bu login band" };
+  }
+
+  try {
+    await db.user.update({
+      where: { id },
+      data: {
+        name: input.name.trim(),
+        ...(username !== undefined ? { username } : {}),
+        ...regionData(input.regions),
+        phone: clean(input.phone),
+      },
+    });
+  } catch {
+    return { ok: false, error: "Saqlashda xato (login band bo'lishi mumkin)" };
+  }
   await logAudit("Usta tahrirlandi", { entity: "User", entityId: id });
   revalidatePath("/ustalar");
   return { ok: true };

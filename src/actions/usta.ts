@@ -94,9 +94,12 @@ export async function updateUstaStatus(
 
   const client = await db.client.findUnique({ where: { id: clientId } });
   if (!client) return { ok: false, error: "Vazifa topilmadi" };
-  // Usta biriktirilgach jarayonni TP xodimi (OPERATOR) usta bilan bog'lanib yuritadi;
-  // boshliq (ADMIN/MANAGER) ham yangilashi mumkin (ustalar tizimga kirmaydi)
-  if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
+  // TP xodimi (OPERATOR/ADMIN/MANAGER) usta bilan bog'lanib yozadi, YOKI usta
+  // endi o'zi (faqat o'ziga biriktirilgan vazifasini) yangilaydi.
+  const canUpdate =
+    ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) ||
+    (session.role === "INSTALLER" && client.assignedUstaId === session.userId);
+  if (!canUpdate) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
   // "Bajarildi" — bo'lim yakuni (Jarayonda → Yakunlangan), izoh MAJBURIY.

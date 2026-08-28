@@ -156,7 +156,6 @@ export function TicketIntegratorControl({
   usta,
   ustaNote,
   ustalar,
-  hideUsta = false,
 }: {
   ticketId: string;
   canAssign: boolean;
@@ -166,8 +165,6 @@ export function TicketIntegratorControl({
   usta: Assigned;
   ustaNote: string | null;
   ustalar: IntegratorOpt[];
-  /** "Yangi versiya" so'rovlarida usta bosqichi yo'q (joyida hal etish talab qilinmaydi). */
-  hideUsta?: boolean;
 }) {
   return (
     <div className="space-y-2">
@@ -179,7 +176,7 @@ export function TicketIntegratorControl({
         canAssign={canAssign}
         action={(id, note) => assignTicketStaff(ticketId, id, note)}
       />
-      {!hideUsta && (staff || usta) && (
+      {(staff || usta) && (
         <AssignRow
           kind="USTA"
           assigned={usta}

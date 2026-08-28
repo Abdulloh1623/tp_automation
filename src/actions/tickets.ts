@@ -199,26 +199,32 @@ export async function setTicketStatus(
  * "Yangi versiya" so'rovini yakunlash — mijoz dasturi haqiqatan yangilangan
  * versiyani belgilaydi (`Client.appVersion`) VA ticketni RESOLVED qiladi
  * bitta amalda. Faqat VERSION_UPDATE turidagi ticketlar uchun — bosqichlar:
- * Yangi → TP xodimiga biriktirildi → Versiya yangilandi (usta bosqichi bu
- * turda yo'q, `TicketIntegratorControl` uni yashiradi).
+ * Yangi → Biriktirildi (xodim YOKI usta, `VersionAssigneeControl`) → Versiya
+ * yangilandi. Mas'ul usta bo'lsa, usta o'zi ham yakunlay oladi (o'ziga
+ * biriktirilganini `assignedUstaId` orqali tekshiradi — `setTicketStatus`
+ * bilan bir xil naqsh).
  */
 export async function resolveVersionTicket(
   ticketId: string,
   version: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const g = await guardRole(STAFF);
+  const g = await guardRole([...STAFF, "INSTALLER"]);
   if (!g.ok) return { ok: false, error: g.error };
   if (!isClientAppVersion(version)) return { ok: false, error: "Versiyani tanlang" };
 
   const ticket = await db.ticket.findUnique({
     where: { id: ticketId },
-    select: { clientId: true, type: true },
+    select: { clientId: true, type: true, assignedUstaId: true },
   });
   if (!ticket) return { ok: false, error: "Muammo topilmadi" };
   if (ticket.type !== "VERSION_UPDATE") {
     return { ok: false, error: "Bu amal faqat versiya so'rovlari uchun" };
   }
-  if (!(await canMutateClient(g.session, ticket.clientId))) {
+  if (g.session.role === "INSTALLER") {
+    if (ticket.assignedUstaId !== g.session.userId) {
+      return { ok: false, error: "Ruxsat yo'q" };
+    }
+  } else if (!(await canMutateClient(g.session, ticket.clientId))) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
 

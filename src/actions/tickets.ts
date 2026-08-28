@@ -126,21 +126,29 @@ export async function setTicketStatus(
   status: string,
   formData: FormData,
 ): Promise<{ ok: boolean; error?: string }> {
-  const g = await guardRole(STAFF);
+  const g = await guardRole([...STAFF, "INSTALLER"]);
   if (!g.ok) return { ok: false, error: g.error };
 
   // status faqat ruxsat etilgan qiymatlardan biri bo'lishi shart
   // (`in` prototip kalitlarini ham true qaytaradi — enum predikat ishlatamiz)
   if (!isTicketStatus(status)) return { ok: false, error: "Noto'g'ri holat" };
 
-  // Egalik: OPERATOR faqat o'z mijozining muammosini o'zgartira oladi
   const owner = await db.ticket.findUnique({
     where: { id: ticketId },
-    select: { clientId: true },
+    select: { clientId: true, assignedUstaId: true },
   });
   if (!owner) return { ok: false, error: "Muammo topilmadi" };
-  if (!(await canMutateClient(g.session, owner.clientId)))
+
+  // Egalik: OPERATOR faqat o'z mijozining muammosini, usta faqat o'ziga
+  // biriktirilgan muammoni o'zgartira oladi (canMutateClient INSTALLER'ni
+  // umuman mijoz darajasida yozishga ruxsat bermaydi — shu bois alohida).
+  if (g.session.role === "INSTALLER") {
+    if (owner.assignedUstaId !== g.session.userId) {
+      return { ok: false, error: "Ruxsat yo'q" };
+    }
+  } else if (!(await canMutateClient(g.session, owner.clientId))) {
     return { ok: false, error: "Ruxsat yo'q" };
+  }
 
   // Yechim izohi (RESOLVED) va qayta ochish izohi (OPEN) — ikkalasi ham
   // bo'lim o'tishi bo'lgani uchun MAJBURIY. "Jarayonga olish" (IN_PROGRESS)

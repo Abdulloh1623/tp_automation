@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { UserPlus, Pencil, Power, Trash2, X, AlertCircle } from "lucide-react";
-import { createUsta, updateUsta, setUstaActive, deleteUsta } from "@/actions/ustalar";
+import { UserPlus, Pencil, Power, Trash2, KeyRound, X, AlertCircle } from "lucide-react";
+import { createUsta, updateUsta, resetUstaPassword, setUstaActive, deleteUsta } from "@/actions/ustalar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
@@ -11,22 +11,29 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { RegionMultiSelect } from "@/components/region-multi-select";
 import { confirmDialog } from "@/components/confirm-dialog";
-import { parseRegions } from "@/lib/constants";
+import { parseRegions, MIN_PASSWORD_LENGTH } from "@/lib/constants";
 
 export type ManagedUsta = {
   id: string;
   name: string;
+  username: string;
   region: string | null;
   regions: string | null;
   phone: string | null;
   isActive: boolean;
 };
 
-type Mode = { kind: "create" } | { kind: "edit"; usta: ManagedUsta } | null;
+type Mode =
+  | { kind: "create" }
+  | { kind: "edit"; usta: ManagedUsta }
+  | { kind: "password"; usta: ManagedUsta }
+  | null;
 
 export function UstaManager({ ustalar }: { ustalar: ManagedUsta[] }) {
   const [mode, setMode] = useState<Mode>(null);
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [regions, setRegions] = useState<string[]>([]);
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -34,13 +41,17 @@ export function UstaManager({ ustalar }: { ustalar: ManagedUsta[] }) {
   const router = useRouter();
 
   function openCreate() {
-    setName(""); setRegions([]); setPhone(""); setError(null);
+    setName(""); setUsername(""); setPassword(""); setRegions([]); setPhone(""); setError(null);
     setMode({ kind: "create" });
   }
   function openEdit(u: ManagedUsta) {
     setName(u.name); setRegions(parseRegions(u.regions, u.region)); setPhone(u.phone ?? "");
     setError(null);
     setMode({ kind: "edit", usta: u });
+  }
+  function openPassword(u: ManagedUsta) {
+    setPassword(""); setError(null);
+    setMode({ kind: "password", usta: u });
   }
 
   function act(fn: () => Promise<{ ok: boolean; error?: string }>, close = true) {
@@ -58,8 +69,9 @@ export function UstaManager({ ustalar }: { ustalar: ManagedUsta[] }) {
 
   function submit() {
     if (!mode) return;
-    if (mode.kind === "create") act(() => createUsta({ name, regions, phone }));
-    else act(() => updateUsta(mode.usta.id, { name, regions, phone }));
+    if (mode.kind === "create") act(() => createUsta({ name, username, password, regions, phone }));
+    else if (mode.kind === "edit") act(() => updateUsta(mode.usta.id, { name, regions, phone }));
+    else act(() => resetUstaPassword(mode.usta.id, password));
   }
 
   return (
@@ -72,7 +84,7 @@ export function UstaManager({ ustalar }: { ustalar: ManagedUsta[] }) {
 
       <div className="flex items-center justify-between">
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Ustalar tizimga kirmaydi — boshliq biriktiradi va telefon orqali aloqa qiladi.
+          Usta login va parol bilan tizimga kirib, o&apos;ziga biriktirilgan muammolarni ko&apos;radi.
         </p>
         <Button onClick={openCreate}>
           <UserPlus className="h-4 w-4" /> Yangi usta
@@ -84,6 +96,7 @@ export function UstaManager({ ustalar }: { ustalar: ManagedUsta[] }) {
           <thead>
             <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-left text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
               <th className="px-4 py-3 font-medium">Ism</th>
+              <th className="px-4 py-3 font-medium">Login</th>
               <th className="px-4 py-3 font-medium">Viloyat</th>
               <th className="px-4 py-3 font-medium">Telefon</th>
               <th className="px-4 py-3 text-center font-medium">Holat</th>
@@ -93,7 +106,7 @@ export function UstaManager({ ustalar }: { ustalar: ManagedUsta[] }) {
           <tbody>
             {ustalar.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-400 dark:text-slate-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-400 dark:text-slate-500">
                   Usta yo'q
                 </td>
               </tr>
@@ -104,6 +117,7 @@ export function UstaManager({ ustalar }: { ustalar: ManagedUsta[] }) {
                 className={"border-b border-slate-100 dark:border-slate-800 last:border-0 " + (u.isActive ? "" : "opacity-50")}
               >
                 <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{u.name}</td>
+                <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{u.username}</td>
                 <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
                   {parseRegions(u.regions, u.region).join(", ") || "—"}
                 </td>
@@ -115,6 +129,9 @@ export function UstaManager({ ustalar }: { ustalar: ManagedUsta[] }) {
                   <div className="flex justify-end gap-1">
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => openEdit(u)}>
                       <Pencil className="h-3.5 w-3.5" /> Tahrir
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => openPassword(u)}>
+                      <KeyRound className="h-3.5 w-3.5" /> Parol
                     </Button>
                     <Button
                       variant="ghost" size="sm"
@@ -151,7 +168,11 @@ export function UstaManager({ ustalar }: { ustalar: ManagedUsta[] }) {
           <div className="w-full max-w-md rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-lg" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-base font-semibold">
-                {mode.kind === "create" ? "Yangi usta" : "Ustani tahrirlash"}
+                {mode.kind === "create"
+                  ? "Yangi usta"
+                  : mode.kind === "password"
+                    ? "Parolni almashtirish"
+                    : "Ustani tahrirlash"}
               </h3>
               <button onClick={() => setMode(null)} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300">
                 <X className="h-5 w-5" />
@@ -162,20 +183,49 @@ export function UstaManager({ ustalar }: { ustalar: ManagedUsta[] }) {
                 <AlertCircle className="h-4 w-4 shrink-0" /> {error}
               </div>
             )}
-            <div className="space-y-3">
+            {mode.kind === "password" ? (
               <div>
-                <Label>Ism</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} />
+                <Label>Yangi parol</Label>
+                <Input
+                  type="text"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={`kamida ${MIN_PASSWORD_LENGTH} belgi`}
+                />
               </div>
-              <div>
-                <Label>Telefon</Label>
-                <PhoneInput value={phone} onValueChange={setPhone} />
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <Label>Ism</Label>
+                  <Input value={name} onChange={(e) => setName(e.target.value)} />
+                </div>
+                {mode.kind === "create" && (
+                  <>
+                    <div>
+                      <Label>Login</Label>
+                      <Input value={username} onChange={(e) => setUsername(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Parol</Label>
+                      <Input
+                        type="text"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder={`kamida ${MIN_PASSWORD_LENGTH} belgi`}
+                      />
+                    </div>
+                  </>
+                )}
+                <div>
+                  <Label>Telefon</Label>
+                  <PhoneInput value={phone} onValueChange={setPhone} />
+                </div>
+                <div>
+                  <Label>Viloyatlar (bir nechta tanlash mumkin)</Label>
+                  <RegionMultiSelect value={regions} onChange={setRegions} />
+                </div>
               </div>
-              <div>
-                <Label>Viloyatlar (bir nechta tanlash mumkin)</Label>
-                <RegionMultiSelect value={regions} onChange={setRegions} />
-              </div>
-            </div>
+            )}
             <div className="mt-4 flex gap-2">
               <Button onClick={submit} disabled={pending}>{pending ? "Saqlanmoqda..." : "Saqlash"}</Button>
               <Button variant="ghost" onClick={() => setMode(null)}>Bekor</Button>

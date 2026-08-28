@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
+import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH } from "@/lib/constants";
 
 export type UstaState = { ok: boolean; error?: string };
 
@@ -29,9 +30,11 @@ function regionData(regions?: string[]): { region: string | null; regions: strin
   return { region: regs[0] ?? null, regions: regs.length ? regs.join(",") : null };
 }
 
-/** Usta qo'shish — ustalar tizimga KIRMAYDI, shuning uchun login/parol avtomatik (yaroqsiz). */
+/** Usta qo'shish — endi login+parol bilan tizimga kiradi (o'ziga biriktirilgan muammolarni ko'rish uchun). */
 export async function createUsta(input: {
   name: string;
+  username: string;
+  password: string;
   regions?: string[];
   phone?: string;
 }): Promise<UstaState> {
@@ -41,21 +44,58 @@ export async function createUsta(input: {
   const name = (input.name ?? "").trim();
   if (!name) return { ok: false, error: "Ism kiriting" };
 
-  // Login'siz: noyob texnik username + yaroqsiz parol (INSTALLER login bloklangan)
-  const username = `usta-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-  const passwordHash = await bcrypt.hash(`${Math.random()}${Date.now()}`, 10);
+  const username = (input.username ?? "").trim().toLowerCase();
+  if (username.length < 3) return { ok: false, error: "Login kamida 3 belgi" };
+  const password = input.password ?? "";
+  if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
+    return { ok: false, error: `Parol ${MIN_PASSWORD_LENGTH}–${MAX_PASSWORD_LENGTH} belgi bo'lsin` };
+  }
 
-  await db.user.create({
+  const exists = await db.user.findUnique({ where: { username } });
+  if (exists) return { ok: false, error: "Bu login band" };
+
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  try {
+    await db.user.create({
+      data: {
+        name,
+        username,
+        passwordHash,
+        role: "INSTALLER",
+        ...regionData(input.regions),
+        phone: clean(input.phone),
+      },
+    });
+  } catch {
+    return { ok: false, error: "Usta qo'shishda xato (login band bo'lishi mumkin)" };
+  }
+  await logAudit("Usta qo'shildi", { entity: "User", detail: name });
+  revalidatePath("/ustalar");
+  return { ok: true };
+}
+
+/** Usta parolini almashtirish — admin/menejer. Parol almashsa ochiq sessiya bekor bo'ladi. */
+export async function resetUstaPassword(id: string, password: string): Promise<UstaState> {
+  const m = await requireMgr();
+  if (!m.ok) return m;
+  if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
+    return { ok: false, error: `Parol ${MIN_PASSWORD_LENGTH}–${MAX_PASSWORD_LENGTH} belgi bo'lsin` };
+  }
+
+  const target = await db.user.findUnique({ where: { id }, select: { role: true } });
+  if (!target || target.role !== "INSTALLER") {
+    return { ok: false, error: "Usta topilmadi" };
+  }
+
+  await db.user.update({
+    where: { id },
     data: {
-      name,
-      username,
-      passwordHash,
-      role: "INSTALLER",
-      ...regionData(input.regions),
-      phone: clean(input.phone),
+      passwordHash: await bcrypt.hash(password, 10),
+      sessionVersion: { increment: 1 },
     },
   });
-  await logAudit("Usta qo'shildi", { entity: "User", detail: name });
+  await logAudit("Usta paroli tiklandi", { entity: "User", entityId: id });
   revalidatePath("/ustalar");
   return { ok: true };
 }

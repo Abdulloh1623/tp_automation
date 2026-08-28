@@ -250,14 +250,28 @@ export type RedistributeState =
   | { ok: true; tickets: number; escalations: number; returns: number; recipients: string[] }
   | { ok: false; error: string };
 
+/** Massivni joyida (Fisher–Yates) aralashtiradi — taqsimot har chaqiriqda tasodifiy tartibda boshlanadi. */
+function shuffle<T>(arr: T[]): void {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
 /**
- * Ishdan ketgan (faolsizlantirilgan) xodimning ochiq ishlarini — muammo
- * (Ticket.assignedStaffId), eskalatsiya (Client.escalationStaffId) va
- * qaytarish (EquipmentReturnRequest.staffId) — qolgan faol TP xodimlari
- * orasida navbat bilan (round-robin) teng taqsimlaydi. Mavjud biriktirish
- * action'lari orqali o'tkaziladi — shu bilan CallLog/audit/bildirishnoma bir
- * xil naqshda qoladi. Kunlik lid biriktiruvi (Client.assignedToId) BU YERGA
- * kirmaydi — u alohida (duty roster asosidagi) taqsimot tizimi bilan boshqariladi.
+ * Bir xodimning (ishdan ketgan yoki hali faol — masalan ortiqcha yuklangan)
+ * ochiq ishlari — muammo (Ticket.assignedStaffId), eskalatsiya
+ * (Client.escalationStaffId, ESCALATED va allaqachon ustaga yo'naltirilgan
+ * FORWARDED ikkalasi ham — usta biriktirilganda mas'ul TP xodim o'zgarmay
+ * qoladi) va qaytarish (EquipmentReturnRequest.staffId) — QO'SHIMCHA "egasiz"
+ * muammolar bilan birga (ustaga yo'naltirilgan, ammo hech qanday TP xodimga
+ * biriktirilmagan; "Yangi versiya" turi bundan mustasno — u atayin FAQAT
+ * ustaga berilishi mumkin, VersionAssigneeControl orqali) qolgan faol TP
+ * xodimlari orasida tasodifiy tartibda (round-robin, lekin har safar
+ * aralashtirilgan navbat bilan) taqsimlaydi. Mavjud biriktirish action'lari
+ * orqali o'tkaziladi — shu bilan CallLog/audit/bildirishnoma bir xil naqshda
+ * qoladi. Kunlik lid biriktiruvi (Client.assignedToId) BU YERGA kirmaydi — u
+ * alohida (duty roster asosidagi) taqsimot tizimi bilan boshqariladi.
  */
 export async function redistributeStaffWork(departedUserId: string): Promise<RedistributeState> {
   const session = await requireSession();
@@ -272,21 +286,33 @@ export async function redistributeStaffWork(departedUserId: string): Promise<Red
   const pool = await db.user.findMany({
     where: { role: "OPERATOR", isActive: true, id: { not: departedUserId } },
     select: { id: true, name: true },
-    orderBy: { name: "asc" },
   });
   if (pool.length === 0) {
     return { ok: false, error: "Faol TP xodim yo'q — taqsimlashga hech kim qolmagan" };
   }
+  shuffle(pool);
+  let next = 0;
+  const pick = () => pool[next++ % pool.length];
 
   const note = `Ishdan ketgan xodim (${departed.name}) ishlari taqsimlandi`;
+  const orphanNote = "Egasiz (hech qanday xodimga biriktirilmagan) ish taqsimlandi";
 
-  const [tickets, escalations, returns] = await Promise.all([
+  const [ownTickets, orphanTickets, escalations, returns] = await Promise.all([
     db.ticket.findMany({
       where: { assignedStaffId: departedUserId, status: { not: "RESOLVED" } },
       select: { id: true },
     }),
+    db.ticket.findMany({
+      where: {
+        assignedStaffId: null,
+        assignedUstaId: { not: null },
+        type: { not: "VERSION_UPDATE" },
+        status: { not: "RESOLVED" },
+      },
+      select: { id: true },
+    }),
     db.client.findMany({
-      where: { escalationStaffId: departedUserId, stage: "ESCALATED" },
+      where: { escalationStaffId: departedUserId, stage: { in: ["ESCALATED", "FORWARDED"] } },
       select: { id: true },
     }),
     db.equipmentReturnRequest.findMany({
@@ -295,15 +321,17 @@ export async function redistributeStaffWork(departedUserId: string): Promise<Red
     }),
   ]);
 
-  for (let i = 0; i < tickets.length; i++) {
-    await assignTicketStaff(tickets[i].id, pool[i % pool.length].id, note);
+  for (const t of ownTickets) {
+    await assignTicketStaff(t.id, pick().id, note);
   }
-  for (let i = 0; i < escalations.length; i++) {
-    await assignEscalationStaff(escalations[i].id, pool[i % pool.length].id, note);
+  for (const t of orphanTickets) {
+    await assignTicketStaff(t.id, pick().id, orphanNote);
   }
-  for (let i = 0; i < returns.length; i++) {
-    const staff = pool[i % pool.length];
-    const r = returns[i];
+  for (const e of escalations) {
+    await assignEscalationStaff(e.id, pick().id, note);
+  }
+  for (const r of returns) {
+    const staff = pick();
     await db.equipmentReturnRequest.update({ where: { id: r.id }, data: { staffId: staff.id } });
     await db.callLog.create({
       data: { clientId: r.clientId, result: "RETURN_ASSIGNED", note, operatorId: session.userId },
@@ -318,10 +346,11 @@ export async function redistributeStaffWork(departedUserId: string): Promise<Red
     revalidatePath(`/mijozlar/${r.clientId}`);
   }
 
-  await logAudit("Ishdan ketgan xodim ishlari taqsimlandi", {
+  const tickets = ownTickets.length + orphanTickets.length;
+  await logAudit("Ishdan ketgan/egasiz ishlar taqsimlandi", {
     entity: "User",
     entityId: departedUserId,
-    detail: `${departed.name}: ${tickets.length} muammo, ${escalations.length} eskalatsiya, ${returns.length} qaytarish → ${pool.map((p) => p.name).join(", ")}`,
+    detail: `${departed.name}: ${ownTickets.length}+${orphanTickets.length} (o'zi+egasiz) muammo, ${escalations.length} eskalatsiya, ${returns.length} qaytarish → ${pool.map((p) => p.name).join(", ")}`,
   });
   revalidatePath("/muammolar");
   revalidatePath("/qaytarish");
@@ -329,7 +358,7 @@ export async function redistributeStaffWork(departedUserId: string): Promise<Red
   revalidatePath("/foydalanuvchilar");
   return {
     ok: true,
-    tickets: tickets.length,
+    tickets,
     escalations: escalations.length,
     returns: returns.length,
     recipients: pool.map((p) => p.name),

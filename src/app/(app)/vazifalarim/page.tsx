@@ -1,9 +1,9 @@
 import {
   Phone,
+  HardHat,
   AlertTriangle,
   PackageCheck,
   DownloadCloud,
-  UserCircle,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
@@ -17,9 +17,9 @@ import {
 import { UstaStatusControl } from "@/components/usta-status-control";
 import { UstaReturnActions } from "@/components/usta-return-actions";
 import { VersionTicketStatusControl } from "@/components/version-ticket-status-control";
-import { UstaProfileForm } from "@/components/usta-profile-form";
 import { TicketTabs, type TicketTab } from "@/components/ticket-tabs";
 import { PhoneCopyButton } from "@/components/phone-copy";
+import { EmptyState } from "@/components/empty-state";
 import { formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 
 const RESOLVED_RENDER_CAP = 20;
@@ -99,7 +99,6 @@ export default async function VazifalarimPage() {
   const ustaId = session.userId;
 
   const [
-    me,
     escalatedActive,
     escalatedDone,
     returnsActive,
@@ -107,10 +106,6 @@ export default async function VazifalarimPage() {
     ticketsActive,
     ticketsDone,
   ] = await Promise.all([
-    db.user.findUniqueOrThrow({
-      where: { id: ustaId },
-      select: { name: true, username: true, region: true, phone: true },
-    }),
     db.client.findMany({
       where: { assignedUstaId: ustaId, stage: "FORWARDED" },
       orderBy: { updatedAt: "desc" },
@@ -397,21 +392,10 @@ export default async function VazifalarimPage() {
         </div>
       ),
     },
-    {
-      key: "profil",
-      label: "Profil",
-      icon: <UserCircle className="h-4 w-4" />,
-      tone: "emerald",
-      content: (
-        <UstaProfileForm
-          name={me.name}
-          username={me.username}
-          region={me.region}
-          phone={me.phone}
-        />
-      ),
-    },
   ];
+
+  const totalActive =
+    escalatedActive.length + returnsActive.length + ticketsActive.length;
 
   return (
     <div className="space-y-5">
@@ -424,7 +408,14 @@ export default async function VazifalarimPage() {
         </p>
       </div>
 
-      <TicketTabs tabs={tabs} initialKey="eskalatsiya" />
+      {totalActive === 0 &&
+      escalatedDone.length === 0 &&
+      returnsDone.length === 0 &&
+      ticketsDone.length === 0 ? (
+        <EmptyState icon={HardHat} title="Sizga hali vazifa biriktirilmagan" />
+      ) : (
+        <TicketTabs tabs={tabs} initialKey="eskalatsiya" />
+      )}
     </div>
   );
 }

@@ -106,9 +106,15 @@ describe("canAccess", () => {
   });
 
   it("INSTALLER boshqa hech qayerga kirmaydi", () => {
-    for (const p of ["/", "/lidlar", "/mijozlar", "/muammolar", "/ustalar", "/tablo"]) {
+    for (const p of ["/", "/lidlar", "/muammolar", "/ustalar", "/tablo"]) {
       expect(canAccess("INSTALLER", p), p).toBe(false);
     }
+  });
+
+  it("/mijozlar va /profil — INSTALLER ham ko'ra oladi (o'qish uchun)", () => {
+    expect(canAccess("INSTALLER", "/mijozlar")).toBe(true);
+    expect(canAccess("INSTALLER", "/mijozlar/abc123")).toBe(true);
+    expect(canAccess("INSTALLER", "/profil")).toBe(true);
   });
 
   it("/api/* bu yerda bloklanmaydi — handler o'zi tekshiradi", () => {

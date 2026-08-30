@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/db";
+import { requireRole } from "@/lib/auth";
 import { ClientForm } from "@/components/client-form";
 import { saveClientInline } from "@/actions/clients";
 
@@ -22,6 +23,10 @@ export async function ClientEditView({
   id: string;
   inline?: boolean;
 }) {
+  // /mijozlar prefiksi INSTALLER (usta) uchun ham ochiq (o'qish uchun), lekin
+  // tahrirlash bu yerda ATAYIN qayta cheklanadi — usta faqat ko'radi.
+  await requireRole(["ADMIN", "OPERATOR", "MANAGER", "VIEWER"]);
+
   const [client, operators] = await Promise.all([
     // ANIQ `select` — `include` bilan butun yozuv olinardi va u pastda
     // ClientForm ("use client") ga spread qilinardi. Klient komponentga

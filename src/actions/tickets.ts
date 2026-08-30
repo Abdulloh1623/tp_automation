@@ -7,12 +7,17 @@ import { guardRole } from "@/lib/auth";
 import { canMutateClient } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { createNotification } from "@/lib/notifications";
-import { clientAppVersionLabel, isClientAppVersion, TICKET_STATUS } from "@/lib/constants";
+import {
+  clientAppVersionLabel,
+  isClientAppVersion,
+  TICKET_STATUS,
+} from "@/lib/constants";
 import {
   ticketTypeEnum,
   ticketPriorityEnum,
   isTicketStatus,
   toFieldErrors,
+  safeNote,
 } from "@/lib/validation";
 
 const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
@@ -39,7 +44,10 @@ async function releaseIssueOpenIfLastTicket(clientId: string): Promise<void> {
 
   await db.client.update({
     where: { id: clientId },
-    data: { stage: "RESOLVED", nextContactDate: client.nextPaymentDate ?? null },
+    data: {
+      stage: "RESOLVED",
+      nextContactDate: client.nextPaymentDate ?? null,
+    },
   });
 }
 
@@ -50,12 +58,19 @@ function s(v: FormDataEntryValue | null): string | undefined {
 
 const ticketSchema = z.object({
   clientId: z.string().min(1, "Mijoz tanlanmagan"),
-  title: z.string().min(1, "Muammo sarlavhasini kiriting").max(300, "Sarlavha juda uzun"),
+  title: z
+    .string()
+    .min(1, "Muammo sarlavhasini kiriting")
+    .max(300, "Sarlavha juda uzun"),
   type: ticketTypeEnum.default("TECHNICAL"),
   priority: ticketPriorityEnum.default("MEDIUM"),
 });
 
-export type TicketFormState = { error?: string; fieldErrors?: Record<string, string>; ok?: boolean };
+export type TicketFormState = {
+  error?: string;
+  fieldErrors?: Record<string, string>;
+  ok?: boolean;
+};
 
 function revalidateTicket(clientId: string) {
   revalidatePath(`/mijozlar/${clientId}`);
@@ -78,7 +93,10 @@ export async function createTicket(
     priority: s(formData.get("priority")) ?? "MEDIUM",
   });
   if (!parsed.success) {
-    return { error: "Maʼlumotlarni tekshiring", fieldErrors: toFieldErrors(parsed.error) };
+    return {
+      error: "Maʼlumotlarni tekshiring",
+      fieldErrors: toFieldErrors(parsed.error),
+    };
   }
 
   const client = await db.client.findUnique({
@@ -183,16 +201,104 @@ export async function setTicketStatus(
     if (status === "RESOLVED") {
       await releaseIssueOpenIfLastTicket(ticket.clientId);
     }
-    await logAudit(`Muammo holati: ${TICKET_STATUS[status as keyof typeof TICKET_STATUS] ?? status}`, {
-      entity: "Ticket",
-      entityId: ticketId,
-    });
+    await logAudit(
+      `Muammo holati: ${TICKET_STATUS[status as keyof typeof TICKET_STATUS] ?? status}`,
+      {
+        entity: "Ticket",
+        entityId: ticketId,
+      },
+    );
     revalidateTicket(ticket.clientId);
     return { ok: true };
   } catch {
     // mavjud bo'lmagan ticketId
     return { ok: false, error: "Xatolik" };
   }
+}
+
+/**
+ * Kanban'dagi "Hal bo'lmadi" ustuni (hozircha "Yangi versiya" UI'sida
+ * ishlatiladi) — `status`dan MUSTAQIL bayroq (Ochiq/Jarayonda bosqichini
+ * yo'qotmaslik uchun). Izoh MAJBURIY.
+ */
+export async function blockTicket(
+  ticketId: string,
+  note: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const g = await guardRole([...STAFF, "INSTALLER"]);
+  if (!g.ok) return { ok: false, error: g.error };
+
+  const noteText = safeNote(note);
+  if (!noteText) return { ok: false, error: "Izoh majburiy" };
+
+  const owner = await db.ticket.findUnique({
+    where: { id: ticketId },
+    select: { clientId: true, assignedUstaId: true, status: true },
+  });
+  if (!owner) return { ok: false, error: "Muammo topilmadi" };
+  if (owner.status === "RESOLVED")
+    return { ok: false, error: "Muammo allaqachon hal qilingan" };
+
+  if (g.session.role === "INSTALLER") {
+    if (owner.assignedUstaId !== g.session.userId)
+      return { ok: false, error: "Ruxsat yo'q" };
+  } else if (!(await canMutateClient(g.session, owner.clientId))) {
+    return { ok: false, error: "Ruxsat yo'q" };
+  }
+
+  await db.ticket.update({
+    where: { id: ticketId },
+    data: { blocked: true, blockedNote: noteText, blockedAt: new Date() },
+  });
+  await db.callLog.create({
+    data: {
+      clientId: owner.clientId,
+      result: "TICKET_BLOCKED",
+      note: noteText,
+      operatorId: g.session.userId,
+    },
+  });
+  await logAudit("Muammo: Hal bo'lmadi", {
+    entity: "Ticket",
+    entityId: ticketId,
+  });
+  revalidateTicket(owner.clientId);
+  return { ok: true };
+}
+
+/** "Hal bo'lmadi"dan qaytarish — ticket o'zining haqiqiy `status`iga qaytadi. Izoh shart emas. */
+export async function unblockTicket(
+  ticketId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const g = await guardRole([...STAFF, "INSTALLER"]);
+  if (!g.ok) return { ok: false, error: g.error };
+
+  const owner = await db.ticket.findUnique({
+    where: { id: ticketId },
+    select: { clientId: true, assignedUstaId: true },
+  });
+  if (!owner) return { ok: false, error: "Muammo topilmadi" };
+
+  if (g.session.role === "INSTALLER") {
+    if (owner.assignedUstaId !== g.session.userId)
+      return { ok: false, error: "Ruxsat yo'q" };
+  } else if (!(await canMutateClient(g.session, owner.clientId))) {
+    return { ok: false, error: "Ruxsat yo'q" };
+  }
+
+  await db.ticket.update({
+    where: { id: ticketId },
+    data: { blocked: false, blockedNote: null, blockedAt: null },
+  });
+  await db.callLog.create({
+    data: {
+      clientId: owner.clientId,
+      result: "TICKET_UNBLOCKED",
+      operatorId: g.session.userId,
+    },
+  });
+  revalidateTicket(owner.clientId);
+  return { ok: true };
 }
 
 /**
@@ -210,7 +316,8 @@ export async function resolveVersionTicket(
 ): Promise<{ ok: boolean; error?: string }> {
   const g = await guardRole([...STAFF, "INSTALLER"]);
   if (!g.ok) return { ok: false, error: g.error };
-  if (!isClientAppVersion(version)) return { ok: false, error: "Versiyani tanlang" };
+  if (!isClientAppVersion(version))
+    return { ok: false, error: "Versiyani tanlang" };
 
   const ticket = await db.ticket.findUnique({
     where: { id: ticketId },
@@ -235,7 +342,10 @@ export async function resolveVersionTicket(
       where: { id: ticketId },
       data: { status: "RESOLVED", resolvedAt: new Date(), resolutionNote },
     }),
-    db.client.update({ where: { id: ticket.clientId }, data: { appVersion: version } }),
+    db.client.update({
+      where: { id: ticket.clientId },
+      data: { appVersion: version },
+    }),
   ]);
   await db.callLog.create({
     data: {
@@ -347,7 +457,10 @@ export async function assignTicketStaff(
           operatorId: g.session.userId,
         },
       });
-      await logAudit("Muammo mas'uli olindi", { entity: "Ticket", entityId: ticketId });
+      await logAudit("Muammo mas'uli olindi", {
+        entity: "Ticket",
+        entityId: ticketId,
+      });
       revalidateTicket(ticket.clientId);
       return { ok: true };
     } catch {
@@ -366,7 +479,10 @@ export async function assignTicketStaff(
   const cleanNote = assignNote(note);
 
   try {
-    const current = await db.ticket.findUnique({ where: { id: ticketId }, select: { status: true } });
+    const current = await db.ticket.findUnique({
+      where: { id: ticketId },
+      select: { status: true },
+    });
     if (!current) return { ok: false, error: "Muammo topilmadi" };
     const ticket = await db.ticket.update({
       where: { id: ticketId },
@@ -376,7 +492,11 @@ export async function assignTicketStaff(
         staffNote: cleanNote,
         status: progressIfOpen(current.status),
       },
-      select: { clientId: true, title: true, client: { select: { restaurantName: true } } },
+      select: {
+        clientId: true,
+        title: true,
+        client: { select: { restaurantName: true } },
+      },
     });
     await db.callLog.create({
       data: {
@@ -434,7 +554,10 @@ export async function assignTicketUsta(
           operatorId: g.session.userId,
         },
       });
-      await logAudit("Muammodan usta olindi", { entity: "Ticket", entityId: ticketId });
+      await logAudit("Muammodan usta olindi", {
+        entity: "Ticket",
+        entityId: ticketId,
+      });
       revalidateTicket(ticket.clientId);
       return { ok: true };
     } catch {
@@ -453,7 +576,10 @@ export async function assignTicketUsta(
   const cleanNote = assignNote(note);
 
   try {
-    const current = await db.ticket.findUnique({ where: { id: ticketId }, select: { status: true } });
+    const current = await db.ticket.findUnique({
+      where: { id: ticketId },
+      select: { status: true },
+    });
     if (!current) return { ok: false, error: "Muammo topilmadi" };
     const ticket = await db.ticket.update({
       where: { id: ticketId },

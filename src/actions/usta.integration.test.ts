@@ -3,7 +3,13 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "@/lib/db";
-import { updateUstaStatus, updateMyPhone, changeMyPassword } from "./usta";
+import {
+  updateUstaStatus,
+  updateMyPhone,
+  changeMyPassword,
+  blockUstaTask,
+  unblockUstaTask,
+} from "./usta";
 import { resetDb, makeUser, makeClient, loginAs } from "@/test/fixtures";
 
 describe("updateUstaStatus — usta o'zi (veb login)", () => {
@@ -149,5 +155,85 @@ describe("changeMyPassword — usta o'z parolini o'zi almashtiradi", () => {
     });
 
     expect(res.ok).toBe(false);
+  });
+});
+
+describe("blockUstaTask / unblockUstaTask — kanban 'Hal bo'lmadi' bo'limi", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("usta o'ziga biriktirilgan vazifani izoh bilan 'Hal bo'lmadi'ga belgilaydi", async () => {
+    const usta = await makeUser("INSTALLER");
+    const client = await makeClient();
+    await db.client.update({
+      where: { id: client.id },
+      data: { assignedUstaId: usta.id, stage: "FORWARDED", ustaStatus: "ARRIVED" },
+    });
+    await loginAs(usta);
+
+    const res = await blockUstaTask(client.id, "Mijoz telefon ko'targani yo'q");
+
+    expect(res.ok).toBe(true);
+    const after = await db.client.findUnique({ where: { id: client.id } });
+    expect(after!.ustaBlocked).toBe(true);
+    expect(after!.ustaBlockedNote).toBe("Mijoz telefon ko'targani yo'q");
+    // Bosqich (ARRIVED) yo'qolmaydi — bayroq mustaqil.
+    expect(after!.ustaStatus).toBe("ARRIVED");
+  });
+
+  it("izohsiz belgilab bo'lmaydi", async () => {
+    const usta = await makeUser("INSTALLER");
+    const client = await makeClient();
+    await db.client.update({
+      where: { id: client.id },
+      data: { assignedUstaId: usta.id, stage: "FORWARDED", ustaStatus: "ARRIVED" },
+    });
+    await loginAs(usta);
+
+    const res = await blockUstaTask(client.id, "   ");
+
+    expect(res.ok).toBe(false);
+    const after = await db.client.findUnique({ where: { id: client.id } });
+    expect(after!.ustaBlocked).toBe(false);
+  });
+
+  it("boshqa ustaga biriktirilgan vazifani belgilay OLMAYDI", async () => {
+    const usta = await makeUser("INSTALLER");
+    const boshqaUsta = await makeUser("INSTALLER");
+    const client = await makeClient();
+    await db.client.update({
+      where: { id: client.id },
+      data: { assignedUstaId: usta.id, stage: "FORWARDED", ustaStatus: "ARRIVED" },
+    });
+    await loginAs(boshqaUsta);
+
+    const res = await blockUstaTask(client.id, "Sinov izohi");
+
+    expect(res.ok).toBe(false);
+  });
+
+  it("'Qayta urinish' bosqichni saqlagan holda bayroqni tozalaydi", async () => {
+    const usta = await makeUser("INSTALLER");
+    const client = await makeClient();
+    await db.client.update({
+      where: { id: client.id },
+      data: {
+        assignedUstaId: usta.id,
+        stage: "FORWARDED",
+        ustaStatus: "ARRIVED",
+        ustaBlocked: true,
+        ustaBlockedNote: "Eski izoh",
+      },
+    });
+    await loginAs(usta);
+
+    const res = await unblockUstaTask(client.id);
+
+    expect(res.ok).toBe(true);
+    const after = await db.client.findUnique({ where: { id: client.id } });
+    expect(after!.ustaBlocked).toBe(false);
+    expect(after!.ustaBlockedNote).toBeNull();
+    expect(after!.ustaStatus).toBe("ARRIVED");
   });
 });

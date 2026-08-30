@@ -1,5 +1,14 @@
 import { ClientQuickView } from "@/components/client-quick-view";
-import { Phone, Wrench, DownloadCloud, Inbox, UserCheck, HardHat, CheckCircle2, AlertTriangle } from "lucide-react";
+import {
+  Phone,
+  Wrench,
+  DownloadCloud,
+  Inbox,
+  UserCheck,
+  HardHat,
+  CheckCircle2,
+  AlertTriangle,
+} from "lucide-react";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { SessionPayload } from "@/lib/session";
@@ -70,7 +79,11 @@ export async function TicketsSection({
 
   // TP xodim (OPERATOR) faqat o'ziga maxsus xodim qilib biriktirilgan
   // muammolarni ko'radi; ADMIN/MANAGER esa barchasini (va biriktiradi).
-  const scope = assignedStaffScope(session.role, session.userId, "assignedStaffId");
+  const scope = assignedStaffScope(
+    session.role,
+    session.userId,
+    "assignedStaffId",
+  );
 
   // Filtr shartlari — ham ro'yxatga, ham tab sonlariga BIR XIL qo'llanadi.
   // AND massivida saqlanadi: mas'ul filtri OR ishlatgani uchun bo'lim
@@ -81,7 +94,11 @@ export async function TicketsSection({
   // "Muammolar" bo'limida esa VERSION_UPDATE hech qachon ko'rinmaydi — u o'z
   // sub-bo'limiga ega (aks holda ikkalasida ham dublikat ko'rinardi).
   if (isVersion) filterAnd.push({ type: "VERSION_UPDATE" });
-  else filterAnd.push({ type: type && type !== "VERSION_UPDATE" ? type : { not: "VERSION_UPDATE" } });
+  else
+    filterAnd.push({
+      type:
+        type && type !== "VERSION_UPDATE" ? type : { not: "VERSION_UPDATE" },
+    });
   if (priority) filterAnd.push({ priority });
   // Mas'ul xodim bo'yicha filtr — faqat boshqaruv rollari uchun.
   if (assignee && canAssign) {
@@ -92,7 +109,10 @@ export async function TicketsSection({
   const fromDate = tzDayStartFromInput(from);
   if (fromDate) filterAnd.push({ createdAt: { gte: fromDate } });
   const toDate = tzDayStartFromInput(to);
-  if (toDate) filterAnd.push({ createdAt: { lt: new Date(toDate.getTime() + 86400000) } });
+  if (toDate)
+    filterAnd.push({
+      createdAt: { lt: new Date(toDate.getTime() + 86400000) },
+    });
   if (q) {
     const digits = q.replace(/\D/g, "");
     filterAnd.push({
@@ -192,7 +212,9 @@ export async function TicketsSection({
     db.ticket.count({ where: unassignedScope }),
     db.ticket.count({ where: staffOnlyScope }),
     db.ticket.count({ where: withUstaScope }),
-    db.ticket.count({ where: { ...scope, AND: filterAnd, status: "RESOLVED" } }),
+    db.ticket.count({
+      where: { ...scope, AND: filterAnd, status: "RESOLVED" },
+    }),
     db.ticket.count({
       where: {
         ...scope,
@@ -211,17 +233,31 @@ export async function TicketsSection({
   const staffAssigned = ticketsRaw.filter(
     (t) => t.status !== "RESOLVED" && t.assignedStaffId && !t.assignedUstaId,
   );
-  const withUsta = ticketsRaw.filter((t) => t.status !== "RESOLVED" && t.assignedUstaId);
+  const withUsta = ticketsRaw.filter(
+    (t) => t.status !== "RESOLVED" && t.assignedUstaId,
+  );
   // "Yangi versiya"da mas'ul XOH xodim, XOH usta bo'lishi mumkin — bitta
   // bosqich (`VersionAssigneeControl` bir vaqtda faqat bittasini yozadi, shu
   // bois o'zaro eksklyuziv — birlashtirish xavfsiz).
-  const assignedActive = isVersion ? ticketsRaw.filter(
-    (t) => t.status !== "RESOLVED" && (t.assignedStaffId || t.assignedUstaId),
-  ) : staffAssigned;
+  const assignedActive = isVersion
+    ? ticketsRaw.filter(
+        (t) =>
+          t.status !== "RESOLVED" && (t.assignedStaffId || t.assignedUstaId),
+      )
+    : staffAssigned;
   const hal = ticketsRaw.filter((t) => t.status === "RESOLVED");
 
   const openCount = yangiTotal + staffOnlyTotal + ustaTotal;
-  const hasFilter = !!((!isVersion && type) || priority || assignee || usta || resolveType || from || to || q);
+  const hasFilter = !!(
+    (!isVersion && type) ||
+    priority ||
+    assignee ||
+    usta ||
+    resolveType ||
+    from ||
+    to ||
+    q
+  );
 
   // Bitta ticket kartasi — barcha tab'larda bir xil.
   function ticketCard(t: (typeof ticketsRaw)[number]) {
@@ -241,7 +277,9 @@ export async function TicketsSection({
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <div className="font-medium text-slate-900 dark:text-slate-100">{t.title}</div>
+            <div className="font-medium text-slate-900 dark:text-slate-100">
+              {t.title}
+            </div>
             <span className="inline-flex items-center gap-1.5">
               <ClientQuickView
                 id={t.client.id}
@@ -253,10 +291,17 @@ export async function TicketsSection({
                 restaurantName={t.client.restaurantName || t.client.fullName}
                 note={t.client.specialNote}
                 noteBy={t.client.specialNoteBy?.name ?? null}
-                noteAt={t.client.specialNoteAt ? t.client.specialNoteAt.toISOString() : null}
+                noteAt={
+                  t.client.specialNoteAt
+                    ? t.client.specialNoteAt.toISOString()
+                    : null
+                }
               />
             </span>
-            <span className="text-sm text-slate-400 dark:text-slate-500"> · {t.client.fullName}</span>
+            <span className="text-sm text-slate-400 dark:text-slate-500">
+              {" "}
+              · {t.client.fullName}
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             <TicketTypeBadge type={t.type} />
@@ -267,7 +312,9 @@ export async function TicketsSection({
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400 dark:text-slate-500">
           <span>Ochilgan: {formatDate(t.createdAt)}</span>
-          {lastActionAt && <span>· Oxirgi harakat: {formatDate(lastActionAt)}</span>}
+          {lastActionAt && (
+            <span>· Oxirgi harakat: {formatDate(lastActionAt)}</span>
+          )}
           {t.status === "RESOLVED" && t.resolvedAt && (
             <span>· Hal qilindi: {formatDate(t.resolvedAt)}</span>
           )}
@@ -330,7 +377,12 @@ export async function TicketsSection({
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {isVersion ? (
-            <VersionTicketStatusControl ticketId={t.id} status={t.status} />
+            <VersionTicketStatusControl
+              ticketId={t.id}
+              status={t.status}
+              blocked={t.blocked}
+              blockedNote={t.blockedNote}
+            />
           ) : (
             <TicketStatusControl ticketId={t.id} status={t.status} />
           )}
@@ -344,7 +396,11 @@ export async function TicketsSection({
   }
 
   // Bo'lim ichi: bo'sh bo'lsa nozik ko'rsatkich, aks holda kartalar ro'yxati.
-  function panel(items: (typeof ticketsRaw), emptyHint: string, resolved = false) {
+  function panel(
+    items: typeof ticketsRaw,
+    emptyHint: string,
+    resolved = false,
+  ) {
     if (items.length === 0) {
       return (
         <p className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-400 dark:border-slate-800 dark:text-slate-500">
@@ -358,7 +414,8 @@ export async function TicketsSection({
         {shown.map(ticketCard)}
         {resolved && items.length > RESOLVED_RENDER_CAP && (
           <p className="text-center text-xs text-slate-400 dark:text-slate-500">
-            Yana {items.length - RESOLVED_RENDER_CAP} ta hal qilingan muammo (filtr bilan toraytiring)
+            Yana {items.length - RESOLVED_RENDER_CAP} ta hal qilingan muammo
+            (filtr bilan toraytiring)
           </p>
         )}
       </div>
@@ -378,7 +435,12 @@ export async function TicketsSection({
       icon: <Inbox className="h-4 w-4" />,
       tone: "red", // yangi tushgan muammolar — qizil (e'tibor talab qiladi)
       count: yangiTotal,
-      content: panel(yangi, isVersion ? "Yangi versiya so'rovi yo'q." : "Biriktirilmagan yangi muammo yo'q."),
+      content: panel(
+        yangi,
+        isVersion
+          ? "Yangi versiya so'rovi yo'q."
+          : "Biriktirilmagan yangi muammo yo'q.",
+      ),
     });
   }
   tabs.push({
@@ -412,12 +474,18 @@ export async function TicketsSection({
   tabs.push({
     key: "hal",
     label: isVersion ? "Versiya yangilandi" : "Hal qilingan",
-    icon: isVersion ? <DownloadCloud className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />,
+    icon: isVersion ? (
+      <DownloadCloud className="h-4 w-4" />
+    ) : (
+      <CheckCircle2 className="h-4 w-4" />
+    ),
     tone: "emerald",
     count: halTotal,
     content: panel(
       hal,
-      isVersion ? "Versiyasi yangilangan so'rov yo'q." : "Hal qilingan muammo yo'q.",
+      isVersion
+        ? "Versiyasi yangilangan so'rov yo'q."
+        : "Hal qilingan muammo yo'q.",
       true,
     ),
   });
@@ -426,7 +494,8 @@ export async function TicketsSection({
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          {openCount} ta ochiq · {halTotal} ta {isVersion ? "versiya yangilangan" : "hal qilingan"}
+          {openCount} ta ochiq · {halTotal} ta{" "}
+          {isVersion ? "versiya yangilangan" : "hal qilingan"}
         </p>
         {slaBreached > 0 && (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 dark:bg-red-950/40 dark:text-red-300">
@@ -437,7 +506,9 @@ export async function TicketsSection({
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className={`space-y-5 ${canAssign ? "lg:col-span-2" : "lg:col-span-3"}`}>
+        <div
+          className={`space-y-5 ${canAssign ? "lg:col-span-2" : "lg:col-span-3"}`}
+        >
           <Card className="p-4">
             <TicketFilter
               bolim={bolim}
@@ -461,11 +532,16 @@ export async function TicketsSection({
           {ticketsRaw.length === 0 && hasFilter ? (
             <EmptyState
               icon={isVersion ? DownloadCloud : Wrench}
-              title={isVersion ? "Versiya so'rovi topilmadi" : "Muammo topilmadi"}
+              title={
+                isVersion ? "Versiya so'rovi topilmadi" : "Muammo topilmadi"
+              }
               hint="Filtrga mos yozuv yo'q."
             />
           ) : (
-            <TicketTabs tabs={tabs} initialKey={canAssign ? "yangi" : "xodimga"} />
+            <TicketTabs
+              tabs={tabs}
+              initialKey={canAssign ? "yangi" : "xodimga"}
+            />
           )}
         </div>
 
@@ -474,7 +550,9 @@ export async function TicketsSection({
           <div>
             <Card>
               <CardHeader>
-                <CardTitle>{isVersion ? "Yangi versiya so'rovi" : "Yangi muammo"}</CardTitle>
+                <CardTitle>
+                  {isVersion ? "Yangi versiya so'rovi" : "Yangi muammo"}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <TicketForm

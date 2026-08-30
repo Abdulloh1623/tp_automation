@@ -44,24 +44,24 @@ model User {
   cardVerifier   Boolean  @default(false)
   createdAt      DateTime @default(now())
 
-  assignedClients      Client[]                @relation("AssignedOperator")
-  ustaClients          Client[]                @relation("AssignedUsta")
-  specialNotes         Client[]                @relation("SpecialNoteAuthor")
-  callLogs             CallLog[]               @relation("CallLogOperator")
-  editedCallLogs       CallLog[]               @relation("CallLogEditor")
+  assignedClients      Client[]                 @relation("AssignedOperator")
+  ustaClients          Client[]                 @relation("AssignedUsta")
+  specialNotes         Client[]                 @relation("SpecialNoteAuthor")
+  callLogs             CallLog[]                @relation("CallLogOperator")
+  editedCallLogs       CallLog[]                @relation("CallLogEditor")
   payments             Payment[]
-  tickets              Ticket[]                @relation("TicketOperator")
-  ustaTickets          Ticket[]                @relation("TicketUsta")
-  staffTickets         Ticket[]                @relation("TicketStaff")
-  escalationClients    Client[]                @relation("EscalationStaff")
+  tickets              Ticket[]                 @relation("TicketOperator")
+  ustaTickets          Ticket[]                 @relation("TicketUsta")
+  staffTickets         Ticket[]                 @relation("TicketStaff")
+  escalationClients    Client[]                 @relation("EscalationStaff")
   dailyGrants          DailyLeadGrant[]
   dutyDays             DutyDay[]
   passwordResets       PasswordResetRequest[]
   notifications        NotificationRecipient[]
-  pendingPayments      PendingPayment[]        @relation("PendingPaymentResolver")
-  faqEntries           FaqEntry[]              @relation("FaqAuthor")
-  cardPaymentsRecorded PendingCardPayment[]    @relation("CardPaymentRecorder")
-  cardPaymentsResolved PendingCardPayment[]    @relation("CardPaymentResolver")
+  pendingPayments      PendingPayment[]         @relation("PendingPaymentResolver")
+  faqEntries           FaqEntry[]               @relation("FaqAuthor")
+  cardPaymentsRecorded PendingCardPayment[]     @relation("CardPaymentRecorder")
+  cardPaymentsResolved PendingCardPayment[]     @relation("CardPaymentResolver")
   returnRequestsStaff  EquipmentReturnRequest[] @relation("ReturnRequestStaff")
 }
 
@@ -195,9 +195,15 @@ model Client {
   assignedTo      User?     @relation("AssignedOperator", fields: [assignedToId], references: [id])
 
   // Ustaga biriktirish (eskalatsiya/o'rnatish)
-  assignedUstaId String?
-  assignedUsta   User?   @relation("AssignedUsta", fields: [assignedUstaId], references: [id])
-  ustaStatus     String? // USTA_STATUS: ASSIGNED|EN_ROUTE|ARRIVED|DONE|FAILED|REVISIT
+  assignedUstaId  String?
+  assignedUsta    User?     @relation("AssignedUsta", fields: [assignedUstaId], references: [id])
+  ustaStatus      String? // USTA_STATUS: ASSIGNED|EN_ROUTE|ARRIVED|DONE|FAILED|REVISIT
+  // Eskalatsiya kanban'ida "Hal bo'lmadi" ustuni — ustaStatus'dan MUSTAQIL
+  // bayroq (bosqichni yo'qotmasdan chetga chiqarish uchun; qayta urinishda
+  // karta o'zining haqiqiy ustaStatus'iga avtomatik qaytadi).
+  ustaBlocked     Boolean   @default(false)
+  ustaBlockedNote String?
+  ustaBlockedAt   DateTime?
 
   // Maxsus (doimiy) izoh — mijoz nomi yonida qo'ng'iroqcha bilan
   specialNote     String?
@@ -427,6 +433,12 @@ model Ticket {
   createdAt       DateTime  @default(now())
   resolvedAt      DateTime?
   slaNotifiedAt   DateTime? // oxirgi 3-kunlik SLA ogohlantirishi yuborilgan vaqt
+  // Kanban'dagi "Hal bo'lmadi" ustuni — `status`dan MUSTAQIL bayroq (hozircha
+  // usta VERSION_UPDATE ticketlarida ishlatadi); tozalanganda ticket o'zining
+  // haqiqiy `status`iga avtomatik qaytadi.
+  blocked         Boolean   @default(false)
+  blockedNote     String?
+  blockedAt       DateTime?
 
   @@index([clientId])
   @@index([status])
@@ -534,6 +546,12 @@ model EquipmentReturnRequest {
   slaNotifiedAt  DateTime?
   resolvedAt     DateTime?
   resolutionNote String? // yakunlash (yoki rad etish) izohi — IXTIYORIY
+  // Kanban'dagi "Hal bo'lmadi" ustuni — `status`dan MUSTAQIL bayroq (usta
+  // mijozga yeta olmasa/yig'ib ololmasa); tozalanganda ariza o'zining
+  // haqiqiy `status`iga avtomatik qaytadi.
+  blocked        Boolean   @default(false)
+  blockedNote    String?
+  blockedAt      DateTime?
 
   @@index([status])
   @@index([staffId])

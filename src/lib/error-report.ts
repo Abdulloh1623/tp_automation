@@ -69,6 +69,19 @@ export function isBenignStreamAbort(error: unknown): boolean {
 }
 
 /**
+ * `/_not-found`ga multipart/form-data yuborilib, tanasi to'liq yetib
+ * kelmagan yoki noto'g'ri formatli bo'lganda undici shu xatoni beradi.
+ * Bizning kod bazamizda bunday sahifa/forma yo'q — bot/skaner yoki eskirgan
+ * kesh manzili, ilova bug'i emas (mavjud sahifadagi haqiqiy formData xatosi
+ * boshqa `path` bilan keladi, shuning uchun filtrlanmaydi).
+ */
+export function isBenignNotFoundFormDataError(error: unknown, ctx: ErrorContext): boolean {
+  const e = error as { message?: unknown } | null;
+  const msg = typeof e?.message === "string" ? e.message : "";
+  return /Failed to parse body as FormData/i.test(msg) && /_not-found/.test(ctx.path ?? "");
+}
+
+/**
  * Xato kanalini aniqlaydi: maxsus xato kanali → backup kanali → asosiy kanal.
  * Hech biri bo'lmasa null (faqat konsolga yoziladi).
  */
@@ -171,6 +184,9 @@ export async function reportError(error: unknown, ctx: ErrorContext = {}): Promi
   // Mijoz streaming render'ni yarmida uzganda chiqadigan zararsiz stream race —
   // kanalga yubormaymiz (soxta signal).
   if (isBenignStreamAbort(error)) return;
+  // Mavjud bo'lmagan yo'lga (bot/skaner yoki eskirgan kesh) yuborilgan
+  // yarim-yo'lda uzilgan multipart so'rov — ilova bug'i emas.
+  if (isBenignNotFoundFormDataError(error, ctx)) return;
   try {
     // Dev/test xatolari kanalga ketmasin — Telegram faqat prod uchun
     if (process.env.NODE_ENV !== "production") return;

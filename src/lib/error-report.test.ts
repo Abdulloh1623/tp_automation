@@ -3,6 +3,7 @@ import {
   formatErrorReport,
   shouldSend,
   isBenignStreamAbort,
+  isBenignNotFoundFormDataError,
   errorSeverity,
   criticalChannelId,
   errorsChannelId,
@@ -88,6 +89,30 @@ describe("isBenignStreamAbort — streaming uzilish shovqinini filtrlash", () =>
     expect(isBenignStreamAbort(new Error("baza yiqildi"))).toBe(false);
     expect(isBenignStreamAbort(null)).toBe(false);
     expect(isBenignStreamAbort("satr")).toBe(false);
+  });
+});
+
+describe("isBenignNotFoundFormDataError — 404'ga uzilgan multipart shovqinini filtrlash", () => {
+  it("/_not-found ga kelgan FormData xatosini zararsiz deb biladi", () => {
+    const err = new TypeError("Failed to parse body as FormData.");
+    expect(isBenignNotFoundFormDataError(err, { path: "/_not-found/page" })).toBe(true);
+  });
+
+  it("haqiqiy sahifadagi xuddi shu xabarni filtrlamaydi", () => {
+    const err = new TypeError("Failed to parse body as FormData.");
+    expect(isBenignNotFoundFormDataError(err, { path: "/malumotlar" })).toBe(false);
+  });
+
+  it("/_not-found bo'lsa ham boshqa xabarni filtrlamaydi", () => {
+    expect(isBenignNotFoundFormDataError(new Error("baza yiqildi"), { path: "/_not-found/page" })).toBe(
+      false,
+    );
+  });
+
+  it("path bo'lmasa filtrlamaydi", () => {
+    expect(isBenignNotFoundFormDataError(new TypeError("Failed to parse body as FormData."), {})).toBe(
+      false,
+    );
   });
 });
 

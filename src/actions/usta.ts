@@ -1,15 +1,84 @@
 "use server";
 
+import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { createNotification } from "@/lib/notifications";
-import { USTA_STATUS, ustaStatusLabel } from "@/lib/constants";
+import {
+  USTA_STATUS,
+  ustaStatusLabel,
+  MIN_PASSWORD_LENGTH,
+  MAX_PASSWORD_LENGTH,
+} from "@/lib/constants";
 import { escalationStagePatch, isEscalationStage } from "@/lib/escalation";
 import { safeNote } from "@/lib/validation";
 
 export type AssignState = { ok: boolean; error?: string };
+
+export type UstaProfileState = { ok: boolean; error?: string };
+
+/** Usta o'z telefon raqamini o'zi yangilaydi — admin/menejer ham /ustalar'da ko'radi. */
+export async function updateMyPhone(phone: string): Promise<UstaProfileState> {
+  const session = await requireSession();
+  if (session.role !== "INSTALLER") return { ok: false, error: "Ruxsat yo'q" };
+
+  const cleaned = (phone ?? "").trim();
+  if (!cleaned) return { ok: false, error: "Telefon raqamini kiriting" };
+
+  await db.user.update({
+    where: { id: session.userId },
+    data: { phone: cleaned },
+  });
+  await logAudit("Usta telefonini o'zi yangiladi", {
+    entity: "User",
+    entityId: session.userId,
+  });
+  // Bir xil User yozuvi — telefon /ustalar, /malumotnoma va /vazifalarim'da ham darhol yangilanadi.
+  revalidatePath("/vazifalarim");
+  revalidatePath("/ustalar");
+  revalidatePath("/malumotnoma");
+  return { ok: true };
+}
+
+/**
+ * Usta o'z parolini o'zi almashtiradi (admin tasdig'i shart emas — /ustalar'da
+ * admin/menejer allaqachon parolni to'g'ridan-to'g'ri o'zgartira oladi, oddiy
+ * xodimning parol so'rovidan farqli o'laroq bu rol tor qamrovli). Kuchga
+ * kirgach `sessionVersion` oshadi — joriy sessiya ham bekor bo'ladi, usta
+ * yangi parol bilan qayta kirishi kerak bo'ladi.
+ */
+export async function changeMyPassword(input: {
+  newPassword: string;
+  confirm: string;
+}): Promise<UstaProfileState> {
+  const session = await requireSession();
+  if (session.role !== "INSTALLER") return { ok: false, error: "Ruxsat yo'q" };
+
+  const pw = (input.newPassword ?? "").trim();
+  const cf = (input.confirm ?? "").trim();
+  if (pw.length < MIN_PASSWORD_LENGTH || pw.length > MAX_PASSWORD_LENGTH) {
+    return {
+      ok: false,
+      error: `Parol ${MIN_PASSWORD_LENGTH}–${MAX_PASSWORD_LENGTH} belgi bo'lsin`,
+    };
+  }
+  if (pw !== cf) return { ok: false, error: "Parollar bir-biriga mos kelmadi" };
+
+  await db.user.update({
+    where: { id: session.userId },
+    data: {
+      passwordHash: await bcrypt.hash(pw, 10),
+      sessionVersion: { increment: 1 },
+    },
+  });
+  await logAudit("Usta parolini o'zi almashtirdi", {
+    entity: "User",
+    entityId: session.userId,
+  });
+  return { ok: true };
+}
 
 /**
  * Eskalatsiya qilingan lidni ustaga biriktirish. Boshliq/admin ISTALGANini,
@@ -36,12 +105,20 @@ export async function assignUsta(
 
   const current = await db.client.findUnique({
     where: { id: clientId },
-    select: { stage: true, escalatedAt: true, assignedToId: true, escalationStaffId: true },
+    select: {
+      stage: true,
+      escalatedAt: true,
+      assignedToId: true,
+      escalationStaffId: true,
+    },
   });
   if (!current) return { ok: false, error: "Mijoz topilmadi" };
 
   // OPERATOR faqat o'ziga mas'ul biriktirilgan eskalatsiyaga usta biriktiradi.
-  if (session.role === "OPERATOR" && current.escalationStaffId !== session.userId) {
+  if (
+    session.role === "OPERATOR" &&
+    current.escalationStaffId !== session.userId
+  ) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
 
@@ -77,7 +154,11 @@ export async function assignUsta(
   return { ok: true };
 }
 
-export type UstaUpdateState = { ok: boolean; ustaStatus?: string; error?: string };
+export type UstaUpdateState = {
+  ok: boolean;
+  ustaStatus?: string;
+  error?: string;
+};
 
 /** Usta vazifa holatini yangilash (Yo'ldaman/Bordim/Bajarildi/...). */
 export async function updateUstaStatus(
@@ -229,7 +310,11 @@ export async function assignEscalationStaff(
       where: { id: staffId },
       select: { name: true, role: true, isActive: true },
     });
-    if (!staff || !staff.isActive || !ESCALATION_STAFF_ROLES.includes(staff.role)) {
+    if (
+      !staff ||
+      !staff.isActive ||
+      !ESCALATION_STAFF_ROLES.includes(staff.role)
+    ) {
       return { ok: false, error: "Xodim topilmadi yoki faol emas" };
     }
   }
@@ -255,10 +340,15 @@ export async function assignEscalationStaff(
     },
   });
 
-  await logAudit(staffId ? "Eskalatsiyaga mas'ul biriktirildi" : "Eskalatsiya mas'uli olindi", {
-    entity: "Client",
-    entityId: clientId,
-  });
+  await logAudit(
+    staffId
+      ? "Eskalatsiyaga mas'ul biriktirildi"
+      : "Eskalatsiya mas'uli olindi",
+    {
+      entity: "Client",
+      entityId: clientId,
+    },
+  );
   // Biriktirilgan xodimga ilova-ichi bildirishnoma (o'ziga biriktirsa — yubormaydi)
   if (staffId && staffId !== session.userId) {
     await createNotification({

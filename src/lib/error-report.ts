@@ -69,16 +69,33 @@ export function isBenignStreamAbort(error: unknown): boolean {
 }
 
 /**
- * `/_not-found`ga multipart/form-data yuborilib, tanasi to'liq yetib
- * kelmagan yoki noto'g'ri formatli bo'lganda undici shu xatoni beradi.
- * Bizning kod bazamizda bunday sahifa/forma yo'q — bot/skaner yoki eskirgan
- * kesh manzili, ilova bug'i emas (mavjud sahifadagi haqiqiy formData xatosi
- * boshqa `path` bilan keladi, shuning uchun filtrlanmaydi).
+ * `/_not-found`ga multipart/form-data yuborilib, tanasi kutilganidek
+ * o'qilmaganda undici shu xatoni beradi. Odatda `isBenignStaleServerAction`
+ * bilan bir xil hodisaning ikkinchi ko'rinishi (eski build'dagi sahifadan
+ * yuborilgan action ID topilmagach, Next.js not-found render'ga tushadi va
+ * qolgan formData'ni o'qishga urinib xato beradi) — ilova bug'i emas (mavjud
+ * sahifadagi haqiqiy formData xatosi boshqa `path` bilan keladi, shuning
+ * uchun filtrlanmaydi).
  */
 export function isBenignNotFoundFormDataError(error: unknown, ctx: ErrorContext): boolean {
   const e = error as { message?: unknown } | null;
   const msg = typeof e?.message === "string" ? e.message : "";
   return /Failed to parse body as FormData/i.test(msg) && /_not-found/.test(ctx.path ?? "");
+}
+
+/**
+ * Foydalanuvchi eski (endi almashtirilgan) build'dagi sahifani ochiq holda
+ * forma yuborsa, u yuborgan server action ID yangi build manifestida
+ * topilmaydi — Next.js buni hujjatlashtirilgan xato sifatida beradi
+ * (nextjs.org/docs/messages/failed-to-find-server-action). Loyiha har
+ * merge'dan keyin ~3 daqiqada avtomatik deploy bo'lgani uchun (`auto-deploy
+ * cron`) bu tez-tez chiqadi — ilova bug'i emas, foydalanuvchi sahifani
+ * yangilasa yetadi.
+ */
+export function isBenignStaleServerAction(error: unknown): boolean {
+  const e = error as { message?: unknown } | null;
+  const msg = typeof e?.message === "string" ? e.message : "";
+  return /Failed to find Server Action/i.test(msg);
 }
 
 /**
@@ -187,6 +204,9 @@ export async function reportError(error: unknown, ctx: ErrorContext = {}): Promi
   // Mavjud bo'lmagan yo'lga (bot/skaner yoki eskirgan kesh) yuborilgan
   // yarim-yo'lda uzilgan multipart so'rov — ilova bug'i emas.
   if (isBenignNotFoundFormDataError(error, ctx)) return;
+  // Eski build'dagi ochiq sahifadan yuborilgan stale server action ID —
+  // avtomatik deploy tsikli tufayli tez-tez chiqadi, ilova bug'i emas.
+  if (isBenignStaleServerAction(error)) return;
   try {
     // Dev/test xatolari kanalga ketmasin — Telegram faqat prod uchun
     if (process.env.NODE_ENV !== "production") return;

@@ -4,6 +4,7 @@ import {
   shouldSend,
   isBenignStreamAbort,
   isBenignNotFoundFormDataError,
+  isBenignStaleServerAction,
   errorSeverity,
   criticalChannelId,
   errorsChannelId,
@@ -113,6 +114,20 @@ describe("isBenignNotFoundFormDataError — 404'ga uzilgan multipart shovqinini 
     expect(isBenignNotFoundFormDataError(new TypeError("Failed to parse body as FormData."), {})).toBe(
       false,
     );
+  });
+});
+
+describe("isBenignStaleServerAction — eski build action ID shovqinini filtrlash", () => {
+  it("Next.js hujjatlashtirilgan xabarini zararsiz deb biladi", () => {
+    const err = new Error(
+      "Failed to find Server Action. This request might be from an older or newer deployment.",
+    );
+    expect(isBenignStaleServerAction(err)).toBe(true);
+  });
+
+  it("oddiy (haqiqiy) xatoni filtrlamaydi", () => {
+    expect(isBenignStaleServerAction(new Error("Mijoz topilmadi"))).toBe(false);
+    expect(isBenignStaleServerAction(null)).toBe(false);
   });
 });
 

@@ -1,4 +1,10 @@
-import { Phone, HardHat, AlertTriangle, PackageCheck, DownloadCloud } from "lucide-react";
+import {
+  Phone,
+  AlertTriangle,
+  PackageCheck,
+  DownloadCloud,
+  UserCircle,
+} from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
@@ -11,9 +17,9 @@ import {
 import { UstaStatusControl } from "@/components/usta-status-control";
 import { UstaReturnActions } from "@/components/usta-return-actions";
 import { VersionTicketStatusControl } from "@/components/version-ticket-status-control";
+import { UstaProfileForm } from "@/components/usta-profile-form";
 import { TicketTabs, type TicketTab } from "@/components/ticket-tabs";
 import { PhoneCopyButton } from "@/components/phone-copy";
-import { EmptyState } from "@/components/empty-state";
 import { formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 
 const RESOLVED_RENDER_CAP = 20;
@@ -40,13 +46,22 @@ function ClientCard({
     <Card className="p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="font-medium text-slate-900 dark:text-slate-100">{restaurantName}</div>
+          <div className="font-medium text-slate-900 dark:text-slate-100">
+            {restaurantName}
+          </div>
           <div className="text-sm text-slate-500 dark:text-slate-400">
             {fullName}
-            {region && <span className="text-slate-400 dark:text-slate-500"> · {region}</span>}
+            {region && (
+              <span className="text-slate-400 dark:text-slate-500">
+                {" "}
+                · {region}
+              </span>
+            )}
           </div>
         </div>
-        {badges && <div className="flex flex-wrap items-center gap-1.5">{badges}</div>}
+        {badges && (
+          <div className="flex flex-wrap items-center gap-1.5">{badges}</div>
+        )}
       </div>
       <div className="mt-2 inline-flex items-center gap-1 text-sm">
         <a
@@ -83,45 +98,112 @@ export default async function VazifalarimPage() {
   const session = await requireRole(["INSTALLER"]);
   const ustaId = session.userId;
 
-  const [escalatedActive, escalatedDone, returnsActive, returnsDone, ticketsActive, ticketsDone] =
-    await Promise.all([
-      db.client.findMany({
-        where: { assignedUstaId: ustaId, stage: "FORWARDED" },
-        orderBy: { updatedAt: "desc" },
-        select: {
-          id: true, restaurantName: true, fullName: true, phone: true, region: true,
-          ustaStatus: true, specialNote: true,
+  const [
+    me,
+    escalatedActive,
+    escalatedDone,
+    returnsActive,
+    returnsDone,
+    ticketsActive,
+    ticketsDone,
+  ] = await Promise.all([
+    db.user.findUniqueOrThrow({
+      where: { id: ustaId },
+      select: { name: true, username: true, region: true, phone: true },
+    }),
+    db.client.findMany({
+      where: { assignedUstaId: ustaId, stage: "FORWARDED" },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        restaurantName: true,
+        fullName: true,
+        phone: true,
+        region: true,
+        ustaStatus: true,
+        specialNote: true,
+      },
+    }),
+    db.client.findMany({
+      where: { assignedUstaId: ustaId, stage: "RESOLVED", ustaStatus: "DONE" },
+      orderBy: { updatedAt: "desc" },
+      take: RESOLVED_RENDER_CAP,
+      select: {
+        id: true,
+        restaurantName: true,
+        fullName: true,
+        phone: true,
+        region: true,
+        updatedAt: true,
+      },
+    }),
+    db.equipmentReturnRequest.findMany({
+      where: { ustaId, status: { in: ["APPROVED", "IN_PROGRESS"] } },
+      orderBy: { createdAt: "asc" },
+      include: {
+        client: {
+          select: {
+            restaurantName: true,
+            fullName: true,
+            phone: true,
+            region: true,
+          },
         },
-      }),
-      db.client.findMany({
-        where: { assignedUstaId: ustaId, stage: "RESOLVED", ustaStatus: "DONE" },
-        orderBy: { updatedAt: "desc" },
-        take: RESOLVED_RENDER_CAP,
-        select: { id: true, restaurantName: true, fullName: true, phone: true, region: true, updatedAt: true },
-      }),
-      db.equipmentReturnRequest.findMany({
-        where: { ustaId, status: { in: ["APPROVED", "IN_PROGRESS"] } },
-        orderBy: { createdAt: "asc" },
-        include: { client: { select: { restaurantName: true, fullName: true, phone: true, region: true } } },
-      }),
-      db.equipmentReturnRequest.findMany({
-        where: { ustaId, status: "DONE" },
-        orderBy: { resolvedAt: "desc" },
-        take: RESOLVED_RENDER_CAP,
-        include: { client: { select: { restaurantName: true, fullName: true, phone: true, region: true } } },
-      }),
-      db.ticket.findMany({
-        where: { assignedUstaId: ustaId, type: "VERSION_UPDATE", status: { not: "RESOLVED" } },
-        orderBy: { createdAt: "desc" },
-        include: { client: { select: { restaurantName: true, fullName: true, phone: true, region: true } } },
-      }),
-      db.ticket.findMany({
-        where: { assignedUstaId: ustaId, type: "VERSION_UPDATE", status: "RESOLVED" },
-        orderBy: { resolvedAt: "desc" },
-        take: RESOLVED_RENDER_CAP,
-        include: { client: { select: { restaurantName: true, fullName: true, phone: true, region: true } } },
-      }),
-    ]);
+      },
+    }),
+    db.equipmentReturnRequest.findMany({
+      where: { ustaId, status: "DONE" },
+      orderBy: { resolvedAt: "desc" },
+      take: RESOLVED_RENDER_CAP,
+      include: {
+        client: {
+          select: {
+            restaurantName: true,
+            fullName: true,
+            phone: true,
+            region: true,
+          },
+        },
+      },
+    }),
+    db.ticket.findMany({
+      where: {
+        assignedUstaId: ustaId,
+        type: "VERSION_UPDATE",
+        status: { not: "RESOLVED" },
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        client: {
+          select: {
+            restaurantName: true,
+            fullName: true,
+            phone: true,
+            region: true,
+          },
+        },
+      },
+    }),
+    db.ticket.findMany({
+      where: {
+        assignedUstaId: ustaId,
+        type: "VERSION_UPDATE",
+        status: "RESOLVED",
+      },
+      orderBy: { resolvedAt: "desc" },
+      take: RESOLVED_RENDER_CAP,
+      include: {
+        client: {
+          select: {
+            restaurantName: true,
+            fullName: true,
+            phone: true,
+            region: true,
+          },
+        },
+      },
+    }),
+  ]);
 
   // --- Eskalatsiya ---
   const escalationTab = panel(
@@ -150,7 +232,9 @@ export default async function VazifalarimPage() {
         fullName={c.fullName}
         region={c.region}
         phone={c.phone}
-        badges={<Badge tone="green">Yakunlangan · {formatDate(c.updatedAt)}</Badge>}
+        badges={
+          <Badge tone="green">Yakunlangan · {formatDate(c.updatedAt)}</Badge>
+        }
       >
         <span />
       </ClientCard>
@@ -159,8 +243,14 @@ export default async function VazifalarimPage() {
   );
 
   // --- Qaytarish ---
-  const returnStatusTone: Record<string, "amber" | "blue"> = { APPROVED: "amber", IN_PROGRESS: "blue" };
-  const returnStatusLabel: Record<string, string> = { APPROVED: "Biriktirilgan", IN_PROGRESS: "Yo'lda" };
+  const returnStatusTone: Record<string, "amber" | "blue"> = {
+    APPROVED: "amber",
+    IN_PROGRESS: "blue",
+  };
+  const returnStatusLabel: Record<string, string> = {
+    APPROVED: "Biriktirilgan",
+    IN_PROGRESS: "Yo'lda",
+  };
   const returnTab = panel(
     returnsActive.map((r) => (
       <ClientCard
@@ -170,7 +260,11 @@ export default async function VazifalarimPage() {
         region={r.client.region}
         phone={r.client.phone}
         note={r.note}
-        badges={<Badge tone={returnStatusTone[r.status] ?? "slate"}>{returnStatusLabel[r.status] ?? r.status}</Badge>}
+        badges={
+          <Badge tone={returnStatusTone[r.status] ?? "slate"}>
+            {returnStatusLabel[r.status] ?? r.status}
+          </Badge>
+        }
       >
         <UstaReturnActions requestId={r.id} status={r.status} />
       </ClientCard>
@@ -186,7 +280,11 @@ export default async function VazifalarimPage() {
         region={r.client.region}
         phone={r.client.phone}
         note={r.resolutionNote}
-        badges={<Badge tone="green">Yakunlangan{r.resolvedAt ? ` · ${formatDate(r.resolvedAt)}` : ""}</Badge>}
+        badges={
+          <Badge tone="green">
+            Yakunlangan{r.resolvedAt ? ` · ${formatDate(r.resolvedAt)}` : ""}
+          </Badge>
+        }
       >
         <span />
       </ClientCard>
@@ -226,15 +324,17 @@ export default async function VazifalarimPage() {
         region={t.client.region}
         phone={t.client.phone}
         note={t.resolutionNote}
-        badges={<Badge tone="green">Yakunlangan{t.resolvedAt ? ` · ${formatDate(t.resolvedAt)}` : ""}</Badge>}
+        badges={
+          <Badge tone="green">
+            Yakunlangan{t.resolvedAt ? ` · ${formatDate(t.resolvedAt)}` : ""}
+          </Badge>
+        }
       >
         <span />
       </ClientCard>
     )),
     "Yakunlangan versiya so'rovi yo'q.",
   );
-
-  const totalActive = escalatedActive.length + returnsActive.length + ticketsActive.length;
 
   const tabs: TicketTab[] = [
     {
@@ -248,7 +348,9 @@ export default async function VazifalarimPage() {
           {escalationTab}
           {escalatedDone.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">Yakunlangan</h3>
+              <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                Yakunlangan
+              </h3>
               {escalationDoneTab}
             </div>
           )}
@@ -266,7 +368,9 @@ export default async function VazifalarimPage() {
           {returnTab}
           {returnsDone.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">Yakunlangan</h3>
+              <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                Yakunlangan
+              </h3>
               {returnDoneTab}
             </div>
           )}
@@ -284,11 +388,27 @@ export default async function VazifalarimPage() {
           {versionTab}
           {ticketsDone.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">Yakunlangan</h3>
+              <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                Yakunlangan
+              </h3>
               {versionDoneTab}
             </div>
           )}
         </div>
+      ),
+    },
+    {
+      key: "profil",
+      label: "Profil",
+      icon: <UserCircle className="h-4 w-4" />,
+      tone: "emerald",
+      content: (
+        <UstaProfileForm
+          name={me.name}
+          username={me.username}
+          region={me.region}
+          phone={me.phone}
+        />
       ),
     },
   ];
@@ -296,20 +416,15 @@ export default async function VazifalarimPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Vazifalarim</h1>
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+          Vazifalarim
+        </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Sizga biriktirilgan eskalatsiya, qaytarish va versiya so'rovlari
         </p>
       </div>
 
-      {totalActive === 0 &&
-      escalatedDone.length === 0 &&
-      returnsDone.length === 0 &&
-      ticketsDone.length === 0 ? (
-        <EmptyState icon={HardHat} title="Sizga hali vazifa biriktirilmagan" />
-      ) : (
-        <TicketTabs tabs={tabs} initialKey="eskalatsiya" />
-      )}
+      <TicketTabs tabs={tabs} initialKey="eskalatsiya" />
     </div>
   );
 }

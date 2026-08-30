@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/db";
+import { requireRole } from "@/lib/auth";
 import { ClientForm } from "@/components/client-form";
 import { saveClientInline } from "@/actions/clients";
 
@@ -22,6 +23,18 @@ export async function ClientEditView({
   id: string;
   inline?: boolean;
 }) {
+  // Usta (INSTALLER) — mijozning ASOSIY ma'lumotlarini tahrirlay oladi (FIO,
+  // telefon, viloyat, shartnoma, apparat, izoh); holat/to'lov/biriktirish
+  // maydonlari ko'rinmaydi ham, o'zgarmaydi ham (`restricted` — ClientForm).
+  const session = await requireRole([
+    "ADMIN",
+    "OPERATOR",
+    "MANAGER",
+    "VIEWER",
+    "INSTALLER",
+  ]);
+  const restricted = session.role === "INSTALLER";
+
   const [client, operators] = await Promise.all([
     // ANIQ `select` — `include` bilan butun yozuv olinardi va u pastda
     // ClientForm ("use client") ga spread qilinardi. Klient komponentga
@@ -90,11 +103,15 @@ export async function ClientEditView({
         operators={operators}
         defaultValues={{
           ...client,
-          phones: client.phones.map((p) => ({ label: p.label, number: p.number })),
+          phones: client.phones.map((p) => ({
+            label: p.label,
+            number: p.number,
+          })),
         }}
         submitLabel="O'zgarishlarni saqlash"
         closeOnSuccess={inline}
         successRedirect={inline ? undefined : `/mijozlar/${client.id}`}
+        restricted={restricted}
       />
     </div>
   );

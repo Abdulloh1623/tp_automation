@@ -166,6 +166,57 @@ describe("updateClient — pul maydonlari", () => {
   });
 });
 
+describe("updateClient — INSTALLER (usta) faqat asosiy ma'lumotni tahrirlaydi", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("asosiy maydonlarni (nom, telefon, izoh) tahrirlay oladi", async () => {
+    const usta = await makeUser("INSTALLER");
+    await loginAs(usta);
+    const client = await makeClient({ restaurantName: "Eski nom" });
+
+    const res = await update(
+      client.id,
+      clientForm(client, { restaurantName: "Yangi nom", notes: "usta izohi" }),
+    );
+
+    expect(res.error).toBeFalsy();
+    const after = await db.client.findUnique({ where: { id: client.id } });
+    expect(after!.restaurantName).toBe("Yangi nom");
+    expect(after!.notes).toBe("usta izohi");
+  });
+
+  it("holat/to'lov/biriktirish maydonlarini o'zgartira OLMAYDI — tamperlangan qiymat ham e'tiborsiz qoldiriladi", async () => {
+    const owner = await makeUser("OPERATOR");
+    const usta = await makeUser("INSTALLER");
+    await loginAs(usta);
+    const client = await makeClient({
+      debtAmount: 500,
+      monthlyAmount: 29,
+      status: "ACTIVE",
+      assignedToId: owner.id,
+    });
+
+    await update(
+      client.id,
+      clientForm(client, {
+        debtAmount: "0",
+        monthlyAmount: "999",
+        status: "INACTIVE",
+        assignedToId: usta.id,
+      }),
+    );
+
+    const after = await db.client.findUnique({ where: { id: client.id } });
+    expect(after!.debtAmount, "qarz o'zgarmasligi kerak").toBe(500);
+    expect(after!.monthlyAmount, "oylik o'zgarmasligi kerak").toBe(29);
+    expect(after!.status, "holat o'zgarmasligi kerak").toBe("ACTIVE");
+    expect(after!.assignedToId, "biriktiruv o'zgarmasligi kerak").toBe(owner.id);
+    expect(after!.deactivatedAt, "holat o'zgarmagani uchun churn vaqti yo'q").toBeNull();
+  });
+});
+
 // Eski importlar `stage: REFUSED` qo'yib `status` ni tegmagan — natijada otkaz
 // mijoz "Faol" bo'lib qolib, oyligi MRR ga qo'shilib turardi. Ilovaning o'z
 // otkaz yo'llari ikkalasini ham qo'yadi; bu amal eski qoldiqni tuzatadi.

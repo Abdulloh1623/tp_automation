@@ -25,24 +25,26 @@ function s(v: FormDataEntryValue | null): string | undefined {
   return str === "" ? undefined : str;
 }
 
-const clientSchema = z.object({
-  fullName: z.string().min(1, "FIO kiriting"),
-  restaurantName: z.string().min(1, "Restoran nomini kiriting"),
-  region: z.string().optional(),
-  phone: z.string().min(1, "Telefon raqamini kiriting"),
-  contractNumber: z.string().optional(),
-  contractDate: z.string().optional(),
-  installerName: z.string().optional(),
-  monoblokCount: z.coerce.number().int().min(0).default(1),
-  equipment: z.string().optional(),
-  status: clientStatusEnum.default("ACTIVE"),
-  monthlyAmount: z.coerce.number().min(0).default(0),
-  currency: currencyEnum.default("USD"),
-  nextPaymentDate: z.string().optional(),
-  debtAmount: z.coerce.number().min(0).default(0),
-  notes: noteString.optional(),
-  assignedToId: z.string().optional(),
-}).superRefine(requireActivePaymentDate);
+const clientSchema = z
+  .object({
+    fullName: z.string().min(1, "FIO kiriting"),
+    restaurantName: z.string().min(1, "Restoran nomini kiriting"),
+    region: z.string().optional(),
+    phone: z.string().min(1, "Telefon raqamini kiriting"),
+    contractNumber: z.string().optional(),
+    contractDate: z.string().optional(),
+    installerName: z.string().optional(),
+    monoblokCount: z.coerce.number().int().min(0).default(1),
+    equipment: z.string().optional(),
+    status: clientStatusEnum.default("ACTIVE"),
+    monthlyAmount: z.coerce.number().min(0).default(0),
+    currency: currencyEnum.default("USD"),
+    nextPaymentDate: z.string().optional(),
+    debtAmount: z.coerce.number().min(0).default(0),
+    notes: noteString.optional(),
+    assignedToId: z.string().optional(),
+  })
+  .superRefine(requireActivePaymentDate);
 
 export type ClientFormState = {
   error?: string;
@@ -80,7 +82,9 @@ function parseForm(formData: FormData) {
   if (status === "ACTIVE" && !nextPaymentDate && contractDate) {
     const anchor = new Date(contractDate);
     if (!Number.isNaN(anchor.getTime())) {
-      nextPaymentDate = computeNextPaymentDate(anchor).toISOString().slice(0, 10);
+      nextPaymentDate = computeNextPaymentDate(anchor)
+        .toISOString()
+        .slice(0, 10);
     }
   }
 
@@ -157,13 +161,20 @@ function diffClient(
   cmp("status", before.status, after.status);
   cmp("monthlyAmount", before.monthlyAmount, after.monthlyAmount);
   cmp("currency", before.currency, after.currency);
-  cmp("nextPaymentDate", day(before.nextPaymentDate), day(after.nextPaymentDate));
+  cmp(
+    "nextPaymentDate",
+    day(before.nextPaymentDate),
+    day(after.nextPaymentDate),
+  );
   cmp("debtAmount", before.debtAmount, after.debtAmount);
   cmp("notes", before.notes, after.notes);
   cmp("assignedToId", before.assignedToId, after.assignedToId);
 
   const sig = (ps: { label: string; number: string }[]) =>
-    ps.map((p) => `${p.label}:${p.number}`).sort().join("|");
+    ps
+      .map((p) => `${p.label}:${p.number}`)
+      .sort()
+      .join("|");
   if (sig(before.phones) !== sig(newPhones)) {
     changes.phones = { from: before.phones, to: newPhones };
   }
@@ -182,7 +193,8 @@ function parseEquipmentSelection(
   canEquip: boolean,
 ): { rows: EqRow[]; source: string } {
   const source = s(formData.get("eqSource")) ?? "WAREHOUSE";
-  if (!canEquip || s(formData.get("eqMode")) !== "EQUIPMENT") return { rows: [], source };
+  if (!canEquip || s(formData.get("eqMode")) !== "EQUIPMENT")
+    return { rows: [], source };
   const typeIds = formData.getAll("eqTypeId").map(String);
   const qtys = formData.getAll("eqQty").map(String);
   const owns = formData.getAll("eqOwnership").map(String);
@@ -218,11 +230,17 @@ export async function createClient(
   }
   const phones = parsePhones(formData);
   // assignedToId xavfsiz aniqlanadi (OPERATOR doimo o'ziga; ADMIN/MANAGER validatsiya bilan)
-  const assignedToId = await resolveAssignee(g.session, parsed.data.assignedToId);
+  const assignedToId = await resolveAssignee(
+    g.session,
+    parsed.data.assignedToId,
+  );
 
   // Uskuna tanlovi (faqat ADMIN/MANAGER)
   const canEquip = g.session.role === "ADMIN" || g.session.role === "MANAGER";
-  const { rows: eqRows, source: eqSource } = parseEquipmentSelection(formData, canEquip);
+  const { rows: eqRows, source: eqSource } = parseEquipmentSelection(
+    formData,
+    canEquip,
+  );
   const installed = eqSource === "INSTALLED";
   const srcType = eqSource.startsWith("USTA:") ? "USTA" : "WAREHOUSE";
   const srcId = eqSource.startsWith("USTA:") ? eqSource.slice(5) : "WAREHOUSE";
@@ -280,7 +298,8 @@ export async function createClient(
         // umumiy miqdor (bir tur ijara+sotuv bo'lishi mumkin).
         if (!installed) {
           const perType = new Map<string, number>();
-          for (const r of eqRows) perType.set(r.typeId, (perType.get(r.typeId) ?? 0) + r.qty);
+          for (const r of eqRows)
+            perType.set(r.typeId, (perType.get(r.typeId) ?? 0) + r.qty);
           for (const [typeId, qty] of perType) {
             const src = await tx.inventoryStock.findUnique({
               where: {
@@ -357,7 +376,10 @@ export async function createClient(
             clientId: created.id,
             amount: payAmount,
             currency: created.currency,
-            paidAt: initPaidAt && !Number.isNaN(initPaidAt.getTime()) ? initPaidAt : undefined,
+            paidAt:
+              initPaidAt && !Number.isNaN(initPaidAt.getTime())
+                ? initPaidAt
+                : undefined,
             receiptNote: "Boshlang'ich to'lov (oldindan mavjud mijoz)",
             recordedById: g.session.userId,
           },
@@ -392,11 +414,18 @@ export async function createClient(
  *  - `saveClientInline` (modal) — `{ ok: true }` ni qaytaradi, forma modalni
  *    klient tomonda yopadi (server-redirect intercepting-route ichida osilardi).
  */
+// Usta (INSTALLER) — FAQAT mijozning asosiy ma'lumotlarini (FIO, telefon,
+// viloyat, shartnoma, apparat, izoh) tahrirlaydi. `ClientForm`da `restricted`
+// bilan holat/to'lov/biriktirish maydonlari yashirin (o'zgarmagan) inputga
+// aylantiriladi — bu yerdagi qayta yozish esa shu chegarani serverda ham
+// mustahkamlaydi (tamperlangan so'rov ham financial/status maydonini o'zgartira olmaydi).
+const EDIT_ROLES = [...STAFF, "INSTALLER"];
+
 async function applyClientUpdate(
   id: string,
   formData: FormData,
 ): Promise<ClientFormState> {
-  const g = await guardRole(STAFF);
+  const g = await guardRole(EDIT_ROLES);
   if (!g.ok) return { error: g.error };
 
   const before = await db.client.findUnique({
@@ -414,17 +443,28 @@ async function applyClientUpdate(
   }
   const phones = parsePhones(formData);
 
+  const isOperator = g.session.role === "OPERATOR";
+  const isInstaller = g.session.role === "INSTALLER";
+
   const assignedToId =
-    g.session.role === "OPERATOR"
+    isOperator || isInstaller
       ? before.assignedToId
       : await resolveAssignee(g.session, parsed.data.assignedToId);
 
-  const isOperator = g.session.role === "OPERATOR";
   const after = {
     ...toData(parsed.data),
     assignedToId,
     ...(isOperator
       ? { debtAmount: before.debtAmount, monthlyAmount: before.monthlyAmount }
+      : {}),
+    ...(isInstaller
+      ? {
+          status: before.status,
+          monthlyAmount: before.monthlyAmount,
+          currency: before.currency,
+          nextPaymentDate: before.nextPaymentDate,
+          debtAmount: before.debtAmount,
+        }
       : {}),
   };
 
@@ -489,7 +529,11 @@ export async function quickCompleteClient(
   // tekshiruvi yo'q) — lekin kim, nimani to'ldirgani audit jurnaliga yoziladi.
   const g = await guardRole(STAFF);
   if (!g.ok) return { ok: false, error: g.error };
-  const patch: { restaurantName?: string; phone?: string; region?: string | null } = {};
+  const patch: {
+    restaurantName?: string;
+    phone?: string;
+    region?: string | null;
+  } = {};
   // Faqat bo'sh bo'lmagan qiymatni yozamiz — mavjud qiymatni bo'sh bilan o'chirib
   // qo'ymaslik va "to'ldirilmagan" holatini qayta yaratmaslik uchun.
   const rn = data.restaurantName?.trim();
@@ -497,7 +541,8 @@ export async function quickCompleteClient(
   const ph = data.phone?.trim();
   if (ph) patch.phone = ph;
   if (data.region !== undefined) patch.region = normalizeRegion(data.region);
-  if (Object.keys(patch).length === 0) return { ok: false, error: "O'zgarish yo'q" };
+  if (Object.keys(patch).length === 0)
+    return { ok: false, error: "O'zgarish yo'q" };
   await db.client.update({ where: { id }, data: patch });
   const changed = Object.entries(patch)
     .map(([k, v]) => `${k}=${v ?? "—"}`)
@@ -523,10 +568,14 @@ export async function setClientAppVersion(
 ): Promise<{ ok: boolean; error?: string }> {
   const g = await guardRole(STAFF);
   if (!g.ok) return { ok: false, error: g.error };
-  if (!isClientAppVersion(version)) return { ok: false, error: "Noto'g'ri versiya" };
+  if (!isClientAppVersion(version))
+    return { ok: false, error: "Noto'g'ri versiya" };
 
   try {
-    await db.client.update({ where: { id: clientId }, data: { appVersion: version } });
+    await db.client.update({
+      where: { id: clientId },
+      data: { appVersion: version },
+    });
   } catch {
     return { ok: false, error: "Mijoz topilmadi" };
   }
@@ -632,7 +681,8 @@ export async function bulkAssignOperator(
       },
       select: { name: true, role: true, dailyLimit: true },
     });
-    if (!op) return { ok: false, error: "Operator topilmadi yoki mos rol emas" };
+    if (!op)
+      return { ok: false, error: "Operator topilmadi yoki mos rol emas" };
     opName = op.name;
 
     // Kvota nazorati — faqat OPERATOR uchun. Limit to'lgan bo'lsa oddiy biriktirish bloklanadi;
@@ -679,10 +729,15 @@ export async function assignExtraClient(
 ): Promise<{ ok: boolean; error?: string }> {
   const g = await guardRole(["ADMIN", "MANAGER"]);
   if (!g.ok) return { ok: false, error: g.error };
-  if (!userId || !clientId) return { ok: false, error: "Operator yoki mijoz tanlanmadi" };
+  if (!userId || !clientId)
+    return { ok: false, error: "Operator yoki mijoz tanlanmadi" };
 
   const op = await db.user.findFirst({
-    where: { id: userId, role: { in: ["OPERATOR", "ADMIN", "MANAGER"] }, isActive: true },
+    where: {
+      id: userId,
+      role: { in: ["OPERATOR", "ADMIN", "MANAGER"] },
+      isActive: true,
+    },
     select: { name: true, dailyLimit: true },
   });
   if (!op) return { ok: false, error: "Operator topilmadi yoki mos rol emas" };
@@ -697,7 +752,10 @@ export async function assignExtraClient(
     where: { assignedToId: userId, status: "ACTIVE" },
   });
 
-  await db.client.update({ where: { id: clientId }, data: { assignedToId: userId } });
+  await db.client.update({
+    where: { id: clientId },
+    data: { assignedToId: userId },
+  });
 
   // Limitdan tashqari biriktirish — audit izida aniq belgilanadi
   await logAudit("Qo'shimcha biriktirish (limitdan tashqari)", {

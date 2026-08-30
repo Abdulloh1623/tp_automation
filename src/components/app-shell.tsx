@@ -55,12 +55,13 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/", label: "Boshqaruv paneli", icon: LayoutDashboard, roles: ["ADMIN", "VIEWER"] },
       { href: "/lidlar", label: "Kunlik ish", icon: PhoneCall, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
+      { href: "/vazifalarim", label: "Vazifalarim", icon: HardHat, roles: ["INSTALLER"] },
     ],
   },
   {
     title: "Mijozlar",
     items: [
-      { href: "/mijozlar", label: "Mijozlar", icon: Users, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
+      { href: "/mijozlar", label: "Mijozlar", icon: Users, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER", "INSTALLER"] },
       { href: "/muammoli-mijozlar", label: "Muammoli mijozlar", icon: UserX, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
       { href: "/tolovlar", label: "To'lovlar", icon: CreditCard, roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
     ],
@@ -105,12 +106,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/faq", label: "FAQ", icon: HelpCircle, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
       { href: "/bildirishnomalar", label: "Bildirishnomalar", icon: Bell, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
-      { href: "/profil", label: "Profil", icon: CircleUser, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
-    ],
-  },
-  {
-    items: [
-      { href: "/vazifalarim", label: "Vazifalarim", icon: HardHat, roles: ["INSTALLER"] },
+      { href: "/profil", label: "Profil", icon: CircleUser, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER", "INSTALLER"] },
     ],
   },
 ];
@@ -275,10 +271,7 @@ export function AppShell({
                 </div>
               </>
             );
-            // Usta uchun /profil yo'q — sof ko'rinish sifatida (link emas).
-            return user.role === "INSTALLER" ? (
-              <div className="mb-2 flex items-center gap-2.5 px-2 py-2">{identity}</div>
-            ) : (
+            return (
               <Link
                 href="/profil"
                 className="mb-2 flex items-center gap-2.5 rounded-xl px-2 py-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800/70"

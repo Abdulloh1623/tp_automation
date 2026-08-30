@@ -19,7 +19,10 @@ export function roleHome(role: string): string {
 /** Har bir route prefiksiga ruxsat etilgan rollar. */
 const ROUTE_ROLES: { prefix: string; roles: Role[] }[] = [
   { prefix: "/lidlar", roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
-  { prefix: "/mijozlar", roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
+  // INSTALLER — mijoz ro'yxati + profili faqat O'QISH uchun (ma'lumot, qo'ng'iroq
+  // tarixi, uskunalar); yangi/tahrir sahifalari uchun component ichida
+  // requireRole bilan qo'shimcha to'sib qo'yilgan (bu prefiks ularni ham qamraydi).
+  { prefix: "/mijozlar", roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER", "INSTALLER"] },
   { prefix: "/muammoli-mijozlar", roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
   // Eski manzil — /muammoli-mijozlar ga yo'naltiradi (ruxsat bir xil bo'lsin).
   { prefix: "/toldirilmagan", roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
@@ -47,14 +50,15 @@ const ROUTE_ROLES: { prefix: string; roles: Role[] }[] = [
   { prefix: "/import", roles: ["ADMIN"] }, // eski manzil — /malumotlar ga yo'naltiradi
   { prefix: "/malumotlar", roles: ["ADMIN"] },
   { prefix: "/sozlamalar", roles: ["ADMIN"] },
-  { prefix: "/profil", roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
+  { prefix: "/profil", roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER", "INSTALLER"] },
   { prefix: "/bildirishnomalar", roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
   // FAQ — barcha xodim o'qiydi va qo'sha oladi; tahrir/o'chirish faqat ADMIN
   // (action guardRole bilan). O'qish/qo'shish uchun uch rol ham ochiq.
   { prefix: "/faq", roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
   // Jonli tablo — xodimlar (ustalar bu yerga kirmaydi, ular /vazifalarim'da).
   { prefix: "/tablo", roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
-  // Usta (INSTALLER) — faqat o'ziga biriktirilgan muammolar; boshqa hech qayerga kirmaydi.
+  // Usta (INSTALLER) — o'ziga biriktirilgan muammolar; /mijozlar (o'qish) va
+  // /profil bundan tashqari ochiq, qolgan hamma joy yopiq.
   { prefix: "/vazifalarim", roles: ["INSTALLER"] },
 ];
 

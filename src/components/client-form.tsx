@@ -25,14 +25,13 @@ import {
   type PhoneValue,
 } from "@/components/client-phones-field";
 import { ClientEquipmentPicker } from "@/components/client-equipment-picker";
-import type { EqTypeOpt, UstaSource } from "@/components/client-equipment-panel";
+import type {
+  EqTypeOpt,
+  UstaSource,
+} from "@/components/client-equipment-panel";
 import { FieldError } from "@/components/field-error";
 import { useActionToast } from "@/components/use-action-toast";
-import {
-  CLIENT_STATUS,
-  CURRENCY,
-  REGIONS,
-} from "@/lib/constants";
+import { CLIENT_STATUS, CURRENCY, REGIONS } from "@/lib/constants";
 import { toDateInputValue } from "@/lib/utils";
 
 type Operator = { id: string; name: string };
@@ -99,8 +98,12 @@ export function ClientForm({
   closeOnSuccess = false,
   successRedirect,
   successToast = "O'zgarishlar saqlandi",
+  restricted = false,
 }: {
-  action: (prev: ClientFormState, formData: FormData) => Promise<ClientFormState>;
+  action: (
+    prev: ClientFormState,
+    formData: FormData,
+  ) => Promise<ClientFormState>;
   operators: Operator[];
   defaultValues?: ClientFormValues;
   submitLabel?: string;
@@ -119,6 +122,13 @@ export function ClientForm({
   successRedirect?: string;
   /** Muvaffaqiyat toast matni. */
   successToast?: string;
+  /**
+   * Usta (INSTALLER) uchun: holat/to'lov/biriktirish maydonlari tahrirlanmaydi —
+   * joriy qiymatlar yashirin input sifatida o'zgarishsiz qayta yuboriladi
+   * (`applyClientUpdate` shu qiymatlarni baribir `before`dan qayta yozadi —
+   * bu shunchaki UI, aldov yo'q).
+   */
+  restricted?: boolean;
 }) {
   const router = useRouter();
   const showEquipment = Array.isArray(equipmentTypes);
@@ -148,50 +158,70 @@ export function ClientForm({
       )}
 
       <FormSection icon={UserIcon} title="Asosiy ma'lumot">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="fullName">FIO *</Label>
-          <Input id="fullName" name="fullName" defaultValue={v.fullName ?? ""} required aria-invalid={!!fe.fullName} />
-          <FieldError message={fe.fullName} />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="fullName">FIO *</Label>
+            <Input
+              id="fullName"
+              name="fullName"
+              defaultValue={v.fullName ?? ""}
+              required
+              aria-invalid={!!fe.fullName}
+            />
+            <FieldError message={fe.fullName} />
+          </div>
+          <div>
+            <Label htmlFor="restaurantName">Restoran nomi *</Label>
+            <Input
+              id="restaurantName"
+              name="restaurantName"
+              defaultValue={v.restaurantName ?? ""}
+              required
+              aria-invalid={!!fe.restaurantName}
+            />
+            <FieldError message={fe.restaurantName} />
+          </div>
+          <div>
+            <Label htmlFor="phone">Asosiy telefon *</Label>
+            <PhoneInput
+              id="phone"
+              name="phone"
+              defaultValue={v.phone ?? ""}
+              required
+              aria-invalid={!!fe.phone}
+            />
+            <FieldError message={fe.phone} />
+          </div>
+          <div>
+            <Label htmlFor="region">Viloyat</Label>
+            <Select id="region" name="region" defaultValue={v.region ?? ""}>
+              <option value="">— tanlang —</option>
+              {REGIONS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </Select>
+          </div>
+          {restricted ? (
+            <input type="hidden" name="status" value={v.status ?? "ACTIVE"} />
+          ) : (
+            <div>
+              <Label htmlFor="status">Holat</Label>
+              <Select
+                id="status"
+                name="status"
+                defaultValue={v.status ?? "ACTIVE"}
+              >
+                {Object.entries(CLIENT_STATUS).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
         </div>
-        <div>
-          <Label htmlFor="restaurantName">Restoran nomi *</Label>
-          <Input
-            id="restaurantName"
-            name="restaurantName"
-            defaultValue={v.restaurantName ?? ""}
-            required
-            aria-invalid={!!fe.restaurantName}
-          />
-          <FieldError message={fe.restaurantName} />
-        </div>
-        <div>
-          <Label htmlFor="phone">Asosiy telefon *</Label>
-          <PhoneInput id="phone" name="phone" defaultValue={v.phone ?? ""} required aria-invalid={!!fe.phone} />
-          <FieldError message={fe.phone} />
-        </div>
-        <div>
-          <Label htmlFor="region">Viloyat</Label>
-          <Select id="region" name="region" defaultValue={v.region ?? ""}>
-            <option value="">— tanlang —</option>
-            {REGIONS.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="status">Holat</Label>
-          <Select id="status" name="status" defaultValue={v.status ?? "ACTIVE"}>
-            {Object.entries(CLIENT_STATUS).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </Select>
-        </div>
-      </div>
       </FormSection>
 
       <FormSection icon={Phone} title="Qo'shimcha telefonlar">
@@ -199,110 +229,130 @@ export function ClientForm({
       </FormSection>
 
       <FormSection icon={FileText} title="Shartnoma">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div>
-          <Label htmlFor="contractNumber">Shartnoma raqami</Label>
-          <Input
-            id="contractNumber"
-            name="contractNumber"
-            defaultValue={v.contractNumber ?? ""}
-          />
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <Label htmlFor="contractNumber">Shartnoma raqami</Label>
+            <Input
+              id="contractNumber"
+              name="contractNumber"
+              defaultValue={v.contractNumber ?? ""}
+            />
+          </div>
+          <div>
+            <Label htmlFor="contractDate">Shartnoma sanasi</Label>
+            <Input
+              id="contractDate"
+              name="contractDate"
+              type="date"
+              defaultValue={toDateInputValue(v.contractDate)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="installerName">Kim o'rnatgan</Label>
+            <Input
+              id="installerName"
+              name="installerName"
+              defaultValue={v.installerName ?? ""}
+            />
+          </div>
         </div>
-        <div>
-          <Label htmlFor="contractDate">Shartnoma sanasi</Label>
-          <Input
-            id="contractDate"
-            name="contractDate"
-            type="date"
-            defaultValue={toDateInputValue(v.contractDate)}
-          />
-        </div>
-        <div>
-          <Label htmlFor="installerName">Kim o'rnatgan</Label>
-          <Input
-            id="installerName"
-            name="installerName"
-            defaultValue={v.installerName ?? ""}
-          />
-        </div>
-      </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="monoblokCount">Monoblok soni</Label>
-          <Input
-            id="monoblokCount"
-            name="monoblokCount"
-            type="number"
-            min={0}
-            defaultValue={v.monoblokCount ?? 1}
-          />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="monoblokCount">Monoblok soni</Label>
+            <Input
+              id="monoblokCount"
+              name="monoblokCount"
+              type="number"
+              min={0}
+              defaultValue={v.monoblokCount ?? 1}
+            />
+          </div>
+          <div>
+            <Label htmlFor="equipment">Sotib olingan apparat</Label>
+            <Input
+              id="equipment"
+              name="equipment"
+              defaultValue={v.equipment ?? ""}
+              placeholder="masalan: 1 monoblok + chek printer"
+            />
+          </div>
         </div>
-        <div>
-          <Label htmlFor="equipment">Sotib olingan apparat</Label>
-          <Input
-            id="equipment"
-            name="equipment"
-            defaultValue={v.equipment ?? ""}
-            placeholder="masalan: 1 monoblok + chek printer"
-          />
-        </div>
-      </div>
       </FormSection>
 
-      <FormSection icon={Wallet} title="To'lov">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div>
-          <Label htmlFor="monthlyAmount">
-            {showEquipment ? "Oylik to'lov (ilova)" : "Oylik to'lov"}
-          </Label>
-          <MoneyInput
-            id="monthlyAmount"
+      {restricted ? (
+        <>
+          <input
+            type="hidden"
             name="monthlyAmount"
-            defaultValue={v.monthlyAmount ?? 0}
-            aria-invalid={!!fe.monthlyAmount}
+            value={v.monthlyAmount ?? 0}
           />
-          <FieldError message={fe.monthlyAmount} />
-          {showEquipment && (
-            <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">
-              Ijara uskuna summasi ustiga avtomatik qo'shiladi
-            </p>
-          )}
-        </div>
-        <div>
-          <Label htmlFor="currency">Valyuta</Label>
-          <Select id="currency" name="currency" defaultValue={v.currency ?? "USD"}>
-            {Object.entries(CURRENCY).map(([key, label]) => (
-              <option key={key} value={key}>
-                {key} ({label})
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="nextPaymentDate">Keyingi to'lov sanasi</Label>
-          <Input
-            id="nextPaymentDate"
+          <input type="hidden" name="currency" value={v.currency ?? "USD"} />
+          <input
+            type="hidden"
             name="nextPaymentDate"
-            type="date"
-            defaultValue={toDateInputValue(v.nextPaymentDate)}
-            aria-invalid={!!fe.nextPaymentDate}
+            value={toDateInputValue(v.nextPaymentDate)}
           />
-          <FieldError message={fe.nextPaymentDate} />
-        </div>
-        <div>
-          <Label htmlFor="debtAmount">Qarz qoldig'i</Label>
-          <MoneyInput
-            id="debtAmount"
-            name="debtAmount"
-            defaultValue={v.debtAmount ?? 0}
-            aria-invalid={!!fe.debtAmount}
-          />
-          <FieldError message={fe.debtAmount} />
-        </div>
-      </div>
-
-      </FormSection>
+          <input type="hidden" name="debtAmount" value={v.debtAmount ?? 0} />
+        </>
+      ) : (
+        <FormSection icon={Wallet} title="To'lov">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <Label htmlFor="monthlyAmount">
+                {showEquipment ? "Oylik to'lov (ilova)" : "Oylik to'lov"}
+              </Label>
+              <MoneyInput
+                id="monthlyAmount"
+                name="monthlyAmount"
+                defaultValue={v.monthlyAmount ?? 0}
+                aria-invalid={!!fe.monthlyAmount}
+              />
+              <FieldError message={fe.monthlyAmount} />
+              {showEquipment && (
+                <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">
+                  Ijara uskuna summasi ustiga avtomatik qo'shiladi
+                </p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="currency">Valyuta</Label>
+              <Select
+                id="currency"
+                name="currency"
+                defaultValue={v.currency ?? "USD"}
+              >
+                {Object.entries(CURRENCY).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {key} ({label})
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="nextPaymentDate">Keyingi to'lov sanasi</Label>
+              <Input
+                id="nextPaymentDate"
+                name="nextPaymentDate"
+                type="date"
+                defaultValue={toDateInputValue(v.nextPaymentDate)}
+                aria-invalid={!!fe.nextPaymentDate}
+              />
+              <FieldError message={fe.nextPaymentDate} />
+            </div>
+            <div>
+              <Label htmlFor="debtAmount">Qarz qoldig'i</Label>
+              <MoneyInput
+                id="debtAmount"
+                name="debtAmount"
+                defaultValue={v.debtAmount ?? 0}
+                aria-invalid={!!fe.debtAmount}
+              />
+              <FieldError message={fe.debtAmount} />
+            </div>
+          </div>
+        </FormSection>
+      )}
 
       {showEquipment && (
         <FormSection icon={Package} title="Uskuna">
@@ -317,13 +367,18 @@ export function ClientForm({
       {showInitialPayment && (
         <FormSection icon={Banknote} title="Oxirgi to'lov (ixtiyoriy)">
           <p className="text-xs text-slate-400 dark:text-slate-500">
-            Oldindan mavjud mijoz allaqachon to'lagan bo'lsa — summani va sanani kiriting.
-            Bitta tarixiy to'lov yoziladi (chek shart emas). Bo'sh qoldirsangiz — yozilmaydi.
+            Oldindan mavjud mijoz allaqachon to'lagan bo'lsa — summani va sanani
+            kiriting. Bitta tarixiy to'lov yoziladi (chek shart emas). Bo'sh
+            qoldirsangiz — yozilmaydi.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor="lastPaymentAmount">To'lov summasi</Label>
-              <MoneyInput id="lastPaymentAmount" name="lastPaymentAmount" defaultValue={0} />
+              <MoneyInput
+                id="lastPaymentAmount"
+                name="lastPaymentAmount"
+                defaultValue={0}
+              />
             </div>
             <div>
               <Label htmlFor="lastPaymentDate">To'lov sanasi</Label>
@@ -333,30 +388,46 @@ export function ClientForm({
         </FormSection>
       )}
 
-      <FormSection icon={UserCog} title="Biriktirish va izoh">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <Label htmlFor="assignedToId">Mas'ul operator</Label>
-          <Select
-            id="assignedToId"
+      <FormSection
+        icon={UserCog}
+        title={restricted ? "Izoh" : "Biriktirish va izoh"}
+      >
+        {restricted ? (
+          <input
+            type="hidden"
             name="assignedToId"
-            defaultValue={v.assignedToId ?? ""}
-          >
-            <option value="">— biriktirilmagan —</option>
-            {operators.map((op) => (
-              <option key={op.id} value={op.id}>
-                {op.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-      </div>
+            value={v.assignedToId ?? ""}
+          />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="assignedToId">Mas'ul operator</Label>
+              <Select
+                id="assignedToId"
+                name="assignedToId"
+                defaultValue={v.assignedToId ?? ""}
+              >
+                <option value="">— biriktirilmagan —</option>
+                {operators.map((op) => (
+                  <option key={op.id} value={op.id}>
+                    {op.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+        )}
 
-      <div>
-        <Label htmlFor="notes">Izoh</Label>
-        <Textarea id="notes" name="notes" defaultValue={v.notes ?? ""} aria-invalid={!!fe.notes} />
-        <FieldError message={fe.notes} />
-      </div>
+        <div>
+          <Label htmlFor="notes">Izoh</Label>
+          <Textarea
+            id="notes"
+            name="notes"
+            defaultValue={v.notes ?? ""}
+            aria-invalid={!!fe.notes}
+          />
+          <FieldError message={fe.notes} />
+        </div>
       </FormSection>
 
       <div className="flex gap-3">

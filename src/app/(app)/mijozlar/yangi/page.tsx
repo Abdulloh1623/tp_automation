@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { db } from "@/lib/db";
-import { getSession } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { ClientForm } from "@/components/client-form";
 import type { EqTypeOpt, UstaSource } from "@/components/client-equipment-panel";
 import { createClient } from "@/actions/clients";
 
 export default async function NewClientPage() {
-  const session = await getSession();
-  const canEquip = session?.role === "ADMIN" || session?.role === "MANAGER";
+  // /mijozlar prefiksi INSTALLER (usta) uchun ham ochiq (o'qish uchun), lekin
+  // yangi mijoz qo'shish bu yerda ATAYIN qayta cheklanadi.
+  const session = await requireRole(["ADMIN", "OPERATOR", "MANAGER", "VIEWER"]);
+  const canEquip = session.role === "ADMIN" || session.role === "MANAGER";
 
   const operators = await db.user.findMany({
     where: { role: { in: ["OPERATOR", "ADMIN"] } },

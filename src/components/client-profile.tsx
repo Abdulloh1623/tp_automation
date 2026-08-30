@@ -54,7 +54,14 @@ import { TicketForm } from "@/components/ticket-form";
 import { TicketStatusControl } from "@/components/ticket-status-control";
 import { SoliqConnectDialog } from "@/components/soliq-connect-dialog";
 import { paymentMethodLabel, TAX_CONNECTION_STATUS } from "@/lib/constants";
-import { cn, formatDate, formatDateTime, formatMoney, formatPhone, normalizePhone } from "@/lib/utils";
+import {
+  cn,
+  formatDate,
+  formatDateTime,
+  formatMoney,
+  formatPhone,
+  normalizePhone,
+} from "@/lib/utils";
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { CollapsibleList } from "@/components/collapsible-list";
 import { ExpandableText } from "@/components/expandable-text";
@@ -87,7 +94,9 @@ function InfoRow({
         <div className="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
           {label}
         </div>
-        <div className="text-sm text-slate-800 dark:text-slate-100">{value || "—"}</div>
+        <div className="text-sm text-slate-800 dark:text-slate-100">
+          {value || "—"}
+        </div>
       </div>
     </div>
   );
@@ -168,7 +177,12 @@ function StatTile({
         <Icon className={cn("h-3.5 w-3.5", iconTone)} />
         {label}
       </div>
-      <div className={cn("mt-1 truncate text-base font-semibold tabular-nums sm:text-lg", valueTone)}>
+      <div
+        className={cn(
+          "mt-1 truncate text-base font-semibold tabular-nums sm:text-lg",
+          valueTone,
+        )}
+      >
         {value}
       </div>
     </div>
@@ -194,7 +208,9 @@ function BiznexSubscriptionBadge({ sub }: { sub: BiznexSubscription }) {
   // Qizil — muddati o'tgan yoki nofaol
   if (sub.status === "expired" || sub.status === "inactive" || days <= 0) {
     return (
-      <span className={`${base} bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300`}>
+      <span
+        className={`${base} bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300`}
+      >
         <XCircle className="h-3 w-3" />
         To&apos;lov muddati o&apos;tgan (Joyida emas!)
       </span>
@@ -204,16 +220,21 @@ function BiznexSubscriptionBadge({ sub }: { sub: BiznexSubscription }) {
   // Amber — to'lov yaqin (1..5 kun)
   if (days <= 5) {
     return (
-      <span className={`${base} bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300`}>
+      <span
+        className={`${base} bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300`}
+      >
         <AlertTriangle className="h-3 w-3" />
-        To&apos;lov yaqin (<span className="font-semibold tabular-nums">{days}</span> kun qoldi)
+        To&apos;lov yaqin (
+        <span className="font-semibold tabular-nums">{days}</span> kun qoldi)
       </span>
     );
   }
 
   // Yashil — faol, muddat uzoq
   return (
-    <span className={`${base} bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300`}>
+    <span
+      className={`${base} bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300`}
+    >
       <CheckCircle2 className="h-3 w-3" />
       Faol (<span className="font-semibold tabular-nums">{days}</span> kun bor)
     </span>
@@ -232,69 +253,79 @@ const PROFILE_BIZNEX_TIMEOUT_MS = 2500;
 export async function ClientProfile({ id }: { id: string }) {
   const session = await requireSession();
   const isAdmin = session.role === "ADMIN";
+  // Usta (INSTALLER) — mijoz profilini FAQAT o'qish uchun ko'radi (ma'lumot,
+  // qo'ng'iroq tarixi, uskunalar); to'lov/muammo/soliq/tahrirlash unga tegishli emas.
+  const isInstaller = session.role === "INSTALLER";
 
   // HAMMA mustaqil so'rov BIR VAQTDA — ilgari ular ketma-ket bajarilardi
   // (client → biznex → audit → turlar → ombor → ustalar), ya'ni profil ochilishi
   // shu kechikishlar YIG'INDISIni kutardi. Endi eng sekinigacha kutiladi.
-  const [client, activity, typeRows, whStock, ustaUsers, ustaStockRows] = await Promise.all([
-    db.client.findUnique({
-    where: { id },
-    include: {
-      // Ro'yxatlar cheklangan: 300 ta qo'ng'iroqli mijozda profil sekinlashmasin.
-      // UI baribir qisqartirib ko'rsatadi (CollapsibleList).
-      payments: {
-        orderBy: { paidAt: "desc" },
-        take: 60,
-        include: { recordedBy: { select: { name: true } } },
-      },
-      callLogs: {
-        orderBy: { calledAt: "desc" },
-        take: 60,
+  const [client, activity, typeRows, whStock, ustaUsers, ustaStockRows] =
+    await Promise.all([
+      db.client.findUnique({
+        where: { id },
         include: {
-          operator: { select: { name: true } },
-          editedBy: { select: { name: true } },
+          // Ro'yxatlar cheklangan: 300 ta qo'ng'iroqli mijozda profil sekinlashmasin.
+          // UI baribir qisqartirib ko'rsatadi (CollapsibleList).
+          payments: {
+            orderBy: { paidAt: "desc" },
+            take: 60,
+            include: { recordedBy: { select: { name: true } } },
+          },
+          callLogs: {
+            orderBy: { calledAt: "desc" },
+            take: 60,
+            include: {
+              operator: { select: { name: true } },
+              editedBy: { select: { name: true } },
+            },
+          },
+          tickets: { orderBy: { createdAt: "desc" }, take: 40 },
+          phones: { orderBy: { createdAt: "asc" } },
+          specialNoteBy: { select: { name: true } },
+          equipmentItems: { include: { equipmentType: true } },
+          returnRequests: {
+            where: { status: { in: ["PENDING", "APPROVED"] } },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+          taxConnections: { orderBy: { createdAt: "desc" }, take: 1 },
+          // Karta egasi tasdig'ini kutayotgan to'lovlar — hali Payment EMAS, lekin
+          // operator "kiritdim, qani u?" demasligi uchun profilda ko'rinishi kerak.
+          cardPayments: {
+            where: { status: "PENDING" },
+            orderBy: { createdAt: "desc" },
+            include: { recordedBy: { select: { name: true } } },
+          },
         },
-      },
-      tickets: { orderBy: { createdAt: "desc" }, take: 40 },
-      phones: { orderBy: { createdAt: "asc" } },
-      specialNoteBy: { select: { name: true } },
-      equipmentItems: { include: { equipmentType: true } },
-      returnRequests: {
-        where: { status: { in: ["PENDING", "APPROVED"] } },
+      }),
+      // Faoliyat jurnali — shu mijozga tegishli amallar (audit)
+      db.auditLog.findMany({
+        where: { entityId: id },
         orderBy: { createdAt: "desc" },
-        take: 1,
-      },
-      taxConnections: { orderBy: { createdAt: "desc" }, take: 1 },
-      // Karta egasi tasdig'ini kutayotgan to'lovlar — hali Payment EMAS, lekin
-      // operator "kiritdim, qani u?" demasligi uchun profilda ko'rinishi kerak.
-      cardPayments: {
-        where: { status: "PENDING" },
-        orderBy: { createdAt: "desc" },
-        include: { recordedBy: { select: { name: true } } },
-      },
-    },
-    }),
-    // Faoliyat jurnali — shu mijozga tegishli amallar (audit)
-    db.auditLog.findMany({
-      where: { entityId: id },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      select: { id: true, action: true, userName: true, detail: true, createdAt: true },
-    }),
-    // Ombordagi turlar (manager biriktirish formasi uchun)
-    db.equipmentType.findMany({ orderBy: { name: "asc" } }),
-    db.inventoryStock.findMany({ where: { locationType: "WAREHOUSE" } }),
-    // Ustalar zaxirasi (o'zi olib borgan uskunalar) — o'rnatishda manba tanlash uchun
-    db.user.findMany({
-      where: { role: "INSTALLER", isActive: true },
-      select: { id: true, name: true },
-      orderBy: { createdAt: "asc" },
-    }),
-    db.inventoryStock.findMany({
-      where: { locationType: "USTA", quantity: { gt: 0 } },
-      select: { locationId: true, equipmentTypeId: true, quantity: true },
-    }),
-  ]);
+        take: 50,
+        select: {
+          id: true,
+          action: true,
+          userName: true,
+          detail: true,
+          createdAt: true,
+        },
+      }),
+      // Ombordagi turlar (manager biriktirish formasi uchun)
+      db.equipmentType.findMany({ orderBy: { name: "asc" } }),
+      db.inventoryStock.findMany({ where: { locationType: "WAREHOUSE" } }),
+      // Ustalar zaxirasi (o'zi olib borgan uskunalar) — o'rnatishda manba tanlash uchun
+      db.user.findMany({
+        where: { role: "INSTALLER", isActive: true },
+        select: { id: true, name: true },
+        orderBy: { createdAt: "asc" },
+      }),
+      db.inventoryStock.findMany({
+        where: { locationType: "USTA", quantity: { gt: 0 } },
+        select: { locationId: true, equipmentTypeId: true, quantity: true },
+      }),
+    ]);
 
   if (!client) notFound();
 
@@ -315,7 +346,10 @@ export async function ClientProfile({ id }: { id: string }) {
   }));
 
   const ustaNameById = new Map(ustaUsers.map((u) => [u.id, u.name]));
-  const ustaSrcMap = new Map<string, { equipmentTypeId: string; quantity: number }[]>();
+  const ustaSrcMap = new Map<
+    string,
+    { equipmentTypeId: string; quantity: number }[]
+  >();
   for (const r of ustaStockRows) {
     const name = ustaNameById.get(r.locationId);
     if (!name) continue; // faqat faol ustalar
@@ -323,11 +357,13 @@ export async function ClientProfile({ id }: { id: string }) {
     arr.push({ equipmentTypeId: r.equipmentTypeId, quantity: r.quantity });
     ustaSrcMap.set(r.locationId, arr);
   }
-  const ustaSources: UstaSource[] = [...ustaSrcMap.entries()].map(([ustaId, items]) => ({
-    ustaId,
-    ustaName: ustaNameById.get(ustaId)!,
-    items,
-  }));
+  const ustaSources: UstaSource[] = [...ustaSrcMap.entries()].map(
+    ([ustaId, items]) => ({
+      ustaId,
+      ustaName: ustaNameById.get(ustaId)!,
+      items,
+    }),
+  );
 
   const eqItems: EqItem[] = client.equipmentItems.map((e) => ({
     id: e.id,
@@ -336,9 +372,13 @@ export async function ClientProfile({ id }: { id: string }) {
     quantity: e.quantity,
     // Biriktirishda kelishilgan narx (unitPrice) bo'lsa — o'sha; aks holda turning standarti.
     rentalPrice:
-      e.ownership === "RENTAL" && e.unitPrice != null ? e.unitPrice : e.equipmentType.rentalPrice,
+      e.ownership === "RENTAL" && e.unitPrice != null
+        ? e.unitPrice
+        : e.equipmentType.rentalPrice,
     salePrice:
-      e.ownership === "SOLD" && e.unitPrice != null ? e.unitPrice : e.equipmentType.salePrice,
+      e.ownership === "SOLD" && e.unitPrice != null
+        ? e.unitPrice
+        : e.equipmentType.salePrice,
   }));
 
   // Oylik to'lov = monthlyAmount (mijoz to'laydigan JAMI). Uskuna ijara summasi
@@ -349,12 +389,17 @@ export async function ClientProfile({ id }: { id: string }) {
   const effectiveMonthly = client.monthlyAmount;
 
   const openReturn = client.returnRequests[0]
-    ? { status: client.returnRequests[0].status, note: client.returnRequests[0].note }
+    ? {
+        status: client.returnRequests[0].status,
+        note: client.returnRequests[0].note,
+      }
     : null;
 
-  const soliqDocUrl = (p: string | null) => (p ? `/api/soliq/${p.replace(/^soliq\//, "")}` : null);
+  const soliqDocUrl = (p: string | null) =>
+    p ? `/api/soliq/${p.replace(/^soliq\//, "")}` : null;
   // Fayl PDF mi (rasm sifatida emas, iframe'da ko'rsatiladi)
-  const isPdfPath = (p: string | null) => !!p && p.toLowerCase().endsWith(".pdf");
+  const isPdfPath = (p: string | null) =>
+    !!p && p.toLowerCase().endsWith(".pdf");
   const soliq = client.taxConnections[0] ?? null;
 
   // Hero KPI: Biznex obuna plitkasi (rang bilan shoshilinchlik).
@@ -426,7 +471,11 @@ export async function ClientProfile({ id }: { id: string }) {
                     restaurantName={client.restaurantName || client.fullName}
                     note={client.specialNote}
                     noteBy={client.specialNoteBy?.name ?? null}
-                    noteAt={client.specialNoteAt ? client.specialNoteAt.toISOString() : null}
+                    noteAt={
+                      client.specialNoteAt
+                        ? client.specialNoteAt.toISOString()
+                        : null
+                    }
                   />
                 </div>
                 <p className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-400">
@@ -434,7 +483,10 @@ export async function ClientProfile({ id }: { id: string }) {
                   {client.fullName}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <ClientVersionPicker clientId={client.id} version={client.appVersion} />
+                  <ClientVersionPicker
+                    clientId={client.id}
+                    version={client.appVersion}
+                  />
                   <ClientStatusBadge status={client.status} />
                   {client.stage === "REFUSED" && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/20 px-2.5 py-0.5 text-xs font-medium text-rose-300 ring-1 ring-inset ring-rose-500/30">
@@ -446,20 +498,22 @@ export async function ClientProfile({ id }: { id: string }) {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {client.stage !== "REFUSED" && (
-                <ClientRefuseButton
-                  clientId={client.id}
-                  restaurantName={client.restaurantName}
-                />
-              )}
-              <Link href={`/mijozlar/${client.id}/tahrir`}>
-                <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-3 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20">
-                  <Pencil className="h-4 w-4" />
-                  Tahrirlash
-                </span>
-              </Link>
-            </div>
+            {!isInstaller && (
+              <div className="flex flex-wrap items-center gap-2">
+                {client.stage !== "REFUSED" && (
+                  <ClientRefuseButton
+                    clientId={client.id}
+                    restaurantName={client.restaurantName}
+                  />
+                )}
+                <Link href={`/mijozlar/${client.id}/tahrir`}>
+                  <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-3 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20">
+                    <Pencil className="h-4 w-4" />
+                    Tahrirlash
+                  </span>
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* KPI plitkalar */}
@@ -472,7 +526,11 @@ export async function ClientProfile({ id }: { id: string }) {
             <StatTile
               icon={Calendar}
               label="Keyingi to'lov"
-              value={client.nextPaymentDate ? formatDate(client.nextPaymentDate) : "—"}
+              value={
+                client.nextPaymentDate
+                  ? formatDate(client.nextPaymentDate)
+                  : "—"
+              }
             />
             <StatTile
               icon={TrendingDown}
@@ -522,7 +580,10 @@ export async function ClientProfile({ id }: { id: string }) {
                 label="Asosiy telefon"
                 value={
                   <span className="inline-flex items-center gap-1">
-                    <a href={`tel:${normalizePhone(client.phone)}`} className="text-primary-600 dark:text-primary-400">
+                    <a
+                      href={`tel:${normalizePhone(client.phone)}`}
+                      className="text-primary-600 dark:text-primary-400"
+                    >
                       {formatPhone(client.phone)}
                     </a>
                     <PhoneCopyButton phone={client.phone} />
@@ -536,7 +597,10 @@ export async function ClientProfile({ id }: { id: string }) {
                   label={p.label}
                   value={
                     <span className="inline-flex items-center gap-1">
-                      <a href={`tel:${normalizePhone(p.number)}`} className="text-primary-600 dark:text-primary-400">
+                      <a
+                        href={`tel:${normalizePhone(p.number)}`}
+                        className="text-primary-600 dark:text-primary-400"
+                      >
                         {formatPhone(p.number)}
                       </a>
                       <PhoneCopyButton phone={p.number} />
@@ -560,11 +624,7 @@ export async function ClientProfile({ id }: { id: string }) {
                 label="Shartnoma sanasi"
                 value={formatDate(client.contractDate)}
               />
-              <InfoRow
-                icon={Wrench}
-                label="Apparat"
-                value={client.equipment}
-              />
+              <InfoRow icon={Wrench} label="Apparat" value={client.equipment} />
               <InfoRow
                 icon={Wrench}
                 label="Monoblok soni"
@@ -585,9 +645,11 @@ export async function ClientProfile({ id }: { id: string }) {
 
           <Section icon={PhoneCall} title="Qo'ng'iroq jurnali">
             <div className="space-y-5">
-              <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-4">
-                <CallLogForm clientId={client.id} />
-              </div>
+              {!isInstaller && (
+                <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-4">
+                  <CallLogForm clientId={client.id} />
+                </div>
+              )}
 
               {client.callLogs.length === 0 && (
                 <p className="text-sm text-slate-400 dark:text-slate-500">
@@ -598,11 +660,16 @@ export async function ClientProfile({ id }: { id: string }) {
                 {client.callLogs.map((log) => {
                   // Egasi (yozgan operator) — vaqt cheklovisiz tahrirlay oladi;
                   // o'chirish esa yozilganidan keyin 5 soat ichida (admin doim).
-                  const isOwner = !!log.operatorId && log.operatorId === session.userId;
+                  const isOwner =
+                    !!log.operatorId && log.operatorId === session.userId;
                   const withinDeleteWindow =
                     Date.now() - log.calledAt.getTime() <= 5 * 60 * 60 * 1000;
-                  const canEdit = isAdmin || isOwner;
-                  const canDelete = isAdmin || (isOwner && withinDeleteWindow);
+                  // Usta profilni FAQAT o'qiydi — o'zining vazifa-holat yozuvini
+                  // ham shu yerdan tahrirlay olmasin (buning o'rni /vazifalarim).
+                  const canEdit = !isInstaller && (isAdmin || isOwner);
+                  const canDelete =
+                    !isInstaller &&
+                    (isAdmin || (isOwner && withinDeleteWindow));
                   return (
                     <div
                       key={log.id}
@@ -628,7 +695,8 @@ export async function ClientProfile({ id }: { id: string }) {
                         )}
                         {log.nextFollowUpDate && (
                           <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                            Keyingi qo'ng'iroq: {formatDate(log.nextFollowUpDate)}
+                            Keyingi qo'ng'iroq:{" "}
+                            {formatDate(log.nextFollowUpDate)}
                           </p>
                         )}
                         {log.editedAt && (
@@ -660,136 +728,154 @@ export async function ClientProfile({ id }: { id: string }) {
             </div>
           </Section>
 
-          <Section icon={Wrench} title="Muammolar">
-            <div className="space-y-5">
-              <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-4">
-                <TicketForm clientId={client.id} />
-              </div>
+          {!isInstaller && (
+            <Section icon={Wrench} title="Muammolar">
+              <div className="space-y-5">
+                <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-4">
+                  <TicketForm clientId={client.id} />
+                </div>
 
-              <div className="space-y-3">
-                {client.tickets.length === 0 && (
-                  <p className="text-sm text-slate-400 dark:text-slate-500">
-                    Ochiq muammo yo'q
-                  </p>
-                )}
-                {client.tickets.map((t) => (
-                  <div
-                    key={t.id}
-                    className="border-b border-slate-100 dark:border-slate-800 pb-3 last:border-0"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="font-medium text-slate-800 dark:text-slate-100">
-                        {t.title}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <TicketTypeBadge type={t.type} />
-                        <TicketPriorityBadge priority={t.priority} />
-                        <TicketStatusBadge status={t.status} />
-                      </div>
-                    </div>
-                    <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-                      {formatDate(t.createdAt)}
-                    </div>
-                    {t.resolutionNote && (
-                      <div className="mt-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300">
-                        Yechim: {t.resolutionNote}
-                      </div>
-                    )}
-                    <div className="mt-2">
-                      <TicketStatusControl ticketId={t.id} status={t.status} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </Section>
-
-          <Section icon={Activity} title="Faoliyat jurnali">
-            <div>
-              {activity.length === 0 ? (
-                <p className="text-sm text-slate-400 dark:text-slate-500">
-                  Hali amal yozuvi yo'q
-                </p>
-              ) : (
-                <CollapsibleList className="space-y-3" previewCount={4}>
-                  {activity.map((a) => (
+                <div className="space-y-3">
+                  {client.tickets.length === 0 && (
+                    <p className="text-sm text-slate-400 dark:text-slate-500">
+                      Ochiq muammo yo'q
+                    </p>
+                  )}
+                  {client.tickets.map((t) => (
                     <div
-                      key={a.id}
-                      className="flex gap-3 border-b border-slate-100 dark:border-slate-800 pb-3 last:border-0"
+                      key={t.id}
+                      className="border-b border-slate-100 dark:border-slate-800 pb-3 last:border-0"
                     >
-                      <History className="mt-0.5 h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                          {a.action}
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="font-medium text-slate-800 dark:text-slate-100">
+                          {t.title}
                         </div>
-                        {a.detail && (
-                          <ExpandableText
-                            text={a.detail}
-                            className="text-xs text-slate-600 dark:text-slate-300"
-                          />
-                        )}
-                        <div className="text-xs text-slate-400 dark:text-slate-500">
-                          {formatDateTime(a.createdAt)}
-                          {a.userName ? ` · ${a.userName}` : ""}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <TicketTypeBadge type={t.type} />
+                          <TicketPriorityBadge priority={t.priority} />
+                          <TicketStatusBadge status={t.status} />
                         </div>
+                      </div>
+                      <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                        {formatDate(t.createdAt)}
+                      </div>
+                      {t.resolutionNote && (
+                        <div className="mt-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300">
+                          Yechim: {t.resolutionNote}
+                        </div>
+                      )}
+                      <div className="mt-2">
+                        <TicketStatusControl
+                          ticketId={t.id}
+                          status={t.status}
+                        />
                       </div>
                     </div>
                   ))}
-                </CollapsibleList>
-              )}
-            </div>
-          </Section>
+                </div>
+              </div>
+            </Section>
+          )}
+
+          {!isInstaller && (
+            <Section icon={Activity} title="Faoliyat jurnali">
+              <div>
+                {activity.length === 0 ? (
+                  <p className="text-sm text-slate-400 dark:text-slate-500">
+                    Hali amal yozuvi yo'q
+                  </p>
+                ) : (
+                  <CollapsibleList className="space-y-3" previewCount={4}>
+                    {activity.map((a) => (
+                      <div
+                        key={a.id}
+                        className="flex gap-3 border-b border-slate-100 dark:border-slate-800 pb-3 last:border-0"
+                      >
+                        <History className="mt-0.5 h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                            {a.action}
+                          </div>
+                          {a.detail && (
+                            <ExpandableText
+                              text={a.detail}
+                              className="text-xs text-slate-600 dark:text-slate-300"
+                            />
+                          )}
+                          <div className="text-xs text-slate-400 dark:text-slate-500">
+                            {formatDateTime(a.createdAt)}
+                            {a.userName ? ` · ${a.userName}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </CollapsibleList>
+                )}
+              </div>
+            </Section>
+          )}
         </div>
 
         {/* O'ng ustun */}
         <div className="space-y-6">
-          <Section icon={Wallet} title="Obuna va to'lov">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                  Oylik to'lov
-                </span>
-                <span className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  {formatMoney(client.monthlyAmount, client.currency)}
-                </span>
-              </div>
-              {equipmentMonthly > 0 && equipmentMonthly <= client.monthlyAmount && (
+          {!isInstaller && (
+            <Section icon={Wallet} title="Obuna va to'lov">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-400 dark:text-slate-500">
-                    shundan uskuna ijarasi
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    Oylik to'lov
                   </span>
-                  <span className="text-xs text-slate-400 dark:text-slate-500">
-                    {formatMoney(equipmentMonthly, client.currency)}
+                  <span className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    {formatMoney(client.monthlyAmount, client.currency)}
                   </span>
                 </div>
-              )}
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500 dark:text-slate-400">Keyingi to'lov</span>
-                <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                  {formatDate(client.nextPaymentDate)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500 dark:text-slate-400">Holat</span>
-                <PaymentStatusBadge nextPaymentDate={client.nextPaymentDate} />
-              </div>
-              {client.debtAmount > 0 && (
+                {equipmentMonthly > 0 &&
+                  equipmentMonthly <= client.monthlyAmount && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-400 dark:text-slate-500">
+                        shundan uskuna ijarasi
+                      </span>
+                      <span className="text-xs text-slate-400 dark:text-slate-500">
+                        {formatMoney(equipmentMonthly, client.currency)}
+                      </span>
+                    </div>
+                  )}
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-500 dark:text-slate-400">Qarz qoldig'i</span>
-                  <span className="text-sm font-semibold text-red-600 dark:text-red-400">
-                    {formatMoney(client.debtAmount, client.currency)}
+                  <span className="text-sm text-slate-500 dark:text-slate-400">
+                    Keyingi to'lov
+                  </span>
+                  <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                    {formatDate(client.nextPaymentDate)}
                   </span>
                 </div>
-              )}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-500 dark:text-slate-400">
+                    Holat
+                  </span>
+                  <PaymentStatusBadge
+                    nextPaymentDate={client.nextPaymentDate}
+                  />
+                </div>
+                {client.debtAmount > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                      Qarz qoldig'i
+                    </span>
+                    <span className="text-sm font-semibold text-red-600 dark:text-red-400">
+                      {formatMoney(client.debtAmount, client.currency)}
+                    </span>
+                  </div>
+                )}
 
-              <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-4">
-                <PaymentForm
-                  clientId={client.id}
-                  defaultAmount={effectiveMonthly}
-                />
+                <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 p-4">
+                  <PaymentForm
+                    clientId={client.id}
+                    defaultAmount={effectiveMonthly}
+                  />
+                </div>
               </div>
-            </div>
-          </Section>
+            </Section>
+          )}
 
           <Section icon={Package} title="Uskunalar">
             <div>
@@ -806,195 +892,248 @@ export async function ClientProfile({ id }: { id: string }) {
             </div>
           </Section>
 
-          <Section icon={Landmark} title="Soliqqa ulash">
-            <div>
-              {soliq ? (
-                <div className="space-y-2 text-sm">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={
-                        "rounded-full px-2 py-0.5 text-xs font-medium " +
-                        (soliq.status === "CONNECTED"
-                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                          : "bg-amber-500/15 text-amber-700 dark:text-amber-300")
-                      }
-                    >
-                      {TAX_CONNECTION_STATUS[soliq.status as keyof typeof TAX_CONNECTION_STATUS] ?? soliq.status}
-                    </span>
-                    <Link href="/soliq" className="text-xs text-primary-600 hover:underline dark:text-primary-400">
-                      Bo'limda ochish →
-                    </Link>
-                  </div>
-                  <div className="text-slate-600 dark:text-slate-300">
-                    <span className="text-slate-500 dark:text-slate-400">Guvohnoma: </span>
-                    {soliq.certificateNo}
-                  </div>
-                  <div className="text-slate-600 dark:text-slate-300">
-                    <span className="text-slate-500 dark:text-slate-400">Rahbar: </span>
-                    {soliq.directorName} · {soliq.directorPhone}
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    <a href={soliq.geoLink} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline dark:text-primary-400">
-                      Geolokatsiya
-                    </a>
-                    {soliqDocUrl(soliq.certificatePath) && (
-                      <DocumentLink
-                        url={soliqDocUrl(soliq.certificatePath)!}
-                        title="Guvohnoma fayli"
-                        subtitle={client.restaurantName || client.fullName}
-                        isPdf={isPdfPath(soliq.certificatePath)}
-                        meta={[
-                          { label: "Guvohnoma", value: soliq.certificateNo },
-                          { label: "Rahbar", value: soliq.directorName },
-                          {
-                            label: "Holat",
-                            value:
-                              TAX_CONNECTION_STATUS[
-                                soliq.status as keyof typeof TAX_CONNECTION_STATUS
-                              ] ?? soliq.status,
-                          },
-                          { label: "Yuborilgan", value: formatDate(soliq.createdAt) },
-                        ]}
-                      />
-                    )}
-                    {soliqDocUrl(soliq.documentPath) && (
-                      <DocumentLink
-                        url={soliqDocUrl(soliq.documentPath)!}
-                        title="Kadastr/ijara hujjati"
-                        subtitle={client.restaurantName || client.fullName}
-                        isPdf={isPdfPath(soliq.documentPath)}
-                        meta={[
-                          { label: "Guvohnoma", value: soliq.certificateNo },
-                          { label: "Rahbar", value: soliq.directorName },
-                          { label: "Yuborilgan", value: formatDate(soliq.createdAt) },
-                        ]}
-                      />
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Bu mijozni soliqqa ulash uchun admin/menejerga yuboring.
-                  </p>
-                  <SoliqConnectDialog
-                    clientId={client.id}
-                    clientName={client.restaurantName || client.fullName}
-                  />
-                </div>
-              )}
-            </div>
-          </Section>
-
-          <Section icon={ReceiptText} title="To'lov tarixi">
-            <div>
-              {/* Tasdiq kutayotgan karta to'lovlari — hali hisobga olinmagan */}
-              {client.cardPayments.length > 0 && (
-                <div className="mb-3 space-y-2 rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900/50 dark:bg-amber-950/20">
-                  {client.cardPayments.map((c) => (
-                    <div key={c.id} className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <div className="text-sm font-medium text-amber-900 dark:text-amber-200">
-                          {formatMoney(c.amount, c.currency)} — karta egasi tasdig&apos;i kutilmoqda
-                        </div>
-                        <div className="text-xs text-amber-700/80 dark:text-amber-300/70">
-                          {formatDate(c.paidAt)}
-                          {c.recordedBy ? ` · ${c.recordedBy.name}` : ""} ·{" "}
-                          {paymentMethodLabel(c.method)}
-                        </div>
-                      </div>
-                      {c.receiptPath && (
+          {!isInstaller && (
+            <Section icon={Landmark} title="Soliqqa ulash">
+              <div>
+                {soliq ? (
+                  <div className="space-y-2 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={
+                          "rounded-full px-2 py-0.5 text-xs font-medium " +
+                          (soliq.status === "CONNECTED"
+                            ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                            : "bg-amber-500/15 text-amber-700 dark:text-amber-300")
+                        }
+                      >
+                        {TAX_CONNECTION_STATUS[
+                          soliq.status as keyof typeof TAX_CONNECTION_STATUS
+                        ] ?? soliq.status}
+                      </span>
+                      <Link
+                        href="/soliq"
+                        className="text-xs text-primary-600 hover:underline dark:text-primary-400"
+                      >
+                        Bo'limda ochish →
+                      </Link>
+                    </div>
+                    <div className="text-slate-600 dark:text-slate-300">
+                      <span className="text-slate-500 dark:text-slate-400">
+                        Guvohnoma:{" "}
+                      </span>
+                      {soliq.certificateNo}
+                    </div>
+                    <div className="text-slate-600 dark:text-slate-300">
+                      <span className="text-slate-500 dark:text-slate-400">
+                        Rahbar:{" "}
+                      </span>
+                      {soliq.directorName} · {soliq.directorPhone}
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      <a
+                        href={soliq.geoLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary-600 hover:underline dark:text-primary-400"
+                      >
+                        Geolokatsiya
+                      </a>
+                      {soliqDocUrl(soliq.certificatePath) && (
                         <DocumentLink
-                          variant="chip"
-                          icon="receipt"
-                          label="Chek"
-                          url={`/api/card-receipts/${c.id}`}
-                          title="Tasdiq kutayotgan chek"
+                          url={soliqDocUrl(soliq.certificatePath)!}
+                          title="Guvohnoma fayli"
                           subtitle={client.restaurantName || client.fullName}
-                          isPdf={c.receiptMime === "application/pdf"}
-                          note={c.receiptNote}
+                          isPdf={isPdfPath(soliq.certificatePath)}
                           meta={[
-                            { label: "Summa", value: formatMoney(c.amount, c.currency) },
-                            { label: "Sana", value: formatDate(c.paidAt) },
-                            { label: "Usul", value: paymentMethodLabel(c.method) },
-                            { label: "Kiritdi", value: c.recordedBy?.name ?? "—" },
+                            { label: "Guvohnoma", value: soliq.certificateNo },
+                            { label: "Rahbar", value: soliq.directorName },
+                            {
+                              label: "Holat",
+                              value:
+                                TAX_CONNECTION_STATUS[
+                                  soliq.status as keyof typeof TAX_CONNECTION_STATUS
+                                ] ?? soliq.status,
+                            },
+                            {
+                              label: "Yuborilgan",
+                              value: formatDate(soliq.createdAt),
+                            },
+                          ]}
+                        />
+                      )}
+                      {soliqDocUrl(soliq.documentPath) && (
+                        <DocumentLink
+                          url={soliqDocUrl(soliq.documentPath)!}
+                          title="Kadastr/ijara hujjati"
+                          subtitle={client.restaurantName || client.fullName}
+                          isPdf={isPdfPath(soliq.documentPath)}
+                          meta={[
+                            { label: "Guvohnoma", value: soliq.certificateNo },
+                            { label: "Rahbar", value: soliq.directorName },
+                            {
+                              label: "Yuborilgan",
+                              value: formatDate(soliq.createdAt),
+                            },
                           ]}
                         />
                       )}
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      Bu mijozni soliqqa ulash uchun admin/menejerga yuboring.
+                    </p>
+                    <SoliqConnectDialog
+                      clientId={client.id}
+                      clientName={client.restaurantName || client.fullName}
+                    />
+                  </div>
+                )}
+              </div>
+            </Section>
+          )}
 
-              {client.payments.length === 0 ? (
-                <p className="text-sm text-slate-400 dark:text-slate-500">To'lovlar yo'q</p>
-              ) : (
-                <div className="space-y-3">
-                  {client.payments.map((p) => (
-                    <div
-                      key={p.id}
-                      className="flex items-start justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 last:border-0"
-                    >
-                      <div className="flex items-start gap-2">
-                        <Banknote className="mt-0.5 h-4 w-4 text-emerald-500" />
+          {!isInstaller && (
+            <Section icon={ReceiptText} title="To'lov tarixi">
+              <div>
+                {/* Tasdiq kutayotgan karta to'lovlari — hali hisobga olinmagan */}
+                {client.cardPayments.length > 0 && (
+                  <div className="mb-3 space-y-2 rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900/50 dark:bg-amber-950/20">
+                    {client.cardPayments.map((c) => (
+                      <div
+                        key={c.id}
+                        className="flex flex-wrap items-center justify-between gap-2"
+                      >
                         <div>
-                          <div className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                            {formatMoney(p.amount, p.currency)}
+                          <div className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                            {formatMoney(c.amount, c.currency)} — karta egasi
+                            tasdig&apos;i kutilmoqda
                           </div>
-                          <div className="text-xs text-slate-400 dark:text-slate-500">
-                            {formatDate(p.paidAt)}
-                            {p.recordedBy ? ` · ${p.recordedBy.name}` : ""}
+                          <div className="text-xs text-amber-700/80 dark:text-amber-300/70">
+                            {formatDate(c.paidAt)}
+                            {c.recordedBy
+                              ? ` · ${c.recordedBy.name}`
+                              : ""} · {paymentMethodLabel(c.method)}
                           </div>
-                          {(p.method || p.receiptNote) && (
-                            <div className="text-xs text-slate-500 dark:text-slate-400">
-                              {p.method ? paymentMethodLabel(p.method) : p.receiptNote}
-                            </div>
-                          )}
                         </div>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        {/* Chek — ilgari profildan umuman ko'rib bo'lmasdi */}
-                        {p.receiptPath && (
+                        {c.receiptPath && (
                           <DocumentLink
                             variant="chip"
                             icon="receipt"
                             label="Chek"
-                            url={`/api/receipts/${p.id}`}
-                            title="To'lov cheki"
+                            url={`/api/card-receipts/${c.id}`}
+                            title="Tasdiq kutayotgan chek"
                             subtitle={client.restaurantName || client.fullName}
-                            isPdf={isPdfPath(p.receiptPath)}
-                            note={p.receiptNote}
+                            isPdf={c.receiptMime === "application/pdf"}
+                            note={c.receiptNote}
                             meta={[
-                              { label: "Summa", value: formatMoney(p.amount, p.currency) },
-                              { label: "Sana", value: formatDate(p.paidAt) },
-                              { label: "Usul", value: paymentMethodLabel(p.method) },
-                              { label: "Qabul qildi", value: p.recordedBy?.name ?? "—" },
+                              {
+                                label: "Summa",
+                                value: formatMoney(c.amount, c.currency),
+                              },
+                              { label: "Sana", value: formatDate(c.paidAt) },
+                              {
+                                label: "Usul",
+                                value: paymentMethodLabel(c.method),
+                              },
+                              {
+                                label: "Kiritdi",
+                                value: c.recordedBy?.name ?? "—",
+                              },
                             ]}
                           />
                         )}
-                        <PaymentHistoryActions
-                          canManage={isAdmin}
-                          payment={{
-                            id: p.id,
-                            amount: p.amount,
-                            currency: p.currency,
-                            method: p.method,
-                            paidAt: p.paidAt.toISOString(),
-                            receiptNote: p.receiptNote,
-                            label: {
-                              amount: formatMoney(p.amount, p.currency),
-                              date: formatDate(p.paidAt),
-                              method: paymentMethodLabel(p.method),
-                            },
-                          }}
-                        />
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </Section>
+                    ))}
+                  </div>
+                )}
+
+                {client.payments.length === 0 ? (
+                  <p className="text-sm text-slate-400 dark:text-slate-500">
+                    To'lovlar yo'q
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {client.payments.map((p) => (
+                      <div
+                        key={p.id}
+                        className="flex items-start justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 last:border-0"
+                      >
+                        <div className="flex items-start gap-2">
+                          <Banknote className="mt-0.5 h-4 w-4 text-emerald-500" />
+                          <div>
+                            <div className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                              {formatMoney(p.amount, p.currency)}
+                            </div>
+                            <div className="text-xs text-slate-400 dark:text-slate-500">
+                              {formatDate(p.paidAt)}
+                              {p.recordedBy ? ` · ${p.recordedBy.name}` : ""}
+                            </div>
+                            {(p.method || p.receiptNote) && (
+                              <div className="text-xs text-slate-500 dark:text-slate-400">
+                                {p.method
+                                  ? paymentMethodLabel(p.method)
+                                  : p.receiptNote}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {/* Chek — ilgari profildan umuman ko'rib bo'lmasdi */}
+                          {p.receiptPath && (
+                            <DocumentLink
+                              variant="chip"
+                              icon="receipt"
+                              label="Chek"
+                              url={`/api/receipts/${p.id}`}
+                              title="To'lov cheki"
+                              subtitle={
+                                client.restaurantName || client.fullName
+                              }
+                              isPdf={isPdfPath(p.receiptPath)}
+                              note={p.receiptNote}
+                              meta={[
+                                {
+                                  label: "Summa",
+                                  value: formatMoney(p.amount, p.currency),
+                                },
+                                { label: "Sana", value: formatDate(p.paidAt) },
+                                {
+                                  label: "Usul",
+                                  value: paymentMethodLabel(p.method),
+                                },
+                                {
+                                  label: "Qabul qildi",
+                                  value: p.recordedBy?.name ?? "—",
+                                },
+                              ]}
+                            />
+                          )}
+                          <PaymentHistoryActions
+                            canManage={isAdmin}
+                            payment={{
+                              id: p.id,
+                              amount: p.amount,
+                              currency: p.currency,
+                              method: p.method,
+                              paidAt: p.paidAt.toISOString(),
+                              receiptNote: p.receiptNote,
+                              label: {
+                                amount: formatMoney(p.amount, p.currency),
+                                date: formatDate(p.paidAt),
+                                method: paymentMethodLabel(p.method),
+                              },
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Section>
+          )}
         </div>
       </div>
     </div>

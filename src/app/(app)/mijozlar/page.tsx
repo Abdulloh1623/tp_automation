@@ -36,8 +36,11 @@ export default async function ClientsPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const session = await requireRole(["ADMIN", "OPERATOR", "MANAGER", "VIEWER"]);
+  const session = await requireRole(["ADMIN", "OPERATOR", "MANAGER", "VIEWER", "INSTALLER"]);
   const canManage = session.role === "ADMIN" || session.role === "MANAGER";
+  // Usta — ro'yxatni FAQAT o'qish uchun ko'radi (mijoz profilida qo'ng'iroq
+  // tarixi + uskunalarni ko'rish kerak); yaratish/eksport/dublikat vositalari yo'q.
+  const isInstaller = session.role === "INSTALLER";
   const sp = await searchParams;
 
   const q = sp.q?.trim() || "";
@@ -162,35 +165,37 @@ export default async function ClientsPage({
             Jami {total} ta mijoz{total > 0 ? ` · ${from}–${to} ko'rsatilmoqda` : ""}
           </p>
         </div>
-        <div className="flex gap-2">
-          {dupGroups > 0 && (
-            <Link href="/muammoli-mijozlar?bolim=dublikat">
-              <Button
-                variant="outline"
-                className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/40"
-              >
-                <Copy className="h-4 w-4" />
-                Dublikatlar
-                <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-white">
-                  {dupGroups}
-                </span>
+        {!isInstaller && (
+          <div className="flex gap-2">
+            {dupGroups > 0 && (
+              <Link href="/muammoli-mijozlar?bolim=dublikat">
+                <Button
+                  variant="outline"
+                  className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/40"
+                >
+                  <Copy className="h-4 w-4" />
+                  Dublikatlar
+                  <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-white">
+                    {dupGroups}
+                  </span>
+                </Button>
+              </Link>
+            )}
+            <a
+              href="/api/export/clients"
+              className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+            >
+              <Download className="h-4 w-4" />
+              Excel
+            </a>
+            <Link href="/mijozlar/yangi">
+              <Button>
+                <Plus className="h-4 w-4" />
+                Yangi mijoz
               </Button>
             </Link>
-          )}
-          <a
-            href="/api/export/clients"
-            className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
-          >
-            <Download className="h-4 w-4" />
-            Excel
-          </a>
-          <Link href="/mijozlar/yangi">
-            <Button>
-              <Plus className="h-4 w-4" />
-              Yangi mijoz
-            </Button>
-          </Link>
-        </div>
+          </div>
+        )}
       </div>
 
       <ClientsFilter

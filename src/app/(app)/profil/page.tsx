@@ -16,6 +16,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProfilePasswordForm } from "@/components/profile-password-form";
+import { UstaProfileForm } from "@/components/usta-profile-form";
 import {
   TicketStatusBadge,
   TicketPriorityBadge,
@@ -59,6 +60,31 @@ export default async function ProfilePage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+
+  // Usta (INSTALLER) — boshqa rollarning operator-statistikasi (qo'ng'iroqlar,
+  // to'lovlar, muammolar) unga tegishli emas (u assignedUstaId bilan ishlaydi,
+  // assignedStaffId/recordedById bilan emas); shu sabab alohida, sodda ko'rinish:
+  // faqat o'z ma'lumotlari + telefon/parolni o'zi tahrirlashi.
+  if (user.role === "INSTALLER") {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+            Mening profilim
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Shaxsiy ma'lumotlar va parolni almashtirish
+          </p>
+        </div>
+        <UstaProfileForm
+          name={user.name}
+          username={user.username}
+          region={user.region}
+          phone={user.phone}
+        />
+      </div>
+    );
+  }
 
   // ADMIN/VIEWER — boshqa xodimning natijalarini ko'ra oladi (faqat o'qish;
   // /foydalanuvchilar'dagi "Faoliyat" havolasi orqali keladi). Boshqa rol

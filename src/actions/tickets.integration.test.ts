@@ -3,7 +3,13 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "@/lib/db";
-import { dismissTicket, resolveVersionTicket } from "./tickets";
+import {
+  dismissTicket,
+  resolveVersionTicket,
+  setTicketStatus,
+  blockTicket,
+  unblockTicket,
+} from "./tickets";
 import { resetDb, makeUser, makeClient, loginAs, logout } from "@/test/fixtures";
 
 async function makeTicket(clientId: string) {
@@ -188,5 +194,102 @@ describe("resolveVersionTicket", () => {
     expect(res.ok).toBe(false);
     const afterTicket = await db.ticket.findUnique({ where: { id: ticket.id } });
     expect(afterTicket!.status).toBe("IN_PROGRESS");
+  });
+});
+
+describe("setTicketStatus IN_PROGRESS — kanban 'Boshladim' (usta)", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("o'ziga biriktirilgan usta Ochiq -> Jarayonda o'tkazadi, izohsiz", async () => {
+    const usta = await makeUser("INSTALLER");
+    const client = await makeClient();
+    const ticket = await makeVersionTicket(client.id, { status: "OPEN" });
+    await db.ticket.update({ where: { id: ticket.id }, data: { assignedUstaId: usta.id } });
+    await loginAs(usta);
+
+    const res = await setTicketStatus(ticket.id, "IN_PROGRESS", new FormData());
+
+    expect(res.ok).toBe(true);
+    const after = await db.ticket.findUnique({ where: { id: ticket.id } });
+    expect(after!.status).toBe("IN_PROGRESS");
+  });
+});
+
+describe("blockTicket / unblockTicket — kanban 'Hal bo'lmadi' bo'limi", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("usta o'ziga biriktirilgan ticketni izoh bilan 'Hal bo'lmadi'ga belgilaydi, status saqlanadi", async () => {
+    const usta = await makeUser("INSTALLER");
+    const client = await makeClient();
+    const ticket = await makeVersionTicket(client.id, { status: "IN_PROGRESS" });
+    await db.ticket.update({ where: { id: ticket.id }, data: { assignedUstaId: usta.id } });
+    await loginAs(usta);
+
+    const res = await blockTicket(ticket.id, "Mijoz ilovani yangilashga rozi emas");
+
+    expect(res.ok).toBe(true);
+    const after = await db.ticket.findUnique({ where: { id: ticket.id } });
+    expect(after!.blocked).toBe(true);
+    expect(after!.blockedNote).toBe("Mijoz ilovani yangilashga rozi emas");
+    expect(after!.status).toBe("IN_PROGRESS");
+  });
+
+  it("izohsiz belgilab bo'lmaydi", async () => {
+    const usta = await makeUser("INSTALLER");
+    const client = await makeClient();
+    const ticket = await makeVersionTicket(client.id, { status: "OPEN" });
+    await db.ticket.update({ where: { id: ticket.id }, data: { assignedUstaId: usta.id } });
+    await loginAs(usta);
+
+    const res = await blockTicket(ticket.id, "");
+
+    expect(res.ok).toBe(false);
+  });
+
+  it("hal qilingan (RESOLVED) ticketni belgilab bo'lmaydi", async () => {
+    const admin = await makeUser("ADMIN");
+    const client = await makeClient();
+    const ticket = await makeVersionTicket(client.id, { status: "RESOLVED" });
+    await loginAs(admin);
+
+    const res = await blockTicket(ticket.id, "Sinov izohi");
+
+    expect(res.ok).toBe(false);
+  });
+
+  it("boshqa ustaga biriktirilganini belgilay OLMAYDI", async () => {
+    const usta = await makeUser("INSTALLER");
+    const boshqaUsta = await makeUser("INSTALLER");
+    const client = await makeClient();
+    const ticket = await makeVersionTicket(client.id, { status: "IN_PROGRESS" });
+    await db.ticket.update({ where: { id: ticket.id }, data: { assignedUstaId: usta.id } });
+    await loginAs(boshqaUsta);
+
+    const res = await blockTicket(ticket.id, "Sinov izohi");
+
+    expect(res.ok).toBe(false);
+  });
+
+  it("'Qayta urinish' statusni saqlagan holda bayroqni tozalaydi", async () => {
+    const usta = await makeUser("INSTALLER");
+    const client = await makeClient();
+    const ticket = await makeVersionTicket(client.id, { status: "OPEN" });
+    await db.ticket.update({
+      where: { id: ticket.id },
+      data: { assignedUstaId: usta.id, blocked: true, blockedNote: "Eski izoh" },
+    });
+    await loginAs(usta);
+
+    const res = await unblockTicket(ticket.id);
+
+    expect(res.ok).toBe(true);
+    const after = await db.ticket.findUnique({ where: { id: ticket.id } });
+    expect(after!.blocked).toBe(false);
+    expect(after!.blockedNote).toBeNull();
+    expect(after!.status).toBe("OPEN");
   });
 });

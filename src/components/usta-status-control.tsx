@@ -3,22 +3,45 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle } from "lucide-react";
-import { updateUstaStatus } from "@/actions/usta";
+import {
+  updateUstaStatus,
+  blockUstaTask,
+  unblockUstaTask,
+} from "@/actions/usta";
 import { confirmWithNote } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import { USTA_ACTION_STATUSES, ustaStatusLabel } from "@/lib/constants";
 
-/** Boshliq usta nomidan vazifa holatini yangilaydi (ustalar tizimga kirmaydi). */
+const STAGES: { key: string; label: string }[] = [
+  { key: "ASSIGNED", label: "Biriktirildi" },
+  { key: "EN_ROUTE", label: "Yo'ldaman" },
+  { key: "ARRIVED", label: "Bordim" },
+];
+
+/**
+ * Boshliq usta nomidan (yoki usta o'zi) vazifa holatini yangilaydi. Har bir
+ * kartada FAQAT ikkita yo'nalish tugmasi (keyingi/oldingi bosqich) + alohida
+ * "Hal bo'lmadi" tugmasi — telefondan foydalanuvchi ustaga qulay bo'lishi
+ * uchun (bosqich nomlarini eslab yurish shart emas).
+ */
 export function UstaStatusControl({
   clientId,
   current,
+  blocked = false,
+  blockedNote,
 }: {
   clientId: string;
   current: string | null;
+  blocked?: boolean;
+  blockedNote?: string | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
+
+  const idx = Math.max(
+    0,
+    STAGES.findIndex((s) => s.key === (current ?? "ASSIGNED")),
+  );
 
   function run(status: string, note?: string) {
     setErr(null);
@@ -29,15 +52,79 @@ export function UstaStatusControl({
     });
   }
 
-  // "Bajarildi" — bo'lim yakuni (Jarayonda → Yakunlangan), izoh MAJBURIY.
   async function onDone() {
     const { ok, note } = await confirmWithNote({
       title: "Vazifa bajarildi",
       confirmLabel: "Bajarildi",
       variant: "primary",
-      note: { label: "Qanday hal qilindi", placeholder: "Masalan: joyida sozlab berdi", required: true },
+      note: {
+        label: "Qanday hal qilindi",
+        placeholder: "Masalan: joyida sozlab berdi",
+        required: true,
+      },
     });
     if (ok) run("DONE", note);
+  }
+
+  function goNext() {
+    if (idx === STAGES.length - 1) {
+      onDone();
+      return;
+    }
+    run(STAGES[idx + 1].key);
+  }
+
+  function goPrev() {
+    if (idx === 0) return;
+    run(STAGES[idx - 1].key);
+  }
+
+  async function onFlag() {
+    const { ok, note } = await confirmWithNote({
+      title: "Hal bo'lmadi / Muammo bor",
+      confirmLabel: "Belgilash",
+      note: {
+        label: "Nima uchun?",
+        placeholder: "Masalan: mijoz telefon ko'targani yo'q",
+        required: true,
+      },
+    });
+    if (!ok) return;
+    setErr(null);
+    start(async () => {
+      const res = await blockUstaTask(clientId, note);
+      if (res.ok) router.refresh();
+      else setErr(res.error ?? "Xatolik");
+    });
+  }
+
+  function onRetry() {
+    setErr(null);
+    start(async () => {
+      const res = await unblockUstaTask(clientId);
+      if (res.ok) router.refresh();
+      else setErr(res.error ?? "Xatolik");
+    });
+  }
+
+  if (blocked) {
+    return (
+      <div className="space-y-2">
+        {blockedNote && (
+          <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-300">
+            {blockedNote}
+          </div>
+        )}
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={pending}
+          onClick={onRetry}
+        >
+          ↺ Qayta urinish
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -48,19 +135,31 @@ export function UstaStatusControl({
         </div>
       )}
       <div className="flex flex-wrap gap-1.5">
-        {USTA_ACTION_STATUSES.map((s) => (
+        <Button size="sm" disabled={pending} onClick={goNext}>
+          {idx === STAGES.length - 1
+            ? "Bajarildi"
+            : `${STAGES[idx + 1].label} →`}
+        </Button>
+        {idx > 0 && (
           <Button
-            key={s}
             size="sm"
-            variant={current === s ? undefined : "outline"}
+            variant="outline"
             disabled={pending}
-            className="h-7 px-2 text-xs"
-            onClick={() => (s === "DONE" ? onDone() : run(s))}
+            onClick={goPrev}
           >
-            {ustaStatusLabel(s)}
+            ← {STAGES[idx - 1].label}
           </Button>
-        ))}
+        )}
       </div>
+      <Button
+        size="sm"
+        variant="outline"
+        className="border-dashed text-red-600 dark:text-red-400"
+        disabled={pending}
+        onClick={onFlag}
+      >
+        ⚠ Hal bo'lmadi / Muammo bor
+      </Button>
     </div>
   );
 }

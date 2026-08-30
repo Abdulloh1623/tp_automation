@@ -5,7 +5,13 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "@/lib/db";
-import { confirmReturnCollected, revertReturnRequest, startReturnProgress } from "./equipment";
+import {
+  confirmReturnCollected,
+  revertReturnRequest,
+  startReturnProgress,
+  blockReturnRequest,
+  unblockReturnRequest,
+} from "./equipment";
 import { resetDb, makeUser, makeClient, makeEquipment, loginAs, stockOf } from "@/test/fixtures";
 
 async function makeReturnRequest(status = "APPROVED") {
@@ -164,5 +170,83 @@ describe("usta o'zi (veb login) — faqat o'ziga biriktirilgan arizani", () => {
     expect(res.ok).toBe(true);
     const after = await db.equipmentReturnRequest.findUnique({ where: { id: req.id } });
     expect(after!.status).toBe("DONE");
+  });
+
+  it("revertReturnRequest: biriktirilgan usta IN_PROGRESS -> APPROVED qila oladi (kanban '← Biriktirilgan')", async () => {
+    const { req, usta } = await makeReturnRequest("IN_PROGRESS");
+    await loginAs(usta);
+
+    const res = await revertReturnRequest(req.id);
+
+    expect(res.ok).toBe(true);
+    const after = await db.equipmentReturnRequest.findUnique({ where: { id: req.id } });
+    expect(after!.status).toBe("APPROVED");
+  });
+
+  it("revertReturnRequest: boshqa usta qila OLMAYDI", async () => {
+    const { req } = await makeReturnRequest("IN_PROGRESS");
+    const boshqaUsta = await makeUser("INSTALLER");
+    await loginAs(boshqaUsta);
+
+    const res = await revertReturnRequest(req.id);
+
+    expect(res.ok).toBe(false);
+    const after = await db.equipmentReturnRequest.findUnique({ where: { id: req.id } });
+    expect(after!.status).toBe("IN_PROGRESS");
+  });
+});
+
+describe("blockReturnRequest / unblockReturnRequest — kanban 'Hal bo'lmadi' bo'limi", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("usta o'ziga biriktirilgan arizani izoh bilan 'Hal bo'lmadi'ga belgilaydi, status saqlanadi", async () => {
+    const { req, usta } = await makeReturnRequest("IN_PROGRESS");
+    await loginAs(usta);
+
+    const res = await blockReturnRequest(req.id, "Manzilga bordim, eshik yopiq");
+
+    expect(res.ok).toBe(true);
+    const after = await db.equipmentReturnRequest.findUnique({ where: { id: req.id } });
+    expect(after!.blocked).toBe(true);
+    expect(after!.blockedNote).toBe("Manzilga bordim, eshik yopiq");
+    expect(after!.status).toBe("IN_PROGRESS");
+  });
+
+  it("izohsiz belgilab bo'lmaydi", async () => {
+    const { req, usta } = await makeReturnRequest("IN_PROGRESS");
+    await loginAs(usta);
+
+    const res = await blockReturnRequest(req.id, "");
+
+    expect(res.ok).toBe(false);
+  });
+
+  it("boshqa usta belgilay OLMAYDI", async () => {
+    const { req } = await makeReturnRequest("APPROVED");
+    const boshqaUsta = await makeUser("INSTALLER");
+    await loginAs(boshqaUsta);
+
+    const res = await blockReturnRequest(req.id, "Sinov izohi");
+
+    expect(res.ok).toBe(false);
+  });
+
+  it("'Qayta urinish' statusni saqlagan holda bayroqni tozalaydi", async () => {
+    const { req, usta } = await makeReturnRequest("APPROVED");
+    await db.equipmentReturnRequest.update({
+      where: { id: req.id },
+      data: { blocked: true, blockedNote: "Eski izoh" },
+    });
+    await loginAs(usta);
+
+    const res = await unblockReturnRequest(req.id);
+
+    expect(res.ok).toBe(true);
+    const after = await db.equipmentReturnRequest.findUnique({ where: { id: req.id } });
+    expect(after!.blocked).toBe(false);
+    expect(after!.blockedNote).toBeNull();
+    expect(after!.status).toBe("APPROVED");
   });
 });

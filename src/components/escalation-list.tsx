@@ -37,7 +37,12 @@ import {
   uniqueRegions,
 } from "@/components/list-filter";
 import { ustaStatusLabel } from "@/lib/constants";
-import { formatDate, formatDateTime, formatPhone, normalizePhone } from "@/lib/utils";
+import {
+  formatDate,
+  formatDateTime,
+  formatPhone,
+  normalizePhone,
+} from "@/lib/utils";
 
 // Boshida ko'rsatiladigan yakunlangan kartalar soni ("Yana ko'rsatish" oshiradi).
 const RESOLVED_PAGE = 20;
@@ -69,6 +74,8 @@ export type ForwardedItem = {
   ustaName: string | null;
   ustaPhone: string | null;
   ustaStatus: string | null;
+  ustaBlocked: boolean;
+  ustaBlockedNote: string | null;
   staffId: string | null;
   staffName: string | null;
   overdue: boolean;
@@ -163,19 +170,39 @@ export function EscalationList({
     () => uniqueRegions([...escalated, ...forwarded, ...resolved]),
     [escalated, forwarded, resolved],
   );
-  const match = (c: { restaurantName: string; fullName: string; phone: string; region: string | null }) =>
+  const match = (c: {
+    restaurantName: string;
+    fullName: string;
+    phone: string;
+    region: string | null;
+  }) =>
     (!region || c.region === region) &&
     matchesQuery(query, c.restaurantName + " " + c.fullName, c.phone);
 
-  const escFiltered = useMemo(() => escalated.filter(match), [escalated, query, region]); // eslint-disable-line react-hooks/exhaustive-deps
-  const fwdFiltered = useMemo(() => forwarded.filter(match), [forwarded, query, region]); // eslint-disable-line react-hooks/exhaustive-deps
-  const resFiltered = useMemo(() => resolved.filter(match), [resolved, query, region]); // eslint-disable-line react-hooks/exhaustive-deps
+  const escFiltered = useMemo(
+    () => escalated.filter(match),
+    [escalated, query, region],
+  ); // eslint-disable-line react-hooks/exhaustive-deps
+  const fwdFiltered = useMemo(
+    () => forwarded.filter(match),
+    [forwarded, query, region],
+  ); // eslint-disable-line react-hooks/exhaustive-deps
+  const resFiltered = useMemo(
+    () => resolved.filter(match),
+    [resolved, query, region],
+  ); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Yangi = mas'ul (operator) biriktirilmagan (ESCALATED, staffId yo'q).
   // Biriktirildi = mas'ul bor, usta kutilmoqda (ESCALATED, staffId bor).
   // Jarayonda = usta biriktirilgan (FORWARDED — barchasi).
-  const yangi = useMemo(() => escFiltered.filter((c) => !c.staffId), [escFiltered]);
-  const biriktirildi = useMemo(() => escFiltered.filter((c) => c.staffId), [escFiltered]);
+  const yangi = useMemo(
+    () => escFiltered.filter((c) => !c.staffId),
+    [escFiltered],
+  );
+  const biriktirildi = useMemo(
+    () => escFiltered.filter((c) => c.staffId),
+    [escFiltered],
+  );
   const jarayonda = fwdFiltered;
 
   // Yakunlangan — qidiruv/viloyat ustiga sana oralig'i filtri (yakunlangan kun bo'yicha).
@@ -200,7 +227,10 @@ export function EscalationList({
         <CardContent className="space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <ClientLink id={c.id} name={c.restaurantName || c.fullName || "—"} />
+              <ClientLink
+                id={c.id}
+                name={c.restaurantName || c.fullName || "—"}
+              />
               <div className="flex flex-wrap items-center gap-x-3 text-xs text-slate-500 dark:text-slate-400">
                 <span>{c.fullName}</span>
                 {c.region && (
@@ -221,7 +251,11 @@ export function EscalationList({
                 </span>
                 {c.operatorName && <span>· operator: {c.operatorName}</span>}
               </div>
-              <TransitionDates enteredAt={c.enteredAt} lastActionAt={c.lastActionAt} enteredLabel="Eskalatsiyaga tushgan" />
+              <TransitionDates
+                enteredAt={c.enteredAt}
+                lastActionAt={c.lastActionAt}
+                enteredLabel="Eskalatsiyaga tushgan"
+              />
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {c.overdue && <OverdueBadge />}
@@ -291,7 +325,10 @@ export function EscalationList({
         <CardContent className="space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <ClientLink id={c.id} name={c.restaurantName || c.fullName || "—"} />
+              <ClientLink
+                id={c.id}
+                name={c.restaurantName || c.fullName || "—"}
+              />
               <div className="flex flex-wrap items-center gap-x-3 text-xs text-slate-500 dark:text-slate-400">
                 <span>{c.fullName}</span>
                 {c.region && (
@@ -326,7 +363,11 @@ export function EscalationList({
                   </span>
                 )}
               </div>
-              <TransitionDates enteredAt={c.enteredAt} lastActionAt={c.lastActionAt} enteredLabel="Eskalatsiyaga tushgan" />
+              <TransitionDates
+                enteredAt={c.enteredAt}
+                lastActionAt={c.lastActionAt}
+                enteredLabel="Eskalatsiyaga tushgan"
+              />
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {c.overdue && <OverdueBadge />}
@@ -344,9 +385,19 @@ export function EscalationList({
               canAssign={isManager}
             />
             <div className="flex flex-wrap items-center gap-2">
-              <UstaStatusControl clientId={c.id} current={c.ustaStatus} />
-              <ResolveEscalationButton clientId={c.id} label={c.restaurantName} />
-              {isManager && <LeadRevertButton clientId={c.id} label={c.restaurantName} />}
+              <UstaStatusControl
+                clientId={c.id}
+                current={c.ustaStatus}
+                blocked={c.ustaBlocked}
+                blockedNote={c.ustaBlockedNote}
+              />
+              <ResolveEscalationButton
+                clientId={c.id}
+                label={c.restaurantName}
+              />
+              {isManager && (
+                <LeadRevertButton clientId={c.id} label={c.restaurantName} />
+              )}
             </div>
           </div>
         </CardContent>
@@ -361,7 +412,10 @@ export function EscalationList({
         <CardContent className="space-y-2">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <ClientLink id={c.id} name={c.restaurantName || c.fullName || "—"} />
+              <ClientLink
+                id={c.id}
+                name={c.restaurantName || c.fullName || "—"}
+              />
               <div className="flex flex-wrap items-center gap-x-3 text-xs text-slate-500 dark:text-slate-400">
                 <span>{c.fullName}</span>
                 {c.region && (
@@ -389,7 +443,8 @@ export function EscalationList({
               </div>
             </div>
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-              <CheckCircle2 className="h-3 w-3" /> Yakunlandi · {formatDate(new Date(c.resolvedAt))}
+              <CheckCircle2 className="h-3 w-3" /> Yakunlandi ·{" "}
+              {formatDate(new Date(c.resolvedAt))}
             </span>
           </div>
           {c.resolveNote && (
@@ -403,7 +458,11 @@ export function EscalationList({
   }
 
   // Bo'lim ichi: kartalar ro'yxati yoki bo'sh ko'rsatkich.
-  function panel<T>(items: T[], render: (c: T) => ReactNode, emptyHint: string) {
+  function panel<T>(
+    items: T[],
+    render: (c: T) => ReactNode,
+    emptyHint: string,
+  ) {
     if (items.length === 0) return <EmptyPanel hint={emptyHint} />;
     return <div className="space-y-3">{items.map(render)}</div>;
   }
@@ -417,7 +476,9 @@ export function EscalationList({
     return (
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-800 dark:bg-slate-900/60">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Yakunlangan sana:</span>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            Yakunlangan sana:
+          </span>
           <input
             type="date"
             value={resFrom}
@@ -486,7 +547,11 @@ export function EscalationList({
       icon: <Inbox className="h-4 w-4" />,
       tone: "red", // mas'ul (operator) biriktirilishi kutilmoqda
       count: yangi.length,
-      content: panel(yangi, (c) => escalatedCard(c), "Yangi (mas'ul biriktirilmagan) eskalatsiya yo'q."),
+      content: panel(
+        yangi,
+        (c) => escalatedCard(c),
+        "Yangi (mas'ul biriktirilmagan) eskalatsiya yo'q.",
+      ),
     },
     {
       key: "biriktirildi",
@@ -494,7 +559,11 @@ export function EscalationList({
       icon: <UserCheck className="h-4 w-4" />,
       tone: "amber", // mas'ul bor, usta kutilmoqda
       count: biriktirildi.length,
-      content: panel(biriktirildi, (c) => escalatedCard(c, true), "Biriktirilgan (usta kutayotgan) eskalatsiya yo'q."),
+      content: panel(
+        biriktirildi,
+        (c) => escalatedCard(c, true),
+        "Biriktirilgan (usta kutayotgan) eskalatsiya yo'q.",
+      ),
     },
     {
       key: "jarayonda",
@@ -502,7 +571,11 @@ export function EscalationList({
       icon: <Wrench className="h-4 w-4" />,
       tone: "sky", // usta biriktirilgan (yo'lda/bordi/...)
       count: jarayonda.length,
-      content: panel(jarayonda, forwardedCard, "Jarayondagi (usta biriktirilgan) eskalatsiya yo'q."),
+      content: panel(
+        jarayonda,
+        forwardedCard,
+        "Jarayondagi (usta biriktirilgan) eskalatsiya yo'q.",
+      ),
     },
     {
       key: "yakunlangan",
@@ -510,7 +583,10 @@ export function EscalationList({
       icon: <CheckCircle2 className="h-4 w-4" />,
       tone: "emerald",
       count: resDateFiltered.length,
-      content: resFiltered.length === 0 ? panel([], resolvedCard, "Yakunlangan eskalatsiya yo'q.") : resolvedPanel(),
+      content:
+        resFiltered.length === 0
+          ? panel([], resolvedCard, "Yakunlangan eskalatsiya yo'q.")
+          : resolvedPanel(),
     },
   ];
 

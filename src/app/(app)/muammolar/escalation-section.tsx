@@ -20,83 +20,109 @@ import { assignedStaffScope } from "@/lib/visibility";
 // Sana filtri va "yana ko'rsatish" shu to'plam ustidan mijoz tomonida ishlaydi.
 const RESOLVED_FETCH_CAP = 200;
 
-export async function EscalationSection({ session }: { session: SessionPayload }) {
+export async function EscalationSection({
+  session,
+}: {
+  session: SessionPayload;
+}) {
   const isManager = ["ADMIN", "MANAGER"].includes(session.role);
   // TP xodim (OPERATOR) faqat o'ziga maxsus xodim qilib biriktirilgan
   // eskalatsiyalarni ko'radi; ADMIN/MANAGER esa barchasini (va biriktiradi).
-  const scope = assignedStaffScope(session.role, session.userId, "escalationStaffId");
+  const scope = assignedStaffScope(
+    session.role,
+    session.userId,
+    "escalationStaffId",
+  );
   const overdueBefore = slaThreshold();
   // Eskalatsiya SLA soati — escalatedAt (bo'lmasa updatedAt) shu vaqtdan oldingi bo'lsa buzilgan
   const isOverdue = (escalatedAt: Date | null, updatedAt: Date) =>
     (escalatedAt ?? updatedAt) < overdueBefore;
 
-  const staffInclude = { escalationStaff: { select: { id: true, name: true } } };
+  const staffInclude = {
+    escalationStaff: { select: { id: true, name: true } },
+  };
 
-  const [clients, forwardedRaw, resolvedRaw, ustalarFull, xodimlarFull, stats] = await Promise.all([
-    db.client.findMany({
-      where: { stage: "ESCALATED", ...scope },
-      orderBy: { updatedAt: "desc" },
-      include: {
-        assignedTo: { select: { name: true } },
-        ...staffInclude,
-        callLogs: {
-          orderBy: { calledAt: "desc" },
-          take: 1,
-          select: { note: true, calledAt: true, operator: { select: { name: true } } },
+  const [clients, forwardedRaw, resolvedRaw, ustalarFull, xodimlarFull, stats] =
+    await Promise.all([
+      db.client.findMany({
+        where: { stage: "ESCALATED", ...scope },
+        orderBy: { updatedAt: "desc" },
+        include: {
+          assignedTo: { select: { name: true } },
+          ...staffInclude,
+          callLogs: {
+            orderBy: { calledAt: "desc" },
+            take: 1,
+            select: {
+              note: true,
+              calledAt: true,
+              operator: { select: { name: true } },
+            },
+          },
         },
-      },
-    }),
-    db.client.findMany({
-      where: { stage: "FORWARDED", ...scope },
-      orderBy: { updatedAt: "desc" },
-      include: {
-        assignedUsta: { select: { name: true, phone: true } },
-        ...staffInclude,
-        callLogs: {
-          orderBy: { calledAt: "desc" },
-          take: 1,
-          select: { note: true, calledAt: true, operator: { select: { name: true } } },
+      }),
+      db.client.findMany({
+        where: { stage: "FORWARDED", ...scope },
+        orderBy: { updatedAt: "desc" },
+        include: {
+          assignedUsta: { select: { name: true, phone: true } },
+          ...staffInclude,
+          callLogs: {
+            orderBy: { calledAt: "desc" },
+            take: 1,
+            select: {
+              note: true,
+              calledAt: true,
+              operator: { select: { name: true } },
+            },
+          },
         },
-      },
-    }),
-    // Yakunlangan eskalatsiyalar — usta "Bajarildi" degach stage RESOLVED bo'ladi
-    // va eskalatsiya belgilari (escalatedAt/escalationStaffId) tozalanadi. Boshliq
-    // barchasini, operator esa faqat o'zi yakunlaganini (DONE izohi o'ziniki) ko'radi.
-    db.client.findMany({
-      where: {
-        stage: "RESOLVED",
-        ustaStatus: "DONE",
-        ...(isManager
-          ? {}
-          : { callLogs: { some: { result: "DONE", operatorId: session.userId } } }),
-      },
-      orderBy: { updatedAt: "desc" },
-      take: RESOLVED_FETCH_CAP,
-      include: {
-        assignedTo: { select: { name: true } },
-        assignedUsta: { select: { name: true, phone: true } },
-        // Yopishda yozilgan izoh (ixtiyoriy) — oxirgi DONE qo'ng'iroq izohi.
-        callLogs: {
-          where: { result: "DONE" },
-          orderBy: { calledAt: "desc" },
-          take: 1,
-          select: { note: true },
+      }),
+      // Yakunlangan eskalatsiyalar — usta "Bajarildi" degach stage RESOLVED bo'ladi
+      // va eskalatsiya belgilari (escalatedAt/escalationStaffId) tozalanadi. Boshliq
+      // barchasini, operator esa faqat o'zi yakunlaganini (DONE izohi o'ziniki) ko'radi.
+      db.client.findMany({
+        where: {
+          stage: "RESOLVED",
+          ustaStatus: "DONE",
+          ...(isManager
+            ? {}
+            : {
+                callLogs: {
+                  some: { result: "DONE", operatorId: session.userId },
+                },
+              }),
         },
-      },
-    }),
-    db.user.findMany({
-      where: { role: "INSTALLER", isActive: true },
-      select: { id: true, name: true, region: true, regions: true },
-      orderBy: { name: "asc" },
-    }),
-    db.user.findMany({
-      where: { role: { in: ["ADMIN", "MANAGER", "OPERATOR"] }, isActive: true },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
-    // Statistika paneli — faqat boshliq/admin ko'radi
-    isManager ? getEscalationStats() : Promise.resolve(null),
-  ]);
+        orderBy: { updatedAt: "desc" },
+        take: RESOLVED_FETCH_CAP,
+        include: {
+          assignedTo: { select: { name: true } },
+          assignedUsta: { select: { name: true, phone: true } },
+          // Yopishda yozilgan izoh (ixtiyoriy) — oxirgi DONE qo'ng'iroq izohi.
+          callLogs: {
+            where: { result: "DONE" },
+            orderBy: { calledAt: "desc" },
+            take: 1,
+            select: { note: true },
+          },
+        },
+      }),
+      db.user.findMany({
+        where: { role: "INSTALLER", isActive: true },
+        select: { id: true, name: true, region: true, regions: true },
+        orderBy: { name: "asc" },
+      }),
+      db.user.findMany({
+        where: {
+          role: { in: ["ADMIN", "MANAGER", "OPERATOR"] },
+          isActive: true,
+        },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
+      // Statistika paneli — faqat boshliq/admin ko'radi
+      isManager ? getEscalationStats() : Promise.resolve(null),
+    ]);
 
   const escalated: EscalatedItem[] = clients.map((c) => {
     const suggested = c.region
@@ -132,6 +158,8 @@ export async function EscalationSection({ session }: { session: SessionPayload }
     ustaName: c.assignedUsta?.name ?? null,
     ustaPhone: c.assignedUsta?.phone ?? null,
     ustaStatus: c.ustaStatus,
+    ustaBlocked: c.ustaBlocked,
+    ustaBlockedNote: c.ustaBlockedNote,
     staffId: c.escalationStaff?.id ?? null,
     staffName: c.escalationStaff?.name ?? null,
     overdue: isOverdue(c.escalatedAt, c.updatedAt),
@@ -163,10 +191,14 @@ export async function EscalationSection({ session }: { session: SessionPayload }
     regions: u.regions,
   }));
 
-  const staffOptions: StaffOption[] = xodimlarFull.map((u) => ({ id: u.id, name: u.name }));
+  const staffOptions: StaffOption[] = xodimlarFull.map((u) => ({
+    id: u.id,
+    name: u.name,
+  }));
 
   const overdueCount =
-    escalated.filter((c) => c.overdue).length + forwarded.filter((c) => c.overdue).length;
+    escalated.filter((c) => c.overdue).length +
+    forwarded.filter((c) => c.overdue).length;
   // Yangi = mas'ul (operator) hali biriktirilmagan; Biriktirildi = mas'ul bor,
   // usta kutilmoqda; Jarayonda = usta biriktirilgan (FORWARDED).
   const yangiCount = escalated.filter((c) => !c.staffId).length;

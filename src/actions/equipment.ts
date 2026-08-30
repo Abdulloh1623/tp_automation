@@ -58,13 +58,15 @@ async function recomputeMode(clientId: string) {
     : items.some((i) => i.ownership === "SOLD")
       ? "SOLD"
       : "PROGRAM_ONLY";
-  await db.client.update({ where: { id: clientId }, data: { equipmentMode: mode } });
+  await db.client.update({
+    where: { id: clientId },
+    data: { equipmentMode: mode },
+  });
 }
 
 /** Uskuna qayerdan olinadi — ombor (Toshkent) yoki ustaning zaxirasi. */
 export type EquipmentSource =
-  | { type: "WAREHOUSE" }
-  | { type: "USTA"; ustaId: string };
+  { type: "WAREHOUSE" } | { type: "USTA"; ustaId: string };
 
 /**
  * Manager: mijozga uskuna biriktiradi (ijara yoki sotuv). Uskuna MANBAdan
@@ -82,14 +84,16 @@ export async function assignEquipmentToClient(
 ): Promise<EqState> {
   const m = await requireManager();
   if (!m.ok) return m;
-  if (!quantity || quantity <= 0) return { ok: false, error: "Miqdor noto'g'ri" };
+  if (!quantity || quantity <= 0)
+    return { ok: false, error: "Miqdor noto'g'ri" };
   if (!["RENTAL", "SOLD"].includes(ownership)) {
     return { ok: false, error: "Egalik turi noto'g'ri" };
   }
 
   const srcType = source.type === "USTA" ? "USTA" : WAREHOUSE;
   const srcId = source.type === "USTA" ? source.ustaId : WAREHOUSE;
-  if (srcType === "USTA" && !srcId) return { ok: false, error: "Usta tanlanmagan" };
+  if (srcType === "USTA" && !srcId)
+    return { ok: false, error: "Usta tanlanmagan" };
 
   const [type, client] = await Promise.all([
     db.equipmentType.findUnique({ where: { id: equipmentTypeId } }),
@@ -105,7 +109,8 @@ export async function assignEquipmentToClient(
       where: { id: srcId },
       select: { name: true, role: true },
     });
-    if (!u || u.role !== "INSTALLER") return { ok: false, error: "Usta topilmadi" };
+    if (!u || u.role !== "INSTALLER")
+      return { ok: false, error: "Usta topilmadi" };
     ustaName = u.name;
   }
 
@@ -137,7 +142,11 @@ export async function assignEquipmentToClient(
       // Mijoz uskunasini upsert (bir xil egalik turida jamlab boramiz).
       const existing = await tx.clientEquipment.findUnique({
         where: {
-          clientId_equipmentTypeId_ownership: { clientId, equipmentTypeId, ownership },
+          clientId_equipmentTypeId_ownership: {
+            clientId,
+            equipmentTypeId,
+            ownership,
+          },
         },
       });
       if (existing) {
@@ -256,7 +265,8 @@ export async function assignEquipmentBatchToClient(
       where: { id: srcId },
       select: { name: true, role: true },
     });
-    if (!u || u.role !== "INSTALLER") return { ok: false, error: "Usta topilmadi" };
+    if (!u || u.role !== "INSTALLER")
+      return { ok: false, error: "Usta topilmadi" };
     ustaName = u.name;
   }
 
@@ -292,7 +302,11 @@ export async function assignEquipmentBatchToClient(
 
         const existing = await tx.clientEquipment.findUnique({
           where: {
-            clientId_equipmentTypeId_ownership: { clientId, equipmentTypeId, ownership },
+            clientId_equipmentTypeId_ownership: {
+              clientId,
+              equipmentTypeId,
+              ownership,
+            },
           },
         });
         if (existing) {
@@ -324,14 +338,17 @@ export async function assignEquipmentBatchToClient(
           },
         });
 
-        if (!installed && ownership === "SOLD") saleTotal += type.salePrice * quantity;
+        if (!installed && ownership === "SOLD")
+          saleTotal += type.salePrice * quantity;
       }
 
       // Sotuv — barcha turlar bo'yicha bitta yig'ma to'lov (o'rnatilganda YOZILMAYDI).
       if (!installed && ownership === "SOLD" && saleTotal > 0) {
         const note =
           "Uskuna sotuvi: " +
-          entries.map(([id, q]) => `${typeById.get(id)!.name} ×${q}`).join(", ");
+          entries
+            .map(([id, q]) => `${typeById.get(id)!.name} ×${q}`)
+            .join(", ");
         await tx.payment.create({
           data: {
             clientId,
@@ -395,11 +412,19 @@ export async function requestEquipmentReturn(
     where: { clientId, status: { in: ["PENDING", "APPROVED", "IN_PROGRESS"] } },
   });
   if (open) {
-    return { ok: false, error: "Bu mijoz uchun ochiq qaytarish arizasi mavjud" };
+    return {
+      ok: false,
+      error: "Bu mijoz uchun ochiq qaytarish arizasi mavjud",
+    };
   }
 
   await db.equipmentReturnRequest.create({
-    data: { clientId, byUserId: session.userId, note: noteText, status: "PENDING" },
+    data: {
+      clientId,
+      byUserId: session.userId,
+      note: noteText,
+      status: "PENDING",
+    },
   });
   // Ariza ochilishi mijoz tarixida (qo'ng'iroqlar tarixi) ham qolsin.
   await db.callLog.create({
@@ -439,7 +464,10 @@ export async function approveReturnRequest(
   if (!m.ok) return m;
 
   if (!staffId || !ustaId) {
-    return { ok: false, error: "Operator va usta ikkalasi ham tanlanishi kerak" };
+    return {
+      ok: false,
+      error: "Operator va usta ikkalasi ham tanlanishi kerak",
+    };
   }
   const noteText = safeNote(note);
   if (!noteText) return { ok: false, error: "Izoh majburiy" };
@@ -511,7 +539,9 @@ export async function rejectReturnRequest(
   const noteText = safeNote(note);
   if (!noteText) return { ok: false, error: "Izoh majburiy" };
 
-  const req = await db.equipmentReturnRequest.findUnique({ where: { id: requestId } });
+  const req = await db.equipmentReturnRequest.findUnique({
+    where: { id: requestId },
+  });
   if (!req || req.status !== "PENDING") {
     return { ok: false, error: "Ariza topilmadi yoki holati o'zgargan" };
   }
@@ -533,7 +563,10 @@ export async function rejectReturnRequest(
       operatorId: m.userId,
     },
   });
-  await logAudit("Qaytarish rad etildi", { entity: "Client", entityId: req.clientId });
+  await logAudit("Qaytarish rad etildi", {
+    entity: "Client",
+    entityId: req.clientId,
+  });
   revalidatePath("/qaytarish");
   revalidatePath("/muammolar");
   revalidatePath(`/mijozlar/${req.clientId}`);
@@ -545,7 +578,10 @@ export async function rejectReturnRequest(
  * xabar berdi va uskuna olib kelish jarayoni boshlandi. Boshliq ham qila oladi.
  * Izoh (ustaga qanday xabar berilgani) MAJBURIY.
  */
-export async function startReturnProgress(requestId: string, note: string): Promise<EqState> {
+export async function startReturnProgress(
+  requestId: string,
+  note: string,
+): Promise<EqState> {
   const session = await requireSession();
   const noteText = safeNote(note);
   if (!noteText) return { ok: false, error: "Izoh majburiy" };
@@ -560,13 +596,18 @@ export async function startReturnProgress(requestId: string, note: string): Prom
   // TP xodimi/boshliq ISTALGAN arizani, usta esa faqat O'ZIGA biriktirilganini
   // (`confirmReturnCollected` bilan bir xil naqsh).
   const canStart =
-    ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) || req.ustaId === session.userId;
+    ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) ||
+    req.ustaId === session.userId;
   if (!canStart) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
   await db.equipmentReturnRequest.update({
     where: { id: requestId },
-    data: { status: "IN_PROGRESS", inProgressAt: new Date(), slaNotifiedAt: null },
+    data: {
+      status: "IN_PROGRESS",
+      inProgressAt: new Date(),
+      slaNotifiedAt: null,
+    },
   });
   await db.client.update({
     where: { id: req.clientId },
@@ -701,7 +742,12 @@ export async function revertReturnRequest(requestId: string): Promise<EqState> {
   if (!req) return { ok: false, error: "Ariza topilmadi" };
 
   if (req.status === "IN_PROGRESS") {
-    if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
+    // TP xodimi/boshliq ISTALGANini, usta esa faqat O'ZIGA biriktirilganini
+    // (`startReturnProgress`/`confirmReturnCollected` bilan bir xil naqsh).
+    const canRevert =
+      ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) ||
+      req.ustaId === session.userId;
+    if (!canRevert) {
       return { ok: false, error: "Ruxsat yo'q" };
     }
     await db.equipmentReturnRequest.update({
@@ -713,7 +759,11 @@ export async function revertReturnRequest(requestId: string): Promise<EqState> {
       data: { ustaStatus: "ASSIGNED" },
     });
     await db.callLog.create({
-      data: { clientId: req.clientId, result: "RETURN_REVERTED", operatorId: session.userId },
+      data: {
+        clientId: req.clientId,
+        result: "RETURN_REVERTED",
+        operatorId: session.userId,
+      },
     });
     await logAudit("Qaytarish: jarayondan orqaga qaytarildi", {
       entity: "Client",
@@ -733,20 +783,31 @@ export async function revertReturnRequest(requestId: string): Promise<EqState> {
       data: { ustaStatus: null, assignedUstaId: null },
     });
     await db.callLog.create({
-      data: { clientId: req.clientId, result: "RETURN_REVERTED", operatorId: session.userId },
+      data: {
+        clientId: req.clientId,
+        result: "RETURN_REVERTED",
+        operatorId: session.userId,
+      },
     });
-    await logAudit("Qaytarish: operator/usta biriktiruvi bekor qilindi (orqaga)", {
-      entity: "Client",
-      entityId: req.clientId,
-      detail: req.client.restaurantName,
-    });
+    await logAudit(
+      "Qaytarish: operator/usta biriktiruvi bekor qilindi (orqaga)",
+      {
+        entity: "Client",
+        entityId: req.clientId,
+        detail: req.client.restaurantName,
+      },
+    );
   } else if (req.status === "PENDING") {
     if (!["ADMIN", "MANAGER"].includes(session.role)) {
       return { ok: false, error: "Ruxsat yo'q" };
     }
     await db.equipmentReturnRequest.delete({ where: { id: requestId } });
     await db.callLog.create({
-      data: { clientId: req.clientId, result: "RETURN_REVERTED", operatorId: session.userId },
+      data: {
+        clientId: req.clientId,
+        result: "RETURN_REVERTED",
+        operatorId: session.userId,
+      },
     });
     await logAudit("Qaytarish arizasi bekor qilindi (orqaga)", {
       entity: "Client",
@@ -757,6 +818,86 @@ export async function revertReturnRequest(requestId: string): Promise<EqState> {
     return { ok: false, error: "Bu bosqichda orqaga qaytarib bo'lmaydi" };
   }
 
+  revalidatePath("/qaytarish");
+  revalidatePath("/muammolar");
+  revalidatePath(`/mijozlar/${req.clientId}`);
+  return { ok: true };
+}
+
+/**
+ * Qaytarish kanban'idagi "Hal bo'lmadi" ustuni — `status`dan MUSTAQIL bayroq
+ * (Biriktirilgan/Yo'lda bosqichini yo'qotmaslik uchun). Izoh MAJBURIY: mijozga
+ * yeta olmagani yoki uskunani yig'ib ololmagani sababi tarixda qolishi shart.
+ */
+export async function blockReturnRequest(
+  requestId: string,
+  note: string,
+): Promise<EqState> {
+  const session = await requireSession();
+  const noteText = safeNote(note);
+  if (!noteText) return { ok: false, error: "Izoh majburiy" };
+
+  const req = await db.equipmentReturnRequest.findUnique({
+    where: { id: requestId },
+    include: { client: { select: { restaurantName: true } } },
+  });
+  if (!req || !["APPROVED", "IN_PROGRESS"].includes(req.status)) {
+    return { ok: false, error: "Ariza topilmadi yoki holati o'zgargan" };
+  }
+  const canBlock =
+    ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) ||
+    req.ustaId === session.userId;
+  if (!canBlock) return { ok: false, error: "Ruxsat yo'q" };
+
+  await db.equipmentReturnRequest.update({
+    where: { id: requestId },
+    data: { blocked: true, blockedNote: noteText, blockedAt: new Date() },
+  });
+  await db.callLog.create({
+    data: {
+      clientId: req.clientId,
+      result: "RETURN_BLOCKED",
+      note: noteText,
+      operatorId: session.userId,
+    },
+  });
+  await logAudit("Qaytarish: Hal bo'lmadi", {
+    entity: "Client",
+    entityId: req.clientId,
+    detail: req.client.restaurantName,
+  });
+  revalidatePath("/qaytarish");
+  revalidatePath("/muammolar");
+  revalidatePath(`/mijozlar/${req.clientId}`);
+  return { ok: true };
+}
+
+/** "Hal bo'lmadi"dan qaytarish — ariza o'zining haqiqiy `status`iga qaytadi. Izoh shart emas. */
+export async function unblockReturnRequest(
+  requestId: string,
+): Promise<EqState> {
+  const session = await requireSession();
+  const req = await db.equipmentReturnRequest.findUnique({
+    where: { id: requestId },
+    include: { client: { select: { restaurantName: true } } },
+  });
+  if (!req) return { ok: false, error: "Ariza topilmadi" };
+  const canUnblock =
+    ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) ||
+    req.ustaId === session.userId;
+  if (!canUnblock) return { ok: false, error: "Ruxsat yo'q" };
+
+  await db.equipmentReturnRequest.update({
+    where: { id: requestId },
+    data: { blocked: false, blockedNote: null, blockedAt: null },
+  });
+  await db.callLog.create({
+    data: {
+      clientId: req.clientId,
+      result: "RETURN_UNBLOCKED",
+      operatorId: session.userId,
+    },
+  });
   revalidatePath("/qaytarish");
   revalidatePath("/muammolar");
   revalidatePath(`/mijozlar/${req.clientId}`);
@@ -803,7 +944,9 @@ export async function clearInactiveClientEquipment(): Promise<
   const clientIds = [...new Set(stale.map((e) => e.clientId))];
   const removed = stale.reduce((n, e) => n + e.quantity, 0);
 
-  await db.clientEquipment.deleteMany({ where: { id: { in: stale.map((e) => e.id) } } });
+  await db.clientEquipment.deleteMany({
+    where: { id: { in: stale.map((e) => e.id) } },
+  });
   for (const id of clientIds) await recomputeMode(id);
 
   // Nima o'chirilgani auditda qoladi — bu yagona tiklash manbai.

@@ -229,6 +229,79 @@ export async function updateUstaStatus(
 }
 
 /**
+ * Eskalatsiya kanban'idagi "Hal bo'lmadi" ustuni — `ustaStatus`dan MUSTAQIL
+ * bayroq (bosqichni — Yo'ldamanmi, Bordimmi — yo'qotmaslik uchun). Izoh
+ * MAJBURIY: mijozga yeta olmagani yoki muammoni hal qila olmagani sababi
+ * tarixda qolishi shart.
+ */
+export async function blockUstaTask(
+  clientId: string,
+  note: string,
+): Promise<UstaUpdateState> {
+  const session = await requireSession();
+  const client = await db.client.findUnique({ where: { id: clientId } });
+  if (!client) return { ok: false, error: "Vazifa topilmadi" };
+  const canUpdate =
+    ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) ||
+    (session.role === "INSTALLER" && client.assignedUstaId === session.userId);
+  if (!canUpdate) return { ok: false, error: "Ruxsat yo'q" };
+
+  const noteText = safeNote(note);
+  if (!noteText) return { ok: false, error: "Izoh majburiy" };
+
+  await db.client.update({
+    where: { id: clientId },
+    data: {
+      ustaBlocked: true,
+      ustaBlockedNote: noteText,
+      ustaBlockedAt: new Date(),
+    },
+  });
+  await db.callLog.create({
+    data: {
+      clientId,
+      result: "USTA_BLOCKED",
+      note: noteText,
+      operatorId: session.userId,
+    },
+  });
+  await logAudit("Eskalatsiya: Hal bo'lmadi", {
+    entity: "Client",
+    entityId: clientId,
+    detail: client.restaurantName,
+  });
+  revalidatePath("/eskalatsiya");
+  revalidatePath("/muammolar");
+  revalidatePath(`/mijozlar/${clientId}`);
+  return { ok: true };
+}
+
+/** "Hal bo'lmadi"dan qaytarish — karta o'zining haqiqiy ustaStatus'iga qaytadi. Izoh shart emas. */
+export async function unblockUstaTask(
+  clientId: string,
+): Promise<UstaUpdateState> {
+  const session = await requireSession();
+  const client = await db.client.findUnique({ where: { id: clientId } });
+  if (!client) return { ok: false, error: "Vazifa topilmadi" };
+  const canUpdate =
+    ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) ||
+    (session.role === "INSTALLER" && client.assignedUstaId === session.userId);
+  if (!canUpdate) return { ok: false, error: "Ruxsat yo'q" };
+
+  await db.client.update({
+    where: { id: clientId },
+    data: { ustaBlocked: false, ustaBlockedNote: null, ustaBlockedAt: null },
+  });
+  await db.callLog.create({
+    data: { clientId, result: "USTA_UNBLOCKED", operatorId: session.userId },
+  });
+  revalidatePath("/eskalatsiya");
+  revalidatePath("/muammolar");
+  revalidatePath(`/mijozlar/${clientId}`);
+  return { ok: true, ustaStatus: client.ustaStatus ?? undefined };
+}
+
+/**
  * Eskalatsiyani to'g'ridan-to'g'ri "Hal bo'ldi" deb yopish — mas'ul xodim
  * (yoki boshliq) usta javobini kutmasdan (masalan telefon orqali hal qilinsa)
  * navbatdan/ustadan chiqaradi. Yakunlangan bo'limida ko'rinishi uchun

@@ -498,22 +498,22 @@ export async function ClientProfile({ id }: { id: string }) {
               </div>
             </div>
 
-            {!isInstaller && (
-              <div className="flex flex-wrap items-center gap-2">
-                {client.stage !== "REFUSED" && (
-                  <ClientRefuseButton
-                    clientId={client.id}
-                    restaurantName={client.restaurantName}
-                  />
-                )}
-                <Link href={`/mijozlar/${client.id}/tahrir`}>
-                  <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-3 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20">
-                    <Pencil className="h-4 w-4" />
-                    Tahrirlash
-                  </span>
-                </Link>
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Otkaz — biznes qarori, usta uchun emas; Tahrirlash — usta ham
+                  qila oladi (faqat asosiy ma'lumot, ClientForm `restricted`). */}
+              {!isInstaller && client.stage !== "REFUSED" && (
+                <ClientRefuseButton
+                  clientId={client.id}
+                  restaurantName={client.restaurantName}
+                />
+              )}
+              <Link href={`/mijozlar/${client.id}/tahrir`}>
+                <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-3 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/20">
+                  <Pencil className="h-4 w-4" />
+                  Tahrirlash
+                </span>
+              </Link>
+            </div>
           </div>
 
           {/* KPI plitkalar */}

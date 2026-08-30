@@ -23,9 +23,17 @@ export async function ClientEditView({
   id: string;
   inline?: boolean;
 }) {
-  // /mijozlar prefiksi INSTALLER (usta) uchun ham ochiq (o'qish uchun), lekin
-  // tahrirlash bu yerda ATAYIN qayta cheklanadi — usta faqat ko'radi.
-  await requireRole(["ADMIN", "OPERATOR", "MANAGER", "VIEWER"]);
+  // Usta (INSTALLER) — mijozning ASOSIY ma'lumotlarini tahrirlay oladi (FIO,
+  // telefon, viloyat, shartnoma, apparat, izoh); holat/to'lov/biriktirish
+  // maydonlari ko'rinmaydi ham, o'zgarmaydi ham (`restricted` — ClientForm).
+  const session = await requireRole([
+    "ADMIN",
+    "OPERATOR",
+    "MANAGER",
+    "VIEWER",
+    "INSTALLER",
+  ]);
+  const restricted = session.role === "INSTALLER";
 
   const [client, operators] = await Promise.all([
     // ANIQ `select` — `include` bilan butun yozuv olinardi va u pastda
@@ -95,11 +103,15 @@ export async function ClientEditView({
         operators={operators}
         defaultValues={{
           ...client,
-          phones: client.phones.map((p) => ({ label: p.label, number: p.number })),
+          phones: client.phones.map((p) => ({
+            label: p.label,
+            number: p.number,
+          })),
         }}
         submitLabel="O'zgarishlarni saqlash"
         closeOnSuccess={inline}
         successRedirect={inline ? undefined : `/mijozlar/${client.id}`}
+        restricted={restricted}
       />
     </div>
   );

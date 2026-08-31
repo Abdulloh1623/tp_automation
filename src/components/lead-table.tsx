@@ -315,7 +315,7 @@ export function LeadTable({ leads }: { leads: LeadRow[] }) {
 
   async function onEscalate(row: LeadRow) {
     const ok = await confirmDialog({
-      title: "Boshliqqa yo'naltirilsinmi?",
+      title: "Eskalatsiyaga yo'naltirilsinmi?",
       message: `"${row.restaurantName}" lidi eskalatsiya navbatiga o'tadi.`,
       confirmLabel: "Yo'naltirish",
       variant: "primary",
@@ -889,7 +889,7 @@ function JoriyTable({
                     className="h-7 border-amber-300 text-xs text-amber-700 dark:text-amber-300"
                     onClick={() => onEscalate(r)}
                   >
-                    <ArrowUpRight className="h-3.5 w-3.5" /> Boshliqqa
+                    <ArrowUpRight className="h-3.5 w-3.5" /> Eskalatsiya
                   </Button>
                 </div>
               </td>
@@ -1034,7 +1034,7 @@ function JoriyTable({
               className="h-8 flex-1 border-amber-300 text-xs text-amber-700 dark:text-amber-300"
               onClick={() => onEscalate(r)}
             >
-              <ArrowUpRight className="h-3.5 w-3.5" /> Boshliqqa
+              <ArrowUpRight className="h-3.5 w-3.5" /> Eskalatsiya
             </Button>
           </div>
         </div>

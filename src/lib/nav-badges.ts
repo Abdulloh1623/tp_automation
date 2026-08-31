@@ -68,8 +68,8 @@ export async function getNavBadges(
             where: { id: userId, cardVerifier: true },
             select: { id: true },
           }),
-      // Vazifalarim — ustaga biriktirilgan ochiq eskalatsiya+qaytarish+versiya
-      // so'rovlari yig'indisi (muammolar — oddiy ticketlar — bu sahifada YO'Q).
+      // Vazifalarim — ustaga biriktirilgan ochiq muammo+eskalatsiya+qaytarish+
+      // versiya so'rovlari yig'indisi (4 tab, /vazifalarim'dagi kabi).
       role === "INSTALLER"
         ? Promise.all([
             db.client.count({ where: { assignedUstaId: userId, stage: "FORWARDED" } }),
@@ -79,7 +79,14 @@ export async function getNavBadges(
             db.ticket.count({
               where: { assignedUstaId: userId, type: "VERSION_UPDATE", status: { not: "RESOLVED" } },
             }),
-          ]).then(([esc, ret, ver]) => esc + ret + ver)
+            db.ticket.count({
+              where: {
+                assignedUstaId: userId,
+                type: { not: "VERSION_UPDATE" },
+                status: { not: "RESOLVED" },
+              },
+            }),
+          ]).then(([esc, ret, ver, muammo]) => esc + ret + ver + muammo)
         : Promise.resolve(0),
     ]);
 

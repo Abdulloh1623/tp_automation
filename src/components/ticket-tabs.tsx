@@ -6,7 +6,7 @@ export type TicketTab = {
   key: string;
   label: string;
   icon: ReactNode;
-  tone: "red" | "amber" | "sky" | "emerald";
+  tone: "red" | "amber" | "sky" | "emerald" | "violet";
   /** Qamrov bo'yicha jami (filtrdan mustaqil). Berilmasa badge ko'rsatilmaydi. */
   count?: number;
   content: ReactNode;
@@ -21,6 +21,8 @@ const ACTIVE_TONE: Record<TicketTab["tone"], string> = {
     "border-sky-500 text-sky-700 bg-sky-50 dark:border-sky-400 dark:text-sky-300 dark:bg-sky-950/40",
   emerald:
     "border-emerald-500 text-emerald-700 bg-emerald-50 dark:border-emerald-400 dark:text-emerald-300 dark:bg-emerald-950/40",
+  violet:
+    "border-violet-500 text-violet-700 bg-violet-50 dark:border-violet-400 dark:text-violet-300 dark:bg-violet-950/40",
 };
 
 // Hisoblagich (badge) — faol/nofaol bo'lishidan qat'i nazar doim o'z rangida
@@ -30,6 +32,7 @@ const BADGE_TONE: Record<TicketTab["tone"], string> = {
   amber: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
   sky: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
   emerald: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+  violet: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
 };
 
 /**

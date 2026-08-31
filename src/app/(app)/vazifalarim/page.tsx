@@ -13,6 +13,7 @@ import {
   TicketPriorityBadge,
   TicketTypeBadge,
 } from "@/components/status-badge";
+import { ClientLink } from "@/components/client-link";
 import { UstaStatusControl } from "@/components/usta-status-control";
 import { UstaReturnActions } from "@/components/usta-return-actions";
 import { VersionTicketStatusControl } from "@/components/version-ticket-status-control";
@@ -27,6 +28,7 @@ const RESOLVED_RENDER_CAP = 20;
 
 /** Bir mijoz kartasi — ustaning har uch bo'limida bir xil qobiq. */
 function ClientCard({
+  clientId,
   restaurantName,
   fullName,
   region,
@@ -36,6 +38,7 @@ function ClientCard({
   note,
   children,
 }: {
+  clientId: string;
   restaurantName: string;
   fullName: string;
   region: string | null;
@@ -49,9 +52,11 @@ function ClientCard({
   return (
     <Card className="p-3.5">
       <div className="min-w-0">
-        <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-          {restaurantName}
-        </div>
+        <ClientLink
+          id={clientId}
+          name={restaurantName}
+          className="text-sm font-semibold text-slate-900 hover:text-primary-600 hover:underline dark:text-slate-100 dark:hover:text-primary-400"
+        />
         <div className="text-xs text-slate-500 dark:text-slate-400">
           {fullName}
           {region && (
@@ -94,6 +99,7 @@ function ClientCard({
 
 /** Bir xil qobiqli, oxirida sana bilan yakunlangan karta — kanban'ning "Bajarildi" ustuni uchun. */
 function DoneCard({
+  clientId,
   restaurantName,
   fullName,
   region,
@@ -101,6 +107,7 @@ function DoneCard({
   meta,
   note,
 }: {
+  clientId: string;
   restaurantName: string;
   fullName: string;
   region: string | null;
@@ -110,6 +117,7 @@ function DoneCard({
 }) {
   return (
     <ClientCard
+      clientId={clientId}
       restaurantName={restaurantName}
       fullName={fullName}
       region={region}
@@ -352,6 +360,7 @@ export default async function VazifalarimPage() {
         {eBiriktirildi.map((c) => (
           <ClientCard
             key={c.id}
+            clientId={c.id}
             restaurantName={c.restaurantName}
             fullName={c.fullName}
             region={c.region}
@@ -370,6 +379,7 @@ export default async function VazifalarimPage() {
         {eYoldaman.map((c) => (
           <ClientCard
             key={c.id}
+            clientId={c.id}
             restaurantName={c.restaurantName}
             fullName={c.fullName}
             region={c.region}
@@ -388,6 +398,7 @@ export default async function VazifalarimPage() {
         {eBordim.map((c) => (
           <ClientCard
             key={c.id}
+            clientId={c.id}
             restaurantName={c.restaurantName}
             fullName={c.fullName}
             region={c.region}
@@ -407,6 +418,7 @@ export default async function VazifalarimPage() {
         {eMuammo.map((c) => (
           <ClientCard
             key={c.id}
+            clientId={c.id}
             restaurantName={c.restaurantName}
             fullName={c.fullName}
             region={c.region}
@@ -429,6 +441,7 @@ export default async function VazifalarimPage() {
         {escalatedDone.map((c) => (
           <DoneCard
             key={c.id}
+            clientId={c.id}
             restaurantName={c.restaurantName}
             fullName={c.fullName}
             region={c.region}
@@ -459,6 +472,7 @@ export default async function VazifalarimPage() {
         {qBiriktirilgan.map((r) => (
           <ClientCard
             key={r.id}
+            clientId={r.clientId}
             restaurantName={r.client.restaurantName}
             fullName={r.client.fullName}
             region={r.client.region}
@@ -477,6 +491,7 @@ export default async function VazifalarimPage() {
         {qYolda.map((r) => (
           <ClientCard
             key={r.id}
+            clientId={r.clientId}
             restaurantName={r.client.restaurantName}
             fullName={r.client.fullName}
             region={r.client.region}
@@ -496,6 +511,7 @@ export default async function VazifalarimPage() {
         {qMuammo.map((r) => (
           <ClientCard
             key={r.id}
+            clientId={r.clientId}
             restaurantName={r.client.restaurantName}
             fullName={r.client.fullName}
             region={r.client.region}
@@ -518,6 +534,7 @@ export default async function VazifalarimPage() {
         {returnsDone.map((r) => (
           <DoneCard
             key={r.id}
+            clientId={r.clientId}
             restaurantName={r.client.restaurantName}
             fullName={r.client.fullName}
             region={r.client.region}
@@ -547,6 +564,7 @@ export default async function VazifalarimPage() {
         {vOchiq.map((t) => (
           <ClientCard
             key={t.id}
+            clientId={t.clientId}
             restaurantName={t.client.restaurantName}
             fullName={t.client.fullName}
             region={t.client.region}
@@ -571,6 +589,7 @@ export default async function VazifalarimPage() {
         {vJarayonda.map((t) => (
           <ClientCard
             key={t.id}
+            clientId={t.clientId}
             restaurantName={t.client.restaurantName}
             fullName={t.client.fullName}
             region={t.client.region}
@@ -596,6 +615,7 @@ export default async function VazifalarimPage() {
         {vMuammo.map((t) => (
           <ClientCard
             key={t.id}
+            clientId={t.clientId}
             restaurantName={t.client.restaurantName}
             fullName={t.client.fullName}
             region={t.client.region}
@@ -624,6 +644,7 @@ export default async function VazifalarimPage() {
         {ticketsDone.map((t) => (
           <DoneCard
             key={t.id}
+            clientId={t.clientId}
             restaurantName={t.client.restaurantName}
             fullName={t.client.fullName}
             region={t.client.region}
@@ -655,6 +676,7 @@ export default async function VazifalarimPage() {
         {mOchiq.map((t) => (
           <ClientCard
             key={t.id}
+            clientId={t.clientId}
             restaurantName={t.client.restaurantName}
             fullName={t.client.fullName}
             region={t.client.region}
@@ -680,6 +702,7 @@ export default async function VazifalarimPage() {
         {mJarayonda.map((t) => (
           <ClientCard
             key={t.id}
+            clientId={t.clientId}
             restaurantName={t.client.restaurantName}
             fullName={t.client.fullName}
             region={t.client.region}
@@ -706,6 +729,7 @@ export default async function VazifalarimPage() {
         {mMuammo.map((t) => (
           <ClientCard
             key={t.id}
+            clientId={t.clientId}
             restaurantName={t.client.restaurantName}
             fullName={t.client.fullName}
             region={t.client.region}
@@ -735,6 +759,7 @@ export default async function VazifalarimPage() {
         {ticketsMuammoDone.map((t) => (
           <DoneCard
             key={t.id}
+            clientId={t.clientId}
             restaurantName={t.client.restaurantName}
             fullName={t.client.fullName}
             region={t.client.region}

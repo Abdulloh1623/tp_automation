@@ -1,45 +1,57 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import {
-  User as UserIcon,
-  Shield,
-  MapPin,
-  KeyRound,
-  AlertCircle,
-} from "lucide-react";
-import { updateMyPhone, changeMyPassword } from "@/actions/usta";
+import { Shield, KeyRound, AlertCircle } from "lucide-react";
+import { updateMyProfile, changeMyPassword } from "@/actions/usta";
 import { toast } from "@/components/toaster";
 import { MIN_PASSWORD_LENGTH } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RegionMultiSelect } from "@/components/region-multi-select";
 
 export function UstaProfileForm({
   name,
   username,
-  region,
+  regions,
+  address,
   phone,
 }: {
   name: string;
   username: string;
-  region: string | null;
+  regions: string[];
+  address: string | null;
   phone: string | null;
 }) {
+  const [nameValue, setNameValue] = useState(name);
+  const [regionsValue, setRegionsValue] = useState<string[]>(regions);
+  const [addressValue, setAddressValue] = useState(address ?? "");
   const [phoneValue, setPhoneValue] = useState(phone ?? "");
-  const [phonePending, startPhone] = useTransition();
+  const [profilePending, startProfile] = useTransition();
 
   const [newPassword, setNewPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [pwError, setPwError] = useState<string | null>(null);
   const [pwPending, startPw] = useTransition();
 
-  function savePhone() {
-    startPhone(async () => {
-      const res = await updateMyPhone(phoneValue);
+  const unchanged =
+    nameValue.trim() === name &&
+    addressValue.trim() === (address ?? "") &&
+    phoneValue.trim() === (phone ?? "") &&
+    regionsValue.length === regions.length &&
+    regionsValue.every((r) => regions.includes(r));
+
+  function saveProfile() {
+    startProfile(async () => {
+      const res = await updateMyProfile({
+        name: nameValue,
+        address: addressValue,
+        regions: regionsValue,
+        phone: phoneValue,
+      });
       if (res.ok) {
-        toast("Telefon raqami yangilandi", "success");
+        toast("Ma'lumotlar yangilandi", "success");
       } else {
         toast(res.error ?? "Xatolik", "error");
       }
@@ -76,26 +88,50 @@ export function UstaProfileForm({
           <CardTitle>Ma'lumotlarim</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
-          <Row icon={UserIcon} label="Ism" value={name} />
-          <Row icon={Shield} label="Login" value={username} />
-          <Row icon={MapPin} label="Viloyat" value={region ?? "—"} />
+          <div className="flex items-center gap-3">
+            <Shield className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+            <span className="w-20 text-slate-500 dark:text-slate-400">Login</span>
+            <span className="font-medium text-slate-900 dark:text-slate-100">
+              {username}
+            </span>
+          </div>
+          <div>
+            <Label htmlFor="usta-name">Ism-familiya</Label>
+            <Input
+              id="usta-name"
+              value={nameValue}
+              onChange={(e) => setNameValue(e.target.value)}
+              placeholder="Ism Familiya"
+            />
+          </div>
+          <div>
+            <Label htmlFor="usta-address">Yashash manzili</Label>
+            <Input
+              id="usta-address"
+              value={addressValue}
+              onChange={(e) => setAddressValue(e.target.value)}
+              placeholder="Shahar, tuman, ko'cha"
+            />
+          </div>
+          <div>
+            <Label>Viloyatlar</Label>
+            <RegionMultiSelect value={regionsValue} onChange={setRegionsValue} />
+          </div>
           <div>
             <Label htmlFor="usta-phone">Telefon</Label>
-            <div className="flex gap-2">
-              <Input
-                id="usta-phone"
-                value={phoneValue}
-                onChange={(e) => setPhoneValue(e.target.value)}
-                placeholder="+998 90 123 45 67"
-              />
-              <Button
-                onClick={savePhone}
-                disabled={phonePending || phoneValue.trim() === (phone ?? "")}
-              >
-                {phonePending ? "..." : "Saqlash"}
-              </Button>
-            </div>
+            <Input
+              id="usta-phone"
+              value={phoneValue}
+              onChange={(e) => setPhoneValue(e.target.value)}
+              placeholder="+998 90 123 45 67"
+            />
           </div>
+          <Button
+            onClick={saveProfile}
+            disabled={profilePending || unchanged || !nameValue.trim()}
+          >
+            {profilePending ? "..." : "Saqlash"}
+          </Button>
         </CardContent>
       </Card>
 
@@ -142,26 +178,6 @@ export function UstaProfileForm({
           </p>
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-function Row({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <Icon className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-      <span className="w-20 text-slate-500 dark:text-slate-400">{label}</span>
-      <span className="font-medium text-slate-900 dark:text-slate-100">
-        {value}
-      </span>
     </div>
   );
 }

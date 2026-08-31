@@ -28,6 +28,7 @@ model User {
   role           String   @default("OPERATOR") // ADMIN | OPERATOR | INSTALLER
   region         String? // birlamchi viloyat (eski; regions[0])
   regions        String? // usta/xodim qoplaydigan viloyatlar — vergulli ro'yxat (ko'p viloyat)
+  address        String? // yashash manzili (hozircha faqat usta o'zi to'ldiradi)
   isActive       Boolean  @default(true)
   telegramId     String?  @unique // Telegram bot ruxsati/DM uchun
   // Operatorning kunlik lid kvotasi. `null` = AVTOMATIK: dastur bugungi qayta

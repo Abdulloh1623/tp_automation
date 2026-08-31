@@ -79,7 +79,8 @@ export default async function ProfilePage({
         <UstaProfileForm
           name={user.name}
           username={user.username}
-          region={user.region}
+          regions={user.regions ? user.regions.split(",").filter(Boolean) : []}
+          address={user.address}
           phone={user.phone}
         />
       </div>

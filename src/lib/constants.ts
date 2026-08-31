@@ -626,3 +626,58 @@ export function callResultLabel(result: string): string {
 export function userRoleLabel(role: string): string {
   return USER_ROLE[role as UserRole] ?? role;
 }
+
+// --- Dinamik kanban bosqichlari (/muammolar sub-bo'limlari) ---
+// Har pipeline'ning boshlanish va yakun kaliti KOD'da qattiq — faqat
+// ORASIDAGI bosqichlar (PipelineStage jadvali) admin tomonidan CRUD
+// qilinadi. `initialKey`/`terminalKey` — DB'da saqlanadigan haqiqiy
+// qiymatlar (Ticket.status / Client.escalationStageKey /
+// EquipmentReturnRequest.status), o'zgarmaydi.
+export const PIPELINES = [
+  "MUAMMOLAR",
+  "VERSIYA",
+  "ESKALATSIYA",
+  "QAYTARISH",
+] as const;
+export type Pipeline = (typeof PIPELINES)[number];
+
+export const PIPELINE_LABELS: Record<Pipeline, string> = {
+  MUAMMOLAR: "Muammolar",
+  VERSIYA: "Yangi versiya",
+  ESKALATSIYA: "Eskalatsiya",
+  QAYTARISH: "Qaytarish",
+};
+
+export function isPipeline(v: string): v is Pipeline {
+  return (PIPELINES as readonly string[]).includes(v);
+}
+
+export const PIPELINE_ANCHORS: Record<
+  Pipeline,
+  { initialKey: string; initialLabel: string; terminalKey: string; terminalLabel: string }
+> = {
+  MUAMMOLAR: {
+    initialKey: "OPEN",
+    initialLabel: "Ochiq",
+    terminalKey: "RESOLVED",
+    terminalLabel: "Hal qilindi",
+  },
+  VERSIYA: {
+    initialKey: "OPEN",
+    initialLabel: "Ochiq",
+    terminalKey: "RESOLVED",
+    terminalLabel: "Versiya yangilandi",
+  },
+  ESKALATSIYA: {
+    initialKey: "ASSIGNED",
+    initialLabel: "Biriktirildi",
+    terminalKey: "DONE",
+    terminalLabel: "Bajarildi",
+  },
+  QAYTARISH: {
+    initialKey: "APPROVED",
+    initialLabel: "Biriktirildi",
+    terminalKey: "DONE",
+    terminalLabel: "Qaytarildi",
+  },
+};

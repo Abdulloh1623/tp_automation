@@ -1,6 +1,7 @@
 import {
   Phone,
   HardHat,
+  Wrench,
   AlertTriangle,
   PackageCheck,
   DownloadCloud,
@@ -15,6 +16,7 @@ import {
 import { UstaStatusControl } from "@/components/usta-status-control";
 import { UstaReturnActions } from "@/components/usta-return-actions";
 import { VersionTicketStatusControl } from "@/components/version-ticket-status-control";
+import { UstaTicketStatusControl } from "@/components/usta-ticket-status-control";
 import { TicketTabs, type TicketTab } from "@/components/ticket-tabs";
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { EmptyState } from "@/components/empty-state";
@@ -29,6 +31,7 @@ function ClientCard({
   fullName,
   region,
   phone,
+  subject,
   badges,
   note,
   children,
@@ -37,6 +40,8 @@ function ClientCard({
   fullName: string;
   region: string | null;
   phone: string;
+  /** Muammo sarlavhasi (masalan "Printer ishlamayapti") — faqat oddiy muammolar tab'ida ishlatiladi. */
+  subject?: string;
   badges?: React.ReactNode;
   note?: string | null;
   children: React.ReactNode;
@@ -57,6 +62,11 @@ function ClientCard({
           )}
         </div>
       </div>
+      {subject && (
+        <div className="mt-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">
+          {subject}
+        </div>
+      )}
       {badges && (
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           {badges}
@@ -177,6 +187,8 @@ export default async function VazifalarimPage() {
     returnsDone,
     ticketsActive,
     ticketsDone,
+    ticketsMuammoActive,
+    ticketsMuammoDone,
   ] = await Promise.all([
     db.client.findMany({
       where: { assignedUstaId: ustaId, stage: "FORWARDED" },
@@ -257,6 +269,43 @@ export default async function VazifalarimPage() {
       where: {
         assignedUstaId: ustaId,
         type: "VERSION_UPDATE",
+        status: "RESOLVED",
+      },
+      orderBy: { resolvedAt: "desc" },
+      take: RESOLVED_RENDER_CAP,
+      include: {
+        client: {
+          select: {
+            restaurantName: true,
+            fullName: true,
+            phone: true,
+            region: true,
+          },
+        },
+      },
+    }),
+    db.ticket.findMany({
+      where: {
+        assignedUstaId: ustaId,
+        type: { not: "VERSION_UPDATE" },
+        status: { not: "RESOLVED" },
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        client: {
+          select: {
+            restaurantName: true,
+            fullName: true,
+            phone: true,
+            region: true,
+          },
+        },
+      },
+    }),
+    db.ticket.findMany({
+      where: {
+        assignedUstaId: ustaId,
+        type: { not: "VERSION_UPDATE" },
         status: "RESOLVED",
       },
       orderBy: { resolvedAt: "desc" },
@@ -587,7 +636,119 @@ export default async function VazifalarimPage() {
     </KanbanBoard>
   );
 
+  // --- Muammolar (oddiy ticketlar): Ochiq | Jarayonda | Hal bo'lmadi | Bajarildi ---
+  const mOchiq = ticketsMuammoActive.filter(
+    (t) => !t.blocked && t.status === "OPEN",
+  );
+  const mJarayonda = ticketsMuammoActive.filter(
+    (t) => !t.blocked && t.status === "IN_PROGRESS",
+  );
+  const mMuammo = ticketsMuammoActive.filter((t) => t.blocked);
+
+  const muammoBoard = (
+    <KanbanBoard>
+      <KanbanColumn
+        title="Ochiq"
+        dotClassName="bg-slate-400"
+        count={mOchiq.length}
+      >
+        {mOchiq.map((t) => (
+          <ClientCard
+            key={t.id}
+            restaurantName={t.client.restaurantName}
+            fullName={t.client.fullName}
+            region={t.client.region}
+            phone={t.client.phone}
+            subject={t.title}
+            note={t.ustaNote}
+            badges={
+              <>
+                <TicketTypeBadge type={t.type} />
+                <TicketPriorityBadge priority={t.priority} />
+              </>
+            }
+          >
+            <UstaTicketStatusControl ticketId={t.id} status={t.status} />
+          </ClientCard>
+        ))}
+      </KanbanColumn>
+      <KanbanColumn
+        title="Jarayonda"
+        dotClassName="bg-amber-500"
+        count={mJarayonda.length}
+      >
+        {mJarayonda.map((t) => (
+          <ClientCard
+            key={t.id}
+            restaurantName={t.client.restaurantName}
+            fullName={t.client.fullName}
+            region={t.client.region}
+            phone={t.client.phone}
+            subject={t.title}
+            note={t.ustaNote}
+            badges={
+              <>
+                <TicketTypeBadge type={t.type} />
+                <TicketPriorityBadge priority={t.priority} />
+              </>
+            }
+          >
+            <UstaTicketStatusControl ticketId={t.id} status={t.status} />
+          </ClientCard>
+        ))}
+      </KanbanColumn>
+      <KanbanColumn
+        title="Hal bo'lmadi"
+        dotClassName="bg-red-500"
+        count={mMuammo.length}
+        problem
+      >
+        {mMuammo.map((t) => (
+          <ClientCard
+            key={t.id}
+            restaurantName={t.client.restaurantName}
+            fullName={t.client.fullName}
+            region={t.client.region}
+            phone={t.client.phone}
+            subject={t.title}
+            badges={
+              <>
+                <TicketTypeBadge type={t.type} />
+                <TicketPriorityBadge priority={t.priority} />
+              </>
+            }
+          >
+            <UstaTicketStatusControl
+              ticketId={t.id}
+              status={t.status}
+              blocked={t.blocked}
+              blockedNote={t.blockedNote}
+            />
+          </ClientCard>
+        ))}
+      </KanbanColumn>
+      <KanbanColumn
+        title="Bajarildi"
+        dotClassName="bg-emerald-500"
+        count={ticketsMuammoDone.length}
+      >
+        {ticketsMuammoDone.map((t) => (
+          <DoneCard
+            key={t.id}
+            restaurantName={t.client.restaurantName}
+            fullName={t.client.fullName}
+            region={t.client.region}
+            phone={t.client.phone}
+            meta={t.resolvedAt ? formatDate(t.resolvedAt) : ""}
+            note={t.resolutionNote}
+          />
+        ))}
+      </KanbanColumn>
+    </KanbanBoard>
+  );
+
   const activeCount = {
+    muammolar: mOchiq.length + mJarayonda.length + mMuammo.length,
     eskalatsiya:
       eBiriktirildi.length + eYoldaman.length + eBordim.length + eMuammo.length,
     qaytarish: qBiriktirilgan.length + qYolda.length + qMuammo.length,
@@ -595,6 +756,14 @@ export default async function VazifalarimPage() {
   };
 
   const tabs: TicketTab[] = [
+    {
+      key: "muammolar",
+      label: "Muammolar",
+      icon: <Wrench className="h-4 w-4" />,
+      tone: "violet",
+      count: activeCount.muammolar,
+      content: muammoBoard,
+    },
     {
       key: "eskalatsiya",
       label: "Eskalatsiya",
@@ -622,7 +791,10 @@ export default async function VazifalarimPage() {
   ];
 
   const totalActive =
-    activeCount.eskalatsiya + activeCount.qaytarish + activeCount.versiya;
+    activeCount.muammolar +
+    activeCount.eskalatsiya +
+    activeCount.qaytarish +
+    activeCount.versiya;
 
   return (
     <div className="space-y-5">
@@ -631,17 +803,18 @@ export default async function VazifalarimPage() {
           Vazifalarim
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Sizga biriktirilgan eskalatsiya, qaytarish va versiya so'rovlari
+          Sizga biriktirilgan muammo, eskalatsiya, qaytarish va versiya so'rovlari
         </p>
       </div>
 
       {totalActive === 0 &&
+      ticketsMuammoDone.length === 0 &&
       escalatedDone.length === 0 &&
       returnsDone.length === 0 &&
       ticketsDone.length === 0 ? (
         <EmptyState icon={HardHat} title="Sizga hali vazifa biriktirilmagan" />
       ) : (
-        <TicketTabs tabs={tabs} initialKey="eskalatsiya" />
+        <TicketTabs tabs={tabs} initialKey="muammolar" />
       )}
     </div>
   );

@@ -19,26 +19,47 @@ export type AssignState = { ok: boolean; error?: string };
 
 export type UstaProfileState = { ok: boolean; error?: string };
 
-/** Usta o'z telefon raqamini o'zi yangilaydi — admin/menejer ham /ustalar'da ko'radi. */
-export async function updateMyPhone(phone: string): Promise<UstaProfileState> {
+/**
+ * Usta o'z ism-familiyasi, yashash manzili, qoplaydigan viloyatlari va
+ * telefon raqamini o'zi yangilaydi — bir xil `User` yozuvi, /ustalar va
+ * /malumotnoma'da ham darhol ko'rinadi (admin/menejer o'sha yerdan ham
+ * tahrirlay oladi, ikkalasi ham yozadi).
+ */
+export async function updateMyProfile(input: {
+  name: string;
+  address?: string;
+  regions?: string[];
+  phone?: string;
+}): Promise<UstaProfileState> {
   const session = await requireSession();
   if (session.role !== "INSTALLER") return { ok: false, error: "Ruxsat yo'q" };
 
-  const cleaned = (phone ?? "").trim();
-  if (!cleaned) return { ok: false, error: "Telefon raqamini kiriting" };
+  const name = (input.name ?? "").trim();
+  if (!name) return { ok: false, error: "Ism kiriting" };
+
+  const regs = (input.regions ?? []).map((r) => r.trim()).filter(Boolean);
+  const address = (input.address ?? "").trim();
+  const phone = (input.phone ?? "").trim();
 
   await db.user.update({
     where: { id: session.userId },
-    data: { phone: cleaned },
+    data: {
+      name,
+      address: address || null,
+      region: regs[0] ?? null,
+      regions: regs.length ? regs.join(",") : null,
+      phone: phone || null,
+    },
   });
-  await logAudit("Usta telefonini o'zi yangiladi", {
+  await logAudit("Usta o'z ma'lumotlarini yangiladi", {
     entity: "User",
     entityId: session.userId,
   });
-  // Bir xil User yozuvi — telefon /ustalar, /malumotnoma va /vazifalarim'da ham darhol yangilanadi.
+  // Bir xil User yozuvi — /ustalar, /malumotnoma va /vazifalarim'da ham darhol yangilanadi.
   revalidatePath("/vazifalarim");
   revalidatePath("/ustalar");
   revalidatePath("/malumotnoma");
+  revalidatePath("/profil");
   return { ok: true };
 }
 

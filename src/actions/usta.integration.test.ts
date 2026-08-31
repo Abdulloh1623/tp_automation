@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "@/lib/db";
 import {
   updateUstaStatus,
-  updateMyPhone,
+  updateMyProfile,
   changeMyPassword,
   blockUstaTask,
   unblockUstaTask,
@@ -65,27 +65,36 @@ describe("updateUstaStatus — usta o'zi (veb login)", () => {
   });
 });
 
-describe("updateMyPhone — usta o'z telefonini o'zi yangilaydi", () => {
+describe("updateMyProfile — usta o'z ma'lumotlarini o'zi yangilaydi", () => {
   beforeEach(async () => {
     await resetDb();
   });
 
-  it("o'z telefonini yangilay oladi", async () => {
+  it("ism, manzil, viloyatlar va telefonni yangilay oladi", async () => {
     const usta = await makeUser("INSTALLER");
     await loginAs(usta);
 
-    const res = await updateMyPhone("+998901234567");
+    const res = await updateMyProfile({
+      name: "Yangi Ism",
+      address: "Toshkent, Chilonzor",
+      regions: ["Toshkent", "Andijon"],
+      phone: "+998901234567",
+    });
 
     expect(res.ok).toBe(true);
     const after = await db.user.findUnique({ where: { id: usta.id } });
+    expect(after!.name).toBe("Yangi Ism");
+    expect(after!.address).toBe("Toshkent, Chilonzor");
+    expect(after!.region).toBe("Toshkent");
+    expect(after!.regions).toBe("Toshkent,Andijon");
     expect(after!.phone).toBe("+998901234567");
   });
 
-  it("bo'sh telefon qabul qilinmaydi", async () => {
+  it("bo'sh ism qabul qilinmaydi", async () => {
     const usta = await makeUser("INSTALLER");
     await loginAs(usta);
 
-    const res = await updateMyPhone("   ");
+    const res = await updateMyProfile({ name: "   " });
 
     expect(res.ok).toBe(false);
   });
@@ -94,7 +103,7 @@ describe("updateMyPhone — usta o'z telefonini o'zi yangilaydi", () => {
     const operator = await makeUser("OPERATOR");
     await loginAs(operator);
 
-    const res = await updateMyPhone("+998901234567");
+    const res = await updateMyProfile({ name: "Boshqa Ism", phone: "+998901234567" });
 
     expect(res.ok).toBe(false);
     const after = await db.user.findUnique({ where: { id: operator.id } });

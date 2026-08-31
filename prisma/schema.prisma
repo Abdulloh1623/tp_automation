@@ -205,6 +205,11 @@ model Client {
   ustaBlocked     Boolean   @default(false)
   ustaBlockedNote String?
   ustaBlockedAt   DateTime?
+  // Eskalatsiya kanban'ining dinamik ORTADAGI bosqichi (PipelineStage.key,
+  // pipeline=ESKALATSIYA) — `ustaStatus`dan ATAYLAB ALOHIDA: `ustaStatus`
+  // qaytarish oqimi (actions/equipment.ts) tomonidan ham yoziladi, shu
+  // sabab eskalatsiyaga tegishli dinamik bosqich shu yangi ustunda saqlanadi.
+  escalationStageKey String?
 
   // Maxsus (doimiy) izoh — mijoz nomi yonida qo'ng'iroqcha bilan
   specialNote     String?
@@ -580,4 +585,22 @@ model TaxConnection {
 
   @@index([clientId])
   @@index([status])
+}
+
+// Muammolar/Eskalatsiya/Qaytarish/Yangi versiya kanban'ining boshlanish va
+// yakun ORASIDAGI ish-bosqichlari — admin CRUD qiladi (/sozlamalar). Har
+// pipeline'ning boshlanish/yakun kaliti `lib/constants.ts`dagi
+// `PIPELINE_ANCHORS`da qattiq — bu jadval faqat ORTADAGI bosqichlarni
+// saqlaydi. `key` — Ticket.status/Client.escalationStageKey/
+// EquipmentReturnRequest.status'da haqiqatan saqlanadigan qiymat.
+model PipelineStage {
+  id        String   @id @default(cuid())
+  pipeline  String // MUAMMOLAR | VERSIYA | ESKALATSIYA | QAYTARISH
+  key       String
+  label     String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([pipeline, key])
+  @@index([pipeline, order])
 }

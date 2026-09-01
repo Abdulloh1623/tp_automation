@@ -149,7 +149,8 @@ function AssignRow({
  */
 export function TicketIntegratorControl({
   ticketId,
-  canAssign,
+  canAssignStaff,
+  canAssignUsta,
   staff,
   staffNote,
   xodimlar,
@@ -158,7 +159,11 @@ export function TicketIntegratorControl({
   ustalar,
 }: {
   ticketId: string;
-  canAssign: boolean;
+  /** Mas'ul TP xodimni tayinlash/olib tashlash — faqat boshliq/admin (triage). */
+  canAssignStaff: boolean;
+  /** Ustaga biriktirish/olib tashlash — boshliq/admin ISTALGANini, OPERATOR esa
+   *  faqat O'ZIGA (mas'ul xodim sifatida) biriktirilgan muammoni. */
+  canAssignUsta: boolean;
   staff: Assigned;
   staffNote: string | null;
   xodimlar: IntegratorOpt[];
@@ -173,7 +178,7 @@ export function TicketIntegratorControl({
         assigned={staff}
         note={staffNote}
         options={xodimlar}
-        canAssign={canAssign}
+        canAssign={canAssignStaff}
         action={(id, note) => assignTicketStaff(ticketId, id, note)}
       />
       {(staff || usta) && (
@@ -182,7 +187,7 @@ export function TicketIntegratorControl({
           assigned={usta}
           note={ustaNote}
           options={ustalar}
-          canAssign={canAssign}
+          canAssign={canAssignUsta}
           action={(id, note) => assignTicketUsta(ticketId, id, note)}
         />
       )}

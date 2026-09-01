@@ -5,7 +5,6 @@ import {
   DownloadCloud,
   Inbox,
   UserCheck,
-  HardHat,
   CheckCircle2,
   AlertTriangle,
 } from "lucide-react";
@@ -34,6 +33,7 @@ import { formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 import { slaThreshold } from "@/lib/sla";
 import { tzDayStartFromInput } from "@/lib/tz";
 import { assignedStaffScope, isManagerRole } from "@/lib/visibility";
+import { getFullChain, labelFor, type StageStep } from "@/lib/pipeline-stages";
 import type { Bolim } from "./section-tabs";
 
 // Hal qilingan bo'limida ko'rsatiladigan maksimal karta (tarix o'smasin).
@@ -135,126 +135,124 @@ export async function TicketsSection({
 
   const where: Prisma.TicketWhereInput = { ...scope, AND: filterAnd };
 
-  // Bo'lim (Yangi/TP xodimiga biriktirildi/Ustaga yetkazildi/Hal) sanog'i —
-  // endi filtrga MOS (turi/ustuvorlik/mas'ul tanlanganda tab sonlari ham
-  // shunga qarab o'zgaradi). Ketma-ketlik: mas'ul xodim biriktirilmaguncha
-  // "yangi", biriktirilgach "xodimga", usta ham qo'shilgach "ustaga".
-  const unassignedScope: Prisma.TicketWhereInput = {
-    ...scope,
-    AND: filterAnd,
-    status: { not: "RESOLVED" },
-    assignedStaffId: null,
-    assignedUstaId: null,
-  };
-  const staffOnlyScope: Prisma.TicketWhereInput = {
-    ...scope,
-    AND: filterAnd,
-    status: { not: "RESOLVED" },
-    assignedStaffId: { not: null },
-    assignedUstaId: null,
-  };
-  const withUstaScope: Prisma.TicketWhereInput = {
-    ...scope,
-    AND: filterAnd,
-    status: { not: "RESOLVED" },
-    assignedUstaId: { not: null },
-  };
-
-  const [
-    ticketsRaw,
-    clients,
-    xodimlar,
-    ustalarFull,
-    yangiTotal,
-    staffOnlyTotal,
-    ustaTotal,
-    halTotal,
-    slaBreached,
-  ] = await Promise.all([
-    db.ticket.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      include: {
-        client: {
-          select: {
-            id: true,
-            restaurantName: true,
-            fullName: true,
-            phone: true,
-            specialNote: true,
-            specialNoteAt: true,
-            specialNoteBy: { select: { name: true } },
-            // Eng so'nggi bir nechtasi: birinchisi (calledAt bo'yicha) "oxirgi
-            // harakat sanasi"ga, izohli birinchisi "oxirgi izoh"ga ishlatiladi.
-            callLogs: {
-              orderBy: { calledAt: "desc" },
-              take: 5,
-              select: {
-                note: true,
-                calledAt: true,
-                operator: { select: { name: true } },
+  const [ticketsRaw, clients, xodimlar, ustalarFull, slaBreached] =
+    await Promise.all([
+      db.ticket.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        include: {
+          client: {
+            select: {
+              id: true,
+              restaurantName: true,
+              fullName: true,
+              phone: true,
+              specialNote: true,
+              specialNoteAt: true,
+              specialNoteBy: { select: { name: true } },
+              // Eng so'nggi bir nechtasi: birinchisi (calledAt bo'yicha) "oxirgi
+              // harakat sanasi"ga, izohli birinchisi "oxirgi izoh"ga ishlatiladi.
+              callLogs: {
+                orderBy: { calledAt: "desc" },
+                take: 5,
+                select: {
+                  note: true,
+                  calledAt: true,
+                  operator: { select: { name: true } },
+                },
               },
             },
           },
+          assignedTo: { select: { name: true } },
+          assignedUsta: { select: { id: true, name: true, phone: true } },
+          assignedStaff: { select: { id: true, name: true, phone: true } },
         },
-        assignedTo: { select: { name: true } },
-        assignedUsta: { select: { id: true, name: true, phone: true } },
-        assignedStaff: { select: { id: true, name: true, phone: true } },
-      },
-    }),
-    db.client.findMany({
-      select: { id: true, restaurantName: true, fullName: true },
-      orderBy: { restaurantName: "asc" },
-    }),
-    db.user.findMany({
-      where: { role: { in: ["ADMIN", "MANAGER", "OPERATOR"] }, isActive: true },
-      select: { id: true, name: true, phone: true },
-      orderBy: { name: "asc" },
-    }),
-    db.user.findMany({
-      where: { role: "INSTALLER", isActive: true },
-      select: { id: true, name: true, phone: true },
-      orderBy: { name: "asc" },
-    }),
-    db.ticket.count({ where: unassignedScope }),
-    db.ticket.count({ where: staffOnlyScope }),
-    db.ticket.count({ where: withUstaScope }),
-    db.ticket.count({
-      where: { ...scope, AND: filterAnd, status: "RESOLVED" },
-    }),
-    db.ticket.count({
-      where: {
-        ...scope,
-        AND: filterAnd,
-        status: { not: "RESOLVED" },
-        createdAt: { lt: slaThreshold() },
-      },
-    }),
-  ]);
+      }),
+      db.client.findMany({
+        select: { id: true, restaurantName: true, fullName: true },
+        orderBy: { restaurantName: "asc" },
+      }),
+      db.user.findMany({
+        where: { role: { in: ["ADMIN", "MANAGER", "OPERATOR"] }, isActive: true },
+        select: { id: true, name: true, phone: true },
+        orderBy: { name: "asc" },
+      }),
+      db.user.findMany({
+        where: { role: "INSTALLER", isActive: true },
+        select: { id: true, name: true, phone: true },
+        orderBy: { name: "asc" },
+      }),
+      db.ticket.count({
+        where: {
+          ...scope,
+          AND: filterAnd,
+          status: { not: "RESOLVED" },
+          createdAt: { lt: slaThreshold() },
+        },
+      }),
+    ]);
 
-  // Ko'rsatilayotgan (filtrlangan) ticketlarni to'rt bosqichga ajratamiz:
-  // Yangi → TP xodimiga biriktirildi → Ustaga yetkazildi → Hal qilindi.
+  // "Muammolar" — dinamik bosqichlar zanjiri (Yangi → admin qo'shgan
+  // ish-bosqichlari → Hal qilindi), `Ticket.status` bo'yicha. "Yangi versiya"
+  // hozircha eski (assignment-asosli) tuzilmada qoladi — alohida ulanadi.
+  let chain: StageStep[] = [];
+  const stageCounts: Record<string, number> = {};
+  let yangiTotal = 0;
+  let staffOnlyTotal = 0;
+  let ustaTotal = 0;
+  let halTotal = 0;
+
+  if (isVersion) {
+    const unassignedScope: Prisma.TicketWhereInput = {
+      ...scope,
+      AND: filterAnd,
+      status: { not: "RESOLVED" },
+      assignedStaffId: null,
+      assignedUstaId: null,
+    };
+    const staffOnlyScope: Prisma.TicketWhereInput = {
+      ...scope,
+      AND: filterAnd,
+      status: { not: "RESOLVED" },
+      assignedStaffId: { not: null },
+      assignedUstaId: null,
+    };
+    const withUstaScope: Prisma.TicketWhereInput = {
+      ...scope,
+      AND: filterAnd,
+      status: { not: "RESOLVED" },
+      assignedUstaId: { not: null },
+    };
+    [yangiTotal, staffOnlyTotal, ustaTotal, halTotal] = await Promise.all([
+      db.ticket.count({ where: unassignedScope }),
+      db.ticket.count({ where: staffOnlyScope }),
+      db.ticket.count({ where: withUstaScope }),
+      db.ticket.count({ where: { ...scope, AND: filterAnd, status: "RESOLVED" } }),
+    ]);
+  } else {
+    chain = await getFullChain("MUAMMOLAR");
+    const counts = await Promise.all(
+      chain.map((s) => db.ticket.count({ where: { ...scope, AND: filterAnd, status: s.key } })),
+    );
+    chain.forEach((s, i) => (stageCounts[s.key] = counts[i]));
+    halTotal = stageCounts[chain[chain.length - 1]?.key] ?? 0;
+  }
+
+  // "Yangi versiya" — hozircha assignment-asosli bo'lib olish (o'zgarmadi).
   const yangi = ticketsRaw.filter(
     (t) => t.status !== "RESOLVED" && !t.assignedStaffId && !t.assignedUstaId,
   );
-  const staffAssigned = ticketsRaw.filter(
-    (t) => t.status !== "RESOLVED" && t.assignedStaffId && !t.assignedUstaId,
+  // Mas'ul XOH xodim, XOH usta bo'lishi mumkin — bitta bosqich
+  // (`VersionAssigneeControl` bir vaqtda faqat bittasini yozadi, shu bois
+  // o'zaro eksklyuziv — birlashtirish xavfsiz).
+  const assignedActive = ticketsRaw.filter(
+    (t) => t.status !== "RESOLVED" && (t.assignedStaffId || t.assignedUstaId),
   );
-  const withUsta = ticketsRaw.filter(
-    (t) => t.status !== "RESOLVED" && t.assignedUstaId,
-  );
-  // "Yangi versiya"da mas'ul XOH xodim, XOH usta bo'lishi mumkin — bitta
-  // bosqich (`VersionAssigneeControl` bir vaqtda faqat bittasini yozadi, shu
-  // bois o'zaro eksklyuziv — birlashtirish xavfsiz).
-  const assignedActive = isVersion
-    ? ticketsRaw.filter(
-        (t) =>
-          t.status !== "RESOLVED" && (t.assignedStaffId || t.assignedUstaId),
-      )
-    : staffAssigned;
   const hal = ticketsRaw.filter((t) => t.status === "RESOLVED");
 
-  const openCount = yangiTotal + staffOnlyTotal + ustaTotal;
+  const openCount = isVersion
+    ? yangiTotal + staffOnlyTotal + ustaTotal
+    : chain.slice(0, -1).reduce((sum, s) => sum + (stageCounts[s.key] ?? 0), 0);
   const hasFilter = !!(
     (!isVersion && type) ||
     priority ||
@@ -313,7 +311,10 @@ export async function TicketsSection({
           <div className="flex flex-wrap items-center gap-1.5">
             <TicketTypeBadge type={t.type} />
             <TicketPriorityBadge priority={t.priority} />
-            <TicketStatusBadge status={t.status} />
+            <TicketStatusBadge
+              status={t.status}
+              label={isVersion ? undefined : labelFor(chain, t.status)}
+            />
           </div>
         </div>
 
@@ -393,7 +394,7 @@ export async function TicketsSection({
               blockedNote={t.blockedNote}
             />
           ) : (
-            <TicketStatusControl ticketId={t.id} status={t.status} />
+            <TicketStatusControl ticketId={t.id} status={t.status} chain={chain} />
           )}
           {/* Xato ochilgan muammoni boshliq bir bosishda yopadi */}
           {canAssign && t.status !== "RESOLVED" && (
@@ -431,73 +432,72 @@ export async function TicketsSection({
     );
   }
 
-  // Bosqichlar: "Muammolar" — Yangi → TP xodimiga biriktirildi → Ustaga
-  // yetkazildi → Hal qilindi. "Yangi versiya" — usta bosqichi yo'q (joyida
-  // hal etish talab qilinmaydi): Yangi → TP xodimiga biriktirildi → Versiya
-  // yangilandi. OPERATOR "Yangi"ni ko'rmaydi — scope ularga faqat o'ziga
-  // biriktirilganlarni beradi, shuning uchun bo'sh tab foydasiz bo'lardi.
+  // "Yangi versiya" — eski, assignment-asosli bo'limlar (o'zgarmadi): Yangi →
+  // Biriktirildi → Versiya yangilandi. OPERATOR "Yangi"ni ko'rmaydi — scope
+  // ularga faqat o'ziga biriktirilganlarni beradi.
+  //
+  // "Muammolar" — DINAMIK bosqichlar zanjiri (`PipelineStage`, /sozlamalar
+  // dan admin CRUD qiladi): Yangi → [admin qo'shgan ish-bosqichlari] → Hal
+  // qilindi, `Ticket.status` bo'yicha bo'lib olinadi. Assignment (mas'ul
+  // xodim/usta) endi bosqichdan MUSTAQIL — har bir kartada ko'rinadi, tab
+  // emas (kerak bo'lsa "Usta" filtridan qidiriladi).
   const tabs: TicketTab[] = [];
-  if (canAssign) {
+  if (isVersion) {
+    if (canAssign) {
+      tabs.push({
+        key: "yangi",
+        label: "Yangi",
+        icon: <Inbox className="h-4 w-4" />,
+        tone: "red",
+        count: yangiTotal,
+        content: panel(yangi, "Yangi versiya so'rovi yo'q."),
+      });
+    }
     tabs.push({
-      key: "yangi",
-      label: "Yangi",
-      icon: <Inbox className="h-4 w-4" />,
-      tone: "red", // yangi tushgan muammolar — qizil (e'tibor talab qiladi)
-      count: yangiTotal,
+      key: "xodimga",
+      label: "Biriktirildi",
+      icon: <UserCheck className="h-4 w-4" />,
+      tone: canAssign ? "amber" : "red",
+      count: staffOnlyTotal + ustaTotal,
       content: panel(
-        yangi,
-        isVersion
-          ? "Yangi versiya so'rovi yo'q."
-          : "Biriktirilmagan yangi muammo yo'q.",
+        assignedActive,
+        canAssign
+          ? "Biriktirilgan versiya so'rovi yo'q."
+          : "Sizga biriktirilgan versiya so'rovi yo'q.",
       ),
     });
-  }
-  tabs.push({
-    key: "xodimga",
-    label: isVersion ? "Biriktirildi" : "TP xodimiga biriktirildi",
-    icon: <UserCheck className="h-4 w-4" />,
-    // Admin/menejerda sariq (nazorat), xodimda qizil (bajarilishi kutilmoqda)
-    tone: canAssign ? "amber" : "red",
-    count: isVersion ? staffOnlyTotal + ustaTotal : staffOnlyTotal,
-    content: panel(
-      assignedActive,
-      isVersion
-        ? canAssign
-          ? "Biriktirilgan versiya so'rovi yo'q."
-          : "Sizga biriktirilgan versiya so'rovi yo'q."
-        : canAssign
-          ? "TP xodimiga biriktirilgan (ustaga yetkazilmagan) muammo yo'q."
-          : "Sizga biriktirilgan, ustaga yetkazilmagan muammo yo'q.",
-    ),
-  });
-  if (!isVersion) {
     tabs.push({
-      key: "ustaga",
-      label: "Ustaga yetkazildi",
-      icon: <HardHat className="h-4 w-4" />,
-      tone: "sky",
-      count: ustaTotal,
-      content: panel(withUsta, "Ustaga yetkazilgan muammo yo'q."),
+      key: "hal",
+      label: "Versiya yangilandi",
+      icon: <DownloadCloud className="h-4 w-4" />,
+      tone: "emerald",
+      count: halTotal,
+      content: panel(hal, "Versiyasi yangilangan so'rov yo'q.", true),
+    });
+  } else {
+    chain.forEach((stage, i) => {
+      const isInitial = i === 0;
+      const isTerminal = i === chain.length - 1;
+      tabs.push({
+        key: stage.key,
+        label: stage.label,
+        icon: isInitial ? (
+          <Inbox className="h-4 w-4" />
+        ) : isTerminal ? (
+          <CheckCircle2 className="h-4 w-4" />
+        ) : (
+          <Wrench className="h-4 w-4" />
+        ),
+        tone: isInitial ? "red" : isTerminal ? "emerald" : "amber",
+        count: stageCounts[stage.key] ?? 0,
+        content: panel(
+          ticketsRaw.filter((t) => t.status === stage.key),
+          `"${stage.label}" bosqichida muammo yo'q.`,
+          isTerminal,
+        ),
+      });
     });
   }
-  tabs.push({
-    key: "hal",
-    label: isVersion ? "Versiya yangilandi" : "Hal qilingan",
-    icon: isVersion ? (
-      <DownloadCloud className="h-4 w-4" />
-    ) : (
-      <CheckCircle2 className="h-4 w-4" />
-    ),
-    tone: "emerald",
-    count: halTotal,
-    content: panel(
-      hal,
-      isVersion
-        ? "Versiyasi yangilangan so'rov yo'q."
-        : "Hal qilingan muammo yo'q.",
-      true,
-    ),
-  });
 
   return (
     <div className="space-y-5">
@@ -549,7 +549,9 @@ export async function TicketsSection({
           ) : (
             <TicketTabs
               tabs={tabs}
-              initialKey={canAssign ? "yangi" : "xodimga"}
+              initialKey={
+                isVersion ? (canAssign ? "yangi" : "xodimga") : (chain[0]?.key ?? "")
+              }
             />
           )}
         </div>

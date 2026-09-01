@@ -8,9 +8,8 @@ import {
   NO_CONTACT_STAGES,
   OFF_BOARD_STAGES,
   USER_SHIFT,
-  leadProfileLabel,
-  profileOrder,
-  type LeadProfileId,
+  focusLabel,
+  focusOrder,
   type LeadSegment,
   type UserShift,
 } from "@/lib/constants";
@@ -41,7 +40,6 @@ export type DistributeResult = {
   /** Qaysi smena uchun taqsimlandi (bo'sh — barcha operatorlarga). */
   shift?: UserShift;
   shiftLabel?: string;
-  profile?: LeadProfileId;
   profileLabel?: string;
   todayOnly?: boolean;
   error?: string;
@@ -169,7 +167,7 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
 
   const now = new Date();
   const active = await getActiveLeadProfile(now);
-  const order = profileOrder(active.id);
+  const order = focusOrder(active.selection);
   const { policy } = await getRecallSettings();
 
   // Qarzdor bilan bugun gaplashilgan bo'lsa, ertaga qayta ko'rsatmaymiz —
@@ -316,7 +314,7 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
   }
 
   const kept = [...locked.values()].reduce((s, n) => s + n, 0);
-  const label = leadProfileLabel(active.id);
+  const label = focusLabel(active.selection);
   const shiftLabel = shift ? USER_SHIFT[shift] : undefined;
   await logAudit("Lidlar kunlik taqsimlandi", {
     entity: "Client",
@@ -344,7 +342,6 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
     pulled,
     shift,
     shiftLabel,
-    profile: active.id,
     profileLabel: label,
     todayOnly: active.todayOnly,
     usedFallbackRoster: usedFallback,

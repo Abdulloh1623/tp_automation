@@ -57,8 +57,10 @@ const session: SessionPayload = {
 const receipt = { buffer: Buffer.from("x"), mime: "image/png" };
 const fields = { amount: 349000, currency: "UZS", days: 30, method: "CARD" };
 
-// Mijozning joriy to'lov sanasi kelajakda
-const FUTURE = new Date("2026-09-01T12:00:00Z");
+// Mijozning joriy to'lov sanasi kelajakda — testning o'zi qachon ishlashidan
+// qat'i nazar "kelajak" bo'lib qolishi uchun HAR DOIM joriy vaqtdan nisbiy
+// (qattiq sana emas — u vaqt o'tishi bilan o'zi "o'tmish"ga aylanib qolardi).
+const FUTURE = new Date(Date.now() + 60 * 86400000);
 
 beforeEach(() => {
   vi.clearAllMocks();

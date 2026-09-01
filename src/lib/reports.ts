@@ -6,8 +6,8 @@ import { formatMoney } from "./utils";
 import {
   callResultLabel,
   clientStatusLabel,
-  leadProfileLabel,
-  profileOrder,
+  focusLabel,
+  focusOrder,
   SHIFT_REPORT,
   TALKED_RESULTS,
   type LeadSegment,
@@ -292,7 +292,7 @@ function snapshotLines(s: Awaited<ReturnType<typeof snapshot>>): string {
  */
 async function focusLine(start: Date, end: Date): Promise<string> {
   const active = await getActiveLeadProfile();
-  const order = profileOrder(active.id);
+  const order = focusOrder(active.selection);
 
   const focusSegments = new Set<LeadSegment>();
   let acc = 0;
@@ -335,7 +335,7 @@ async function focusLine(start: Date, end: Date): Promise<string> {
   }
 
   return (
-    `🎯 Fokus: <b>${escapeHtml(leadProfileLabel(active.id))}</b>` +
+    `🎯 Fokus: <b>${escapeHtml(focusLabel(active.selection))}</b>` +
     (active.todayOnly ? " <i>(faqat bugunga)</i>" : "") +
     ` — taqsimotda ${inFocus.length} ta fokus lidi, ${talked} tasi bilan gaplashildi`
   );

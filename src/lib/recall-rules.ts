@@ -165,6 +165,8 @@ export type LoadPolicy = {
   newClientMonths: number;
   /** Yangi mijoz bilan aloqa oralig'i shundan oshmasin (kun). */
   newClientMaxDays: number;
+  /** Kechki smena operatoriga kunduzgidan necha % kam lid berilsin. 0 = teng. */
+  nightShiftDiscountPercent: number;
 };
 
 export const DEFAULT_LOAD_POLICY: LoadPolicy = {
@@ -174,6 +176,7 @@ export const DEFAULT_LOAD_POLICY: LoadPolicy = {
   escalationThreshold: 3,
   newClientMonths: 3,
   newClientMaxDays: 3,
+  nightShiftDiscountPercent: 40,
 };
 
 export const LOAD_POLICY_BOUNDS = {
@@ -183,6 +186,7 @@ export const LOAD_POLICY_BOUNDS = {
   escalationThreshold: { min: 1, max: 20 },
   newClientMonths: { min: 0, max: 24 },
   newClientMaxDays: { min: 0, max: 90 },
+  nightShiftDiscountPercent: { min: 0, max: 90 },
 } as const;
 
 export function mergeLoadPolicy(raw: unknown): LoadPolicy {

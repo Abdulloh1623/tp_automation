@@ -19,6 +19,7 @@ const LEAD_PROFILE_KEY = "leadPriorityProfile";
 const LEAD_PROFILE_OVERRIDE_KEY = "leadPriorityOverride";
 const RECALL_RULES_KEY = "leadRecallRules";
 const LOAD_POLICY_KEY = "leadLoadPolicy";
+const DAY_AUTO_LIMIT_KEY = "dayAutoLimit";
 
 /**
  * Tablo (jonli taxta) ko'rsatkichlari shu sanadan boshlab hisoblanadi. null =
@@ -88,6 +89,33 @@ export async function setLoadPolicy(policy: LoadPolicy): Promise<void> {
     where: { key: LOAD_POLICY_KEY },
     create: { key: LOAD_POLICY_KEY, value },
     update: { value },
+  });
+}
+
+/**
+ * Bugungi KUNDUZGI avtomatik kvota (`distributeLeadsCore`) — DAY va NIGHT
+ * odatda alohida cron chaqiruvida ishlaydi (bir-birining operatorini
+ * ko'rmaydi), shu bois kechki smena ulushini hisoblash uchun kunduzgi
+ * qiymat shu kunga saqlanadi. Boshqa kunning eski qiymati qaytarilmaydi.
+ */
+export async function getTodayDayAutoLimit(now = new Date()): Promise<number | null> {
+  const row = await db.appSetting.findUnique({ where: { key: DAY_AUTO_LIMIT_KEY } });
+  if (!row) return null;
+  try {
+    const o = JSON.parse(row.value) as { day?: string; value?: number };
+    if (o.day === tzDayKey(now) && Number.isFinite(o.value)) return o.value!;
+  } catch {
+    // buzilgan qiymat — e'tiborsiz qoldiramiz
+  }
+  return null;
+}
+
+export async function setTodayDayAutoLimit(value: number, now = new Date()): Promise<void> {
+  const v = JSON.stringify({ day: tzDayKey(now), value });
+  await db.appSetting.upsert({
+    where: { key: DAY_AUTO_LIMIT_KEY },
+    create: { key: DAY_AUTO_LIMIT_KEY, value: v },
+    update: { value: v },
   });
 }
 

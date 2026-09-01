@@ -113,9 +113,9 @@ beforeEach(() => {
     },
   });
   getActiveLeadProfile.mockResolvedValue({
-    id: "BALANCED",
+    selection: { kind: "preset", id: "BALANCED" },
     todayOnly: false,
-    defaultId: "BALANCED",
+    defaultSelection: { kind: "preset", id: "BALANCED" },
   });
   clientUpdateMany.mockImplementation(countByIds);
 });
@@ -178,9 +178,9 @@ describe("distributeLeadsCore", () => {
     setPool(pool);
     // Fokus "yangi mijozlar" — qarzdorlarni ataylab pastga suradi
     getActiveLeadProfile.mockResolvedValue({
-      id: "NEW_CLIENTS",
+      selection: { kind: "preset", id: "NEW_CLIENTS" },
       todayOnly: true,
-      defaultId: "BALANCED",
+      defaultSelection: { kind: "preset", id: "BALANCED" },
     });
 
     const r = await distributeLeadsCore();
@@ -215,9 +215,9 @@ describe("distributeLeadsCore", () => {
     setPool(pool);
 
     getActiveLeadProfile.mockResolvedValue({
-      id: "PAYMENT",
+      selection: { kind: "preset", id: "PAYMENT" },
       todayOnly: false,
-      defaultId: "BALANCED",
+      defaultSelection: { kind: "preset", id: "BALANCED" },
     });
     await distributeLeadsCore();
     const payFocus = assignedIds();
@@ -230,9 +230,9 @@ describe("distributeLeadsCore", () => {
     userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: 50 }]);
     setPool(pool);
     getActiveLeadProfile.mockResolvedValue({
-      id: "NEW_CLIENTS",
+      selection: { kind: "preset", id: "NEW_CLIENTS" },
       todayOnly: false,
-      defaultId: "BALANCED",
+      defaultSelection: { kind: "preset", id: "BALANCED" },
     });
     await distributeLeadsCore();
     const newFocus = assignedIds();
@@ -251,9 +251,9 @@ describe("distributeLeadsCore", () => {
       ),
     ]);
     getActiveLeadProfile.mockResolvedValue({
-      id: "PAYMENT",
+      selection: { kind: "preset", id: "PAYMENT" },
       todayOnly: false,
-      defaultId: "BALANCED",
+      defaultSelection: { kind: "preset", id: "BALANCED" },
     });
 
     await distributeLeadsCore();

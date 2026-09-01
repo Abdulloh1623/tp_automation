@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { LeadTable, type LeadRow, type LeadHistory } from "@/components/lead-table";
 import { OperatorProgress } from "@/components/operator-progress";
 import { getOperatorDailyStats } from "@/lib/analytics";
-import { ACTIVE_STAGES, NO_CONTACT_STAGES, OFF_BOARD_STAGES, profileOrder } from "@/lib/constants";
+import { ACTIVE_STAGES, NO_CONTACT_STAGES, OFF_BOARD_STAGES, focusOrder } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
 import { tzDayKey } from "@/lib/tz";
 import { getActiveLeadProfile } from "@/lib/settings";
@@ -99,7 +99,7 @@ export default async function LeadsPage({
 
   // Kunlik fokus board'ni ham tartiblaydi: ustuvorlik faqat "kimga tegdi"ni emas,
   // "kim birinchi qo'ng'iroq qilinadi"ni ham belgilashi kerak.
-  const order = profileOrder(focus.id);
+  const order = focusOrder(focus.selection);
   const segmentRank = new Map(order.map((s, i) => [s.segment, i]));
 
   // "To'lov qiladi" degan mijozdan bugun chek kelganmi — taxtadagi belgi shunga
@@ -195,7 +195,7 @@ export default async function LeadsPage({
         </div>
       </div>
 
-      <LeadFocusCard profile={focus.id} todayOnly={focus.todayOnly} canEdit={isAdmin} />
+      <LeadFocusCard selection={focus.selection} todayOnly={focus.todayOnly} canEdit={isAdmin} />
 
       <OperatorProgress initial={dailyStats} />
 

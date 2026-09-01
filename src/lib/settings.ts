@@ -2,7 +2,8 @@ import { db } from "@/lib/db";
 import {
   DEFAULT_LEAD_PROFILE,
   isLeadProfileId,
-  type LeadProfileId,
+  parseLeadFocusSelection,
+  type LeadFocusSelection,
 } from "@/lib/constants";
 import {
   mergeLoadPolicy,
@@ -92,20 +93,27 @@ export async function setLoadPolicy(policy: LoadPolicy): Promise<void> {
 }
 
 // --- Kunlik fokus (lid ustuvorlik profili) ---
+//
+// Tanlov ikki turdagi bo'lishi mumkin — tayyor profil (LEAD_PRIORITY_PROFILES)
+// yoki admin qo'lda tuzgan maxsus mezon+ulush ro'yxati (LeadFocusSelection,
+// lib/constants.ts). Saqlash formati ikkalasini ham JSON sifatida ushlaydi;
+// eski qatorlar (yalang'och profil id satri, masalan "BALANCED") ham o'qiladi
+// — migratsiya skripti shart emas, `parseLeadFocusSelection` ikkalasini ham
+// taniydi.
 
 export type ActiveLeadProfile = {
-  id: LeadProfileId;
-  /** true — bu profil FAQAT bugunga tanlangan (ertaga doimiysiga qaytadi). */
+  selection: LeadFocusSelection;
+  /** true — bu tanlov FAQAT bugunga tanlangan (ertaga doimiysiga qaytadi). */
   todayOnly: boolean;
-  /** Doimiy (fon) profil — override bo'lganda ham ko'rsatiladi. */
-  defaultId: LeadProfileId;
+  /** Doimiy (fon) tanlov — override bo'lganda ham ko'rsatiladi. */
+  defaultSelection: LeadFocusSelection;
 };
 
 /**
- * Bugun amal qiladigan profil. Doimiy profil ustiga "faqat bugunga" tanlov
+ * Bugun amal qiladigan fokus. Doimiy tanlov ustiga "faqat bugunga" tanlov
  * qo'yilishi mumkin — u UTC+5 kuni bo'yicha bog'lanadi va ertaga o'zi
  * kuchsizlanadi (admin har kuni qaror qilishga majbur emas: unutilsa, tizim
- * doimiy profil bilan ishlayveradi).
+ * doimiy tanlov bilan ishlayveradi).
  */
 export async function getActiveLeadProfile(now = new Date()): Promise<ActiveLeadProfile> {
   const rows = await db.appSetting.findMany({
@@ -113,35 +121,45 @@ export async function getActiveLeadProfile(now = new Date()): Promise<ActiveLead
   });
   const byKey = new Map(rows.map((r) => [r.key, r.value]));
 
-  const raw = byKey.get(LEAD_PROFILE_KEY);
-  const defaultId = isLeadProfileId(raw) ? raw : DEFAULT_LEAD_PROFILE;
+  const defaultSelection: LeadFocusSelection =
+    parseLeadFocusSelection(byKey.get(LEAD_PROFILE_KEY)) ?? {
+      kind: "preset",
+      id: DEFAULT_LEAD_PROFILE,
+    };
 
   const overrideRaw = byKey.get(LEAD_PROFILE_OVERRIDE_KEY);
   if (overrideRaw) {
     try {
-      const o = JSON.parse(overrideRaw) as { day?: string; profile?: string };
-      if (o.day === tzDayKey(now) && isLeadProfileId(o.profile)) {
-        return { id: o.profile, todayOnly: true, defaultId };
+      const o = JSON.parse(overrideRaw) as {
+        day?: string;
+        selection?: unknown;
+        profile?: string; // eski format
+      };
+      if (o.day === tzDayKey(now)) {
+        const sel =
+          parseLeadFocusSelection(o.selection) ??
+          (isLeadProfileId(o.profile) ? { kind: "preset" as const, id: o.profile } : null);
+        if (sel) return { selection: sel, todayOnly: true, defaultSelection };
       }
     } catch {
-      // buzilgan qiymat — e'tiborsiz qoldiramiz, doimiy profil ishlaydi
+      // buzilgan qiymat — e'tiborsiz qoldiramiz, doimiy tanlov ishlaydi
     }
   }
-  return { id: defaultId, todayOnly: false, defaultId };
+  return { selection: defaultSelection, todayOnly: false, defaultSelection };
 }
 
 /**
- * Fokus profilini o'rnatadi. `todayOnly` — faqat bugungi kunga (doimiy profil
- * o'zgarmaydi); aks holda doimiy profil almashadi va bugungi override olib
+ * Fokus tanlovini o'rnatadi. `todayOnly` — faqat bugungi kunga (doimiy tanlov
+ * o'zgarmaydi); aks holda doimiy tanlov almashadi va bugungi override olib
  * tashlanadi (aks holda eski override yangi doimiyni bekitib qolardi).
  */
-export async function setLeadProfile(
-  id: LeadProfileId,
+export async function saveLeadFocusSelection(
+  selection: LeadFocusSelection,
   todayOnly: boolean,
   now = new Date(),
 ): Promise<void> {
   if (todayOnly) {
-    const value = JSON.stringify({ day: tzDayKey(now), profile: id });
+    const value = JSON.stringify({ day: tzDayKey(now), selection });
     await db.appSetting.upsert({
       where: { key: LEAD_PROFILE_OVERRIDE_KEY },
       create: { key: LEAD_PROFILE_OVERRIDE_KEY, value },
@@ -149,10 +167,11 @@ export async function setLeadProfile(
     });
     return;
   }
+  const value = JSON.stringify(selection);
   await db.appSetting.upsert({
     where: { key: LEAD_PROFILE_KEY },
-    create: { key: LEAD_PROFILE_KEY, value: id },
-    update: { value: id },
+    create: { key: LEAD_PROFILE_KEY, value },
+    update: { value },
   });
   await db.appSetting.deleteMany({ where: { key: LEAD_PROFILE_OVERRIDE_KEY } });
 }

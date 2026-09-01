@@ -4,11 +4,14 @@
 // ro'yxatda (boshliq holatga qarab kimni kerak bo'lsa shuni tanlaydi: masalan
 // masofadan yangilansa xodim, joyida borish kerak bo'lsa usta). Umumiy
 // muammolardagi ikki bosqichli (avval xodim, keyin usta) biriktiruvdan farqli
-// — bu yerda faqat BITTA mas'ul bo'ladi.
+// — bu yerda odatda faqat BITTA mas'ul bo'ladi. Mas'ul xodim (OPERATOR) o'ziga
+// biriktirilgan so'rovda joyida borish kerak bo'lib qolsa, ustani QO'SHIMCHA
+// biriktira oladi (xodim olib tashlanmaydi) — Muammolardagi ikki qadamli
+// oqimning shu yerdagi tor ekvivalenti.
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, User as UserIcon, X } from "lucide-react";
+import { Check, User as UserIcon, Wrench, X } from "lucide-react";
 import { assignTicketStaff, assignTicketUsta } from "@/actions/tickets";
 import { toast } from "@/components/toaster";
 import { Button } from "@/components/ui/button";
@@ -18,9 +21,66 @@ import { formatPhone, normalizePhone } from "@/lib/utils";
 export type AssigneeOpt = { id: string; name: string; phone: string | null };
 type Assigned = { id: string; name: string; phone: string | null } | null;
 
+function AssignedCard({
+  label,
+  icon,
+  assigned,
+  note,
+  canRemove,
+  onRemove,
+  pending,
+  extra,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  assigned: NonNullable<Assigned>;
+  note: string | null;
+  canRemove: boolean;
+  onRemove: () => void;
+  pending: boolean;
+  extra?: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-lg bg-sky-50 dark:bg-sky-950/30 px-3 py-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        {icon}
+        <span className="font-medium text-slate-800 dark:text-slate-200">
+          {label}: {assigned.name}
+        </span>
+        {assigned.phone && (
+          <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300">
+            <a href={`tel:${normalizePhone(assigned.phone)}`} className="text-primary-600 dark:text-primary-400">
+              {formatPhone(assigned.phone)}
+            </a>
+            <PhoneCopyButton phone={assigned.phone} />
+          </span>
+        )}
+        {canRemove && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto h-7 px-2 text-xs text-red-600 dark:text-red-400"
+            disabled={pending}
+            onClick={onRemove}
+          >
+            <X className="h-3.5 w-3.5" /> Olib tashlash
+          </Button>
+        )}
+      </div>
+      {note && (
+        <p className="mt-1.5 whitespace-pre-wrap text-xs text-slate-600 dark:text-slate-300">
+          <span className="font-medium">Izoh:</span> {note}
+        </p>
+      )}
+      {extra}
+    </div>
+  );
+}
+
 export function VersionAssigneeControl({
   ticketId,
-  canAssign,
+  canAssignStaff,
+  canAssignUsta,
   staff,
   staffNote,
   usta,
@@ -29,7 +89,11 @@ export function VersionAssigneeControl({
   ustalar,
 }: {
   ticketId: string;
-  canAssign: boolean;
+  /** Mas'ul TP xodimni tayinlash/olib tashlash — faqat boshliq/admin (triage). */
+  canAssignStaff: boolean;
+  /** Ustaga biriktirish/olib tashlash — boshliq/admin ISTALGANini, OPERATOR esa
+   *  faqat O'ZIGA (mas'ul xodim sifatida) biriktirilgan so'rovni. */
+  canAssignUsta: boolean;
   staff: Assigned;
   staffNote: string | null;
   usta: Assigned;
@@ -41,15 +105,24 @@ export function VersionAssigneeControl({
   const [pending, start] = useTransition();
   const [pick, setPick] = useState("");
   const [noteText, setNoteText] = useState("");
+  const [ustaPick, setUstaPick] = useState("");
+  const [ustaNoteText, setUstaNoteText] = useState("");
 
-  const assigned = staff ?? usta;
-  const note = staff ? staffNote : ustaNote;
-
-  function remove() {
+  function removeStaff() {
     start(async () => {
-      const res = staff
-        ? await assignTicketStaff(ticketId, null)
-        : await assignTicketUsta(ticketId, null);
+      const res = await assignTicketStaff(ticketId, null);
+      if (res.ok) {
+        toast("Biriktiruv olib tashlandi", "success");
+        router.refresh();
+      } else {
+        toast(res.error ?? "Xatolik", "error");
+      }
+    });
+  }
+
+  function removeUsta() {
+    start(async () => {
+      const res = await assignTicketUsta(ticketId, null);
       if (res.ok) {
         toast("Biriktiruv olib tashlandi", "success");
         router.refresh();
@@ -78,44 +151,93 @@ export function VersionAssigneeControl({
     });
   }
 
-  if (assigned) {
+  function assignUstaAdditionally() {
+    if (!ustaPick || !ustaNoteText.trim()) return;
+    start(async () => {
+      const res = await assignTicketUsta(ticketId, ustaPick, ustaNoteText);
+      if (res.ok) {
+        toast("Ustaga biriktirildi", "success");
+        setUstaNoteText("");
+        setUstaPick("");
+        router.refresh();
+      } else {
+        toast(res.error ?? "Xatolik", "error");
+      }
+    });
+  }
+
+  // Usta bor bo'lsa — joyida hal etilmoqda, u yakuniy holat sifatida ko'rsatiladi
+  // (xodim ham hamon biriktirilgan bo'lishi mumkin — masofadan boshlab, keyin
+  // joyida davom ettirilgan holat).
+  if (usta) {
     return (
-      <div className="rounded-lg bg-sky-50 dark:bg-sky-950/30 px-3 py-2 text-sm">
-        <div className="flex flex-wrap items-center gap-2">
-          <UserIcon className="h-4 w-4 shrink-0 text-sky-500" />
-          <span className="font-medium text-slate-800 dark:text-slate-200">
-            Mas'ul: {assigned.name}
-          </span>
-          {assigned.phone && (
-            <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300">
-              <a href={`tel:${normalizePhone(assigned.phone)}`} className="text-primary-600 dark:text-primary-400">
-                {formatPhone(assigned.phone)}
-              </a>
-              <PhoneCopyButton phone={assigned.phone} />
-            </span>
-          )}
-          {canAssign && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto h-7 px-2 text-xs text-red-600 dark:text-red-400"
-              disabled={pending}
-              onClick={remove}
-            >
-              <X className="h-3.5 w-3.5" /> Olib tashlash
-            </Button>
-          )}
-        </div>
-        {note && (
-          <p className="mt-1.5 whitespace-pre-wrap text-xs text-slate-600 dark:text-slate-300">
-            <span className="font-medium">Izoh:</span> {note}
-          </p>
-        )}
-      </div>
+      <AssignedCard
+        label="Usta (joyida)"
+        icon={<Wrench className="h-4 w-4 shrink-0 text-violet-500" />}
+        assigned={usta}
+        note={ustaNote}
+        canRemove={canAssignUsta}
+        onRemove={removeUsta}
+        pending={pending}
+      />
     );
   }
 
-  if (!canAssign) {
+  if (staff) {
+    return (
+      <AssignedCard
+        label="Mas'ul"
+        icon={<UserIcon className="h-4 w-4 shrink-0 text-sky-500" />}
+        assigned={staff}
+        note={staffNote}
+        canRemove={canAssignStaff}
+        onRemove={removeStaff}
+        pending={pending}
+        extra={
+          canAssignUsta && (
+            <div className="mt-2 space-y-2 border-t border-sky-100 dark:border-sky-900 pt-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                  <Wrench className="h-3.5 w-3.5 text-violet-500" /> Joyida usta kerak bo'lsa:
+                </span>
+                <select
+                  value={ustaPick}
+                  onChange={(e) => setUstaPick(e.target.value)}
+                  className="h-8 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-sm"
+                >
+                  <option value="">Usta tanlang…</option>
+                  {ustalar.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  size="sm"
+                  disabled={pending || !ustaPick || !ustaNoteText.trim()}
+                  onClick={assignUstaAdditionally}
+                >
+                  <Check className="h-3.5 w-3.5" /> Biriktirish
+                </Button>
+              </div>
+              {ustaPick && (
+                <textarea
+                  value={ustaNoteText}
+                  onChange={(e) => setUstaNoteText(e.target.value)}
+                  maxLength={500}
+                  rows={2}
+                  placeholder="Ustaga izoh (majburiy)…"
+                  className="w-full resize-y rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-sm"
+                />
+              )}
+            </div>
+          )
+        }
+      />
+    );
+  }
+
+  if (!canAssignStaff) {
     return (
       <p className="text-xs text-slate-400 dark:text-slate-500">
         Mas'ul biriktirilmagan (boshliq biriktiradi)

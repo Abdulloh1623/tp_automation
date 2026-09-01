@@ -114,8 +114,18 @@ export async function createTicket(
       title: parsed.data.title,
       type: parsed.data.type,
       priority: parsed.data.priority,
-      status: "OPEN",
       assignedToId: client.assignedToId ?? session.userId,
+      // TP xodim (OPERATOR) o'zi ochgan muammoga avtomatik mas'ul bo'ladi —
+      // eskalatsiyaning "mas'ul=mijoz operatori avto" naqshiga o'xshash —
+      // shu bois darhol ustaga biriktira oladi (admin triage kutmasdan).
+      // ADMIN/MANAGER ochsa — avvalgidek "Yangi" (biriktirilmagan, OPEN) qoladi.
+      ...(session.role === "OPERATOR"
+        ? {
+            status: "IN_PROGRESS",
+            assignedStaffId: session.userId,
+            assigneeType: "XODIM",
+          }
+        : { status: "OPEN" }),
     },
   });
   // Muammo bo'limiga o'tkazilgan sana qo'ng'iroqlar tarixida ham qolsin
@@ -527,18 +537,32 @@ export async function assignTicketStaff(
 }
 
 /**
- * Muammoga usta (integrator, joyida) biriktirish/olib tashlash — faqat boshliq/admin.
- * Bosqichlar zanjirining oxirgi qadami: Yangi → TP xodimiga biriktirildi →
- * Ustaga yetkazildi (`TicketIntegratorControl` mas'ul xodim tayinlangandan
- * keyingina usta tanlovini ko'rsatadi). `ustaId: null` — olib tashlaydi.
+ * Muammoga usta (integrator, joyida) biriktirish/olib tashlash — boshliq/admin
+ * ISTALGANini, mas'ul TP xodim (OPERATOR) esa faqat O'ZIGA (assignedStaffId)
+ * biriktirilgan muammoga usta biriktira oladi — eskalatsiyadagi `assignUsta`
+ * bilan bir xil naqsh. Bosqichlar zanjirining oxirgi qadami: Yangi → TP
+ * xodimiga biriktirildi → Ustaga yetkazildi (`TicketIntegratorControl` mas'ul
+ * xodim tayinlangandan keyingina usta tanlovini ko'rsatadi). `ustaId: null` —
+ * olib tashlaydi.
  */
 export async function assignTicketUsta(
   ticketId: string,
   ustaId: string | null,
   note?: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const g = await guardRole(["ADMIN", "MANAGER"]);
+  const g = await guardRole(["ADMIN", "MANAGER", "OPERATOR"]);
   if (!g.ok) return { ok: false, error: g.error };
+
+  if (g.session.role === "OPERATOR") {
+    const owner = await db.ticket.findUnique({
+      where: { id: ticketId },
+      select: { assignedStaffId: true },
+    });
+    if (!owner) return { ok: false, error: "Muammo topilmadi" };
+    if (owner.assignedStaffId !== g.session.userId) {
+      return { ok: false, error: "Ruxsat yo'q" };
+    }
+  }
 
   if (!ustaId) {
     try {

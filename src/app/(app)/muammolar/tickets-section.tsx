@@ -77,6 +77,13 @@ export async function TicketsSection({
   );
   const canAssign = isManagerRole(session.role);
 
+  // Ustaga biriktirish/olib tashlash — boshliq/admin ISTALGANini, mas'ul TP
+  // xodim (OPERATOR) esa faqat O'ZIGA (assignedStaffId) biriktirilgan
+  // muammoni/so'rovni — eskalatsiyadagi `assignUsta` bilan bir xil naqsh.
+  function canAssignUstaFor(assignedStaffId: string | null): boolean {
+    return canAssign || assignedStaffId === session.userId;
+  }
+
   // TP xodim (OPERATOR) faqat o'ziga maxsus xodim qilib biriktirilgan
   // muammolarni ko'radi; ADMIN/MANAGER esa barchasini (va biriktiradi).
   const scope = assignedStaffScope(
@@ -353,7 +360,8 @@ export async function TicketsSection({
           {isVersion ? (
             <VersionAssigneeControl
               ticketId={t.id}
-              canAssign={canAssign}
+              canAssignStaff={canAssign}
+              canAssignUsta={canAssignUstaFor(t.assignedStaffId)}
               staff={t.assignedStaff ?? null}
               staffNote={t.staffNote}
               usta={t.assignedUsta ?? null}
@@ -364,7 +372,8 @@ export async function TicketsSection({
           ) : (
             <TicketIntegratorControl
               ticketId={t.id}
-              canAssign={canAssign}
+              canAssignStaff={canAssign}
+              canAssignUsta={canAssignUstaFor(t.assignedStaffId)}
               staff={t.assignedStaff ?? null}
               staffNote={t.staffNote}
               xodimlar={xodimlar}

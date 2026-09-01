@@ -513,6 +513,114 @@ export function profileOrder(id: LeadProfileId): ProfileShare[] {
   return LEAD_PRIORITY_PROFILES[id].shares.map((s) => ({ ...s }));
 }
 
+// --- Maxsus fokus (admin o'zi mezon + ulush tanlaydi) ---
+//
+// Tayyor profillar (yuqorida) tez tanlov uchun qoladi. Ular yetmasa admin
+// "Maxsus" tanlab, LEAD_SEGMENT'dan istalgan mezonlarni o'zi tanlaydi va
+// har biriga ulush (%) beradi — xuddi tayyor profil kabi, faqat qo'lda
+// tuzilgan. `OTHERS` tanlanmaydi (u mezon emas, "qolgani" degani) — qolgan
+// ulush (100 - tanlanganlar yig'indisi) unga avtomatik qo'shiladi, aks holda
+// mos kelmagan lidlar kvotaga umuman kirmay qoladi (bo'sh joy bo'sh qolardi).
+export type LeadFocusSelection =
+  | { kind: "preset"; id: LeadProfileId }
+  | { kind: "custom"; shares: ProfileShare[] };
+
+/** Tanlanadigan mezonlar — OTHERS bundan mustasno (u qo'lda tanlanmaydi). */
+export const CUSTOM_FOCUS_SEGMENTS = (
+  Object.keys(LEAD_SEGMENT) as LeadSegment[]
+).filter((s) => s !== "OTHERS");
+
+/**
+ * Qo'lda kiritilgan mezon+ulush ro'yxatini tekshiradi va tozalaydi:
+ * OTHERS/nomaʼlum mezon, takroriy mezon, chegaradan tashqari ulush (1–100)
+ * chiqarib tashlanadi. Yig'indi 100 dan oshsa — butunlay rad etiladi (admin
+ * tuzatishi kerak, jimgina kesib qo'yish chalkashtiradi).
+ */
+export function validateCustomFocusShares(
+  raw: unknown,
+): { ok: true; shares: ProfileShare[] } | { ok: false; error: string } {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return { ok: false, error: "Kamida bitta mezon tanlang" };
+  }
+  if (raw.length > CUSTOM_FOCUS_SEGMENTS.length) {
+    return { ok: false, error: "Mezonlar soni ortiqcha" };
+  }
+  const seen = new Set<string>();
+  const shares: ProfileShare[] = [];
+  let sum = 0;
+  for (const item of raw) {
+    if (!item || typeof item !== "object") return { ok: false, error: "Noto'g'ri mezon" };
+    const s = item as { segment?: unknown; share?: unknown };
+    if (
+      typeof s.segment !== "string" ||
+      !(CUSTOM_FOCUS_SEGMENTS as string[]).includes(s.segment)
+    ) {
+      return { ok: false, error: "Noma'lum mezon" };
+    }
+    if (seen.has(s.segment)) return { ok: false, error: "Mezon takrorlanmasin" };
+    const share = Number(s.share);
+    if (!Number.isFinite(share) || share < 1 || share > 100) {
+      return { ok: false, error: "Ulush 1–100 oralig'ida bo'lsin" };
+    }
+    seen.add(s.segment);
+    sum += Math.round(share);
+    shares.push({ segment: s.segment as LeadSegment, share: Math.round(share) });
+  }
+  if (sum > 100) return { ok: false, error: "Jami ulush 100% dan oshmasin" };
+  return { ok: true, shares };
+}
+
+/**
+ * DB'dan o'qilgan (yoki boshqa manbadan kelgan) qiymatni fokus tanloviga
+ * aylantiradi. Buzuq/eski qiymatda `null` — chaqiruvchi standartga tushadi
+ * (sozlama hech qachon tizimni to'xtatmasligi kerak).
+ */
+export function parseLeadFocusSelection(raw: unknown): LeadFocusSelection | null {
+  if (typeof raw === "string") {
+    if (isLeadProfileId(raw)) return { kind: "preset", id: raw }; // eski format: yalang'och profil id
+    try {
+      return parseLeadFocusSelection(JSON.parse(raw)); // saqlangan JSON satr
+    } catch {
+      return null;
+    }
+  }
+  if (!raw || typeof raw !== "object") return null;
+  const v = raw as { kind?: unknown; id?: unknown; shares?: unknown };
+  if (v.kind === "preset" && isLeadProfileId(v.id)) return { kind: "preset", id: v.id };
+  if (v.kind === "custom") {
+    const res = validateCustomFocusShares(v.shares);
+    return res.ok ? { kind: "custom", shares: res.shares } : null;
+  }
+  return null;
+}
+
+/** Tanlovdan klassifikatsiya/kvota uchun tartiblangan ro'yxat — OTHERS bilan. */
+export function focusOrder(sel: LeadFocusSelection): ProfileShare[] {
+  if (sel.kind === "preset") return profileOrder(sel.id);
+  const sum = sel.shares.reduce((a, s) => a + s.share, 0);
+  return [
+    ...sel.shares.map((s) => ({ ...s })),
+    { segment: "OTHERS" as LeadSegment, share: Math.max(0, 100 - sum) },
+  ];
+}
+
+export function focusLabel(sel: LeadFocusSelection): string {
+  return sel.kind === "preset" ? LEAD_PRIORITY_PROFILES[sel.id].label : "Maxsus";
+}
+
+export function focusHint(sel: LeadFocusSelection): string {
+  return sel.kind === "preset"
+    ? LEAD_PRIORITY_PROFILES[sel.id].hint
+    : "Admin tanlagan mezonlar bo'yicha";
+}
+
+/** Ko'rinadigan qatorga aylantiradi: "Qarzdor 40% · Yangi 15% · Boshqalar 45%". */
+export function focusSharesText(sel: LeadFocusSelection): string {
+  return focusOrder(sel)
+    .map((s) => `${leadSegmentLabel(s.segment)} ${s.share}%`)
+    .join(" · ");
+}
+
 // Usta (dala texnigi) vazifa holati
 export const USTA_STATUS = {
   ASSIGNED: "Biriktirildi",

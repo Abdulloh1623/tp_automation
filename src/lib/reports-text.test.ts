@@ -43,9 +43,9 @@ beforeEach(() => {
   m.ticketCount.mockResolvedValue(0);
   m.userFindMany.mockResolvedValue([]);
   m.getActiveLeadProfile.mockResolvedValue({
-    id: "PAYMENT",
+    selection: { kind: "preset", id: "PAYMENT" },
     todayOnly: true,
-    defaultId: "BALANCED",
+    defaultSelection: { kind: "preset", id: "BALANCED" },
   });
 });
 

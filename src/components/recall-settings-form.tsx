@@ -59,6 +59,11 @@ const POLICY_FIELDS: {
     label: "Yangi mijoz oralig'i (kun)",
     hint: "Yangi mijoz bilan aloqa shundan siyrak bo'lmaydi (otkaz va uskuna qaytarishdan tashqari).",
   },
+  {
+    key: "nightShiftDiscountPercent",
+    label: "Kechki smena kamaytirish (%)",
+    hint: "Kechki smena operatoriga kunduzgi operatorlardan shuncha % kam lid beriladi. 0 — teng.",
+  },
 ];
 
 export function RecallSettingsForm({

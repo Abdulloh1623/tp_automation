@@ -4,6 +4,8 @@ import { requireRole } from "@/lib/auth";
 import { ACTIVE_STAGES, NO_CONTACT_STAGES, OFF_BOARD_STAGES } from "@/lib/constants";
 import { getRecallSettings } from "@/lib/settings";
 import { RecallSettingsForm } from "@/components/recall-settings-form";
+import { PipelineStageManager } from "@/components/pipeline-stage-manager";
+import { getAllMiddleStages } from "@/lib/pipeline-stages";
 import { tzDayKey } from "@/lib/tz";
 
 export const dynamic = "force-dynamic";
@@ -18,8 +20,9 @@ export default async function SettingsPage() {
   const today = endOfDay(now);
   const horizon = endOfDay(addDays(now, FORECAST_DAYS));
 
-  const [settings, operatorCount, dueToday, upcoming] = await Promise.all([
+  const [settings, stagesByPipeline, operatorCount, dueToday, upcoming] = await Promise.all([
     getRecallSettings(),
+    getAllMiddleStages(),
     db.user.count({ where: { role: "OPERATOR", isActive: true } }),
     // Bugungi ro'yxat — /lidlar bilan bir xil mezon (muddati kelganlar + qarzdorlar)
     db.client.count({
@@ -77,6 +80,8 @@ export default async function SettingsPage() {
         dueToday={dueToday}
         forecast={forecast}
       />
+
+      <PipelineStageManager stagesByPipeline={stagesByPipeline} />
     </div>
   );
 }

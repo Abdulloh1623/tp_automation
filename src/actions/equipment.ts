@@ -450,9 +450,12 @@ export async function requestEquipmentReturn(
 const RETURN_STAFF_ROLES = ["ADMIN", "MANAGER", "OPERATOR"];
 
 /**
- * Boshliq: qaytarish arizasiga mas'ul TP xodim VA usta BIRGA biriktiriladi —
- * bittasi tanlanib ikkinchisi tanlanmasa ariza "Biriktirildi"ga o'tmaydi.
- * Izoh MAJBURIY (mas'ul/usta bilan qanday kelishilgani tarixda qolsin).
+ * Qaytarish arizasiga mas'ul TP xodim VA usta BIRGA biriktiriladi — bittasi
+ * tanlanib ikkinchisi tanlanmasa ariza "Biriktirildi"ga o'tmaydi. Boshliq/admin
+ * ISTALGAN xodim/ustani tanlaydi; OPERATOR faqat O'ZINI mas'ul xodim qilib
+ * (istalgan ustani) biriktira oladi — o'zi gaplashgan mijoz uchun boshqa
+ * xodimni tayinlab qo'ya olmaydi. Izoh MAJBURIY (mas'ul/usta bilan qanday
+ * kelishilgani tarixda qolsin).
  */
 export async function approveReturnRequest(
   requestId: string,
@@ -460,8 +463,13 @@ export async function approveReturnRequest(
   ustaId: string,
   note: string,
 ): Promise<EqState> {
-  const m = await requireManager();
-  if (!m.ok) return m;
+  const session = await requireSession();
+  if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
+    return { ok: false, error: "Ruxsat yo'q" };
+  }
+  if (session.role === "OPERATOR" && staffId !== session.userId) {
+    return { ok: false, error: "Faqat o'zingizni mas'ul qilib biriktira olasiz" };
+  }
 
   if (!staffId || !ustaId) {
     return {
@@ -506,7 +514,7 @@ export async function approveReturnRequest(
       clientId: req.clientId,
       result: "RETURN_ASSIGNED",
       note: noteText,
-      operatorId: m.userId,
+      operatorId: session.userId,
     },
   });
   await logAudit("Qaytarish: operator/usta biriktirildi", {
@@ -515,7 +523,7 @@ export async function approveReturnRequest(
     detail: `${req.client.restaurantName} → ${staff.name} / ${usta.name}`,
   });
   // Mas'ul xodimga ilova-ichi bildirishnoma (o'ziga biriktirsa — yubormaydi)
-  if (staff.id !== m.userId) {
+  if (staff.id !== session.userId) {
     await createNotification({
       title: "Sizga yangi qaytarish arizasi biriktirildi",
       body: req.client.restaurantName,

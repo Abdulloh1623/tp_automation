@@ -12,6 +12,8 @@ const {
   currentShift,
   grantFindMany,
   getRecallSettings,
+  getTodayDayAutoLimit,
+  setTodayDayAutoLimit,
 } = vi.hoisted(() => ({
   userFindMany: vi.fn(),
   clientFindMany: vi.fn(),
@@ -23,6 +25,8 @@ const {
   currentShift: vi.fn(),
   grantFindMany: vi.fn(),
   getRecallSettings: vi.fn(),
+  getTodayDayAutoLimit: vi.fn(),
+  setTodayDayAutoLimit: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -35,7 +39,12 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("@/lib/audit", () => ({ logAudit }));
-vi.mock("@/lib/settings", () => ({ getActiveLeadProfile, getRecallSettings }));
+vi.mock("@/lib/settings", () => ({
+  getActiveLeadProfile,
+  getRecallSettings,
+  getTodayDayAutoLimit,
+  setTodayDayAutoLimit,
+}));
 vi.mock("@/lib/shift", () => ({ currentShift }));
 
 import { distributeLeadsCore } from "./leads-distribution";
@@ -118,6 +127,10 @@ beforeEach(() => {
     defaultSelection: { kind: "preset", id: "BALANCED" },
   });
   clientUpdateMany.mockImplementation(countByIds);
+  // Standart: bugungi DAY kvotasi hali saqlanmagan (NIGHT testlari eski
+  // mustaqil formulaga tushadi, agar aynan test o'zi boshqacha belgilamasa).
+  getTodayDayAutoLimit.mockResolvedValue(null);
+  setTodayDayAutoLimit.mockResolvedValue(undefined);
 });
 
 describe("distributeLeadsCore", () => {
@@ -564,6 +577,57 @@ describe("distributeLeadsCore", () => {
     }
     expect(byOp.get("qatiy")).toBe(3);
     expect(byOp.get("avto")).toBe(r.autoLimit);
+  });
+
+  // --- Smena bo'yicha kamaytirish (kechki < kunduzgi) ---
+
+  it("smenasiz chaqiruvda kechki operator kunduzgidan aynan 40% kamroq oladi (og'irlikli formula)", async () => {
+    policy({ minPerOperator: 0, maxPerOperator: 100, nightShiftDiscountPercent: 40 });
+    dutyDayFindMany.mockResolvedValue([
+      { userId: "day1", shift: "DAY" },
+      { userId: "day2", shift: "DAY" },
+      { userId: "night1", shift: "NIGHT" },
+    ]);
+    userFindMany.mockResolvedValue([
+      { id: "day1", dailyLimit: null },
+      { id: "day2", dailyLimit: null },
+      { id: "night1", dailyLimit: null },
+    ]);
+    // 130 = 2*50 + 1*30 — kunduzgi/kechki kvota aniq bo'linsin (yaxlitlashsiz).
+    setPool(Array.from({ length: 130 }, (_, i) => lead(`c${i}`)));
+
+    const r = await distributeLeadsCore();
+    expect(r.autoLimit).toBe(50);
+    const byOp = new Map<string, number>();
+    for (const call of clientUpdateMany.mock.calls) {
+      const op = call[0].data.assignedToId;
+      if (op) byOp.set(op, (byOp.get(op) ?? 0) + call[0].where.id.in.length);
+    }
+    expect(byOp.get("day1")).toBe(50);
+    expect(byOp.get("day2")).toBe(50); // kunduzgilar TENG
+    expect(byOp.get("night1")).toBe(30); // 50 * (1 - 0.4)
+  });
+
+  it("NIGHT alohida chaqirilganda, DAY oldin saqlagan bazaviy kvotadan 40% kam oladi", async () => {
+    policy({ minPerOperator: 0, maxPerOperator: 100, nightShiftDiscountPercent: 40 });
+    dutyDayFindMany.mockResolvedValue([{ userId: "night1", shift: "NIGHT" }]);
+    userFindMany.mockResolvedValue([{ id: "night1", dailyLimit: null }]);
+    getTodayDayAutoLimit.mockResolvedValue(20); // DAY ishga tushganda saqlagan qiymat
+    setPool(Array.from({ length: 100 }, (_, i) => lead(`c${i}`)));
+
+    const r = await distributeLeadsCore("NIGHT");
+    expect(r.autoLimit).toBe(20); // dayAuto DAY'dan olindi
+    expect(r.assigned).toBe(12); // round(20 * 0.6)
+  });
+
+  it("DAY ishga tushganda bugungi bazaviy kvota saqlanadi", async () => {
+    policy({ minPerOperator: 0, maxPerOperator: 100, nightShiftDiscountPercent: 40 });
+    dutyDayFindMany.mockResolvedValue([{ userId: "day1", shift: "DAY" }]);
+    userFindMany.mockResolvedValue([{ id: "day1", dailyLimit: null }]);
+    setPool(Array.from({ length: 30 }, (_, i) => lead(`c${i}`)));
+
+    await distributeLeadsCore("DAY");
+    expect(setTodayDayAutoLimit).toHaveBeenCalledWith(30, expect.any(Date));
   });
 
   it("qarzdorni qayta ko'rsatish oralig'i so'rovga kiradi", async () => {

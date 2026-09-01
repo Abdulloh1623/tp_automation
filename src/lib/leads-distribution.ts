@@ -16,7 +16,12 @@ import {
 import { allocateByProfile, splitByCapacity } from "@/lib/distribute-util";
 import { classifyLead, isFloorLead, overdueDays } from "@/lib/lead-segments";
 import { autoDailyLimit } from "@/lib/recall-rules";
-import { getActiveLeadProfile, getRecallSettings } from "@/lib/settings";
+import {
+  getActiveLeadProfile,
+  getRecallSettings,
+  getTodayDayAutoLimit,
+  setTodayDayAutoLimit,
+} from "@/lib/settings";
 import { currentShift } from "@/lib/shift";
 import { startOfTzDay } from "@/lib/tz";
 
@@ -239,10 +244,41 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
   const grants = new Map(grantRows.map((g) => [g.userId, g.extraCount]));
   const granted = grantRows.reduce((s, g) => s + g.extraCount, 0);
 
-  // Kunlik kvota: `dailyLimit` qo'yilgan bo'lsa — o'sha, aks holda AVTOMATIK
-  // (bugungi ro'yxat operatorlarga teng bo'linadi, siyosat chegaralari ichida).
-  const auto = autoDailyLimit(free.length, operators.length, policy);
-  const limitOf = (o: { dailyLimit: number | null }) => o.dailyLimit ?? auto;
+  // Kunlik kvota: `dailyLimit` qo'yilgan bo'lsa — o'sha, aks holda AVTOMATIK.
+  // Kunduzgi operatorlarga TENG bo'linadi; kechki smena operatoriga siyosatda
+  // belgilangan foizga KAMROQ beriladi (`nightShiftDiscountPercent`). DAY va
+  // NIGHT odatda ALOHIDA cron chaqiruvida ishlaydi (bir-birining operatorini
+  // ko'rmaydi), shu bois kunduzgi bazaviy kvota shu kunga `AppSetting`ga
+  // yozib qo'yiladi — kechqurun o'shandan foiz hisoblanadi. Ikkalasi bitta
+  // chaqiruvda bo'lsa (qo'lda "Qayta taqsimla", `shift` bo'sh) — og'irlikli
+  // formula bilan bir yo'la hisoblanadi, AppSetting shart emas.
+  const discount = Math.max(0, Math.min(100, policy.nightShiftDiscountPercent ?? 0)) / 100;
+  const isNight = (o: { id: string }) => shiftOf.get(o.id) === "NIGHT";
+  const dayOperators = operators.filter((o) => !isNight(o));
+  const nightOperators = operators.filter(isNight);
+
+  let dayAuto: number;
+  if (shift === "NIGHT" && dayOperators.length === 0) {
+    // Faqat kechki operatorlar shu chaqiruvda — bugungi kunduzgi bazaviy
+    // kvota (DAY ishga tushganda saqlangan) shundan olinadi. Topilmasa
+    // (masalan DAY hali ishlamagan) — eski mustaqil formulaga tushamiz.
+    dayAuto =
+      (await getTodayDayAutoLimit(now)) ??
+      autoDailyLimit(free.length, operators.length, policy);
+  } else {
+    const weighted = dayOperators.length + nightOperators.length * (1 - discount);
+    dayAuto =
+      weighted > 0
+        ? Math.min(
+            policy.maxPerOperator,
+            Math.max(policy.minPerOperator, Math.ceil(free.length / weighted)),
+          )
+        : 0;
+    if (shift === "DAY") await setTodayDayAutoLimit(dayAuto, now);
+  }
+  const nightAuto = Math.max(0, Math.round(dayAuto * (1 - discount)));
+  const autoOf = (o: { id: string }) => (isNight(o) ? nightAuto : dayAuto);
+  const limitOf = (o: { id: string; dailyLimit: number | null }) => o.dailyLimit ?? autoOf(o);
 
   // Ro'yxat kam bo'lsa — muddati eng yaqin lidlarni oldinga tortamiz, operator
   // bo'sh o'tirmasin. Faqat AVTOMATIK rejimda ma'noga ega.
@@ -325,7 +361,8 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
       `majburiy: ${floorRows.length} · egasida qoldi: ${kept}` +
       (granted ? ` · qo'shimcha grant: +${granted}` : "") +
       (pulled ? ` · oldinga tortildi: ${pulled}` : "") +
-      ` · avto kvota: ${auto}` +
+      ` · avto kvota: ${dayAuto}` +
+      (nightOperators.length > 0 ? ` (kechki: ${nightAuto})` : "") +
       (released ? ` · tugagan smenadan olindi: ${released}` : "") +
       ` · navbatda: ${unassigned.length}` +
       (usedFallback ? " · ⚠️ jadval belgilanmagan, zaxira brigada ishlatildi" : ""),
@@ -338,7 +375,7 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
     released,
     granted,
     capacity,
-    autoLimit: auto,
+    autoLimit: dayAuto,
     pulled,
     shift,
     shiftLabel,

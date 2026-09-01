@@ -8,18 +8,28 @@ import { toast } from "@/components/toaster";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+export type ChainStep = { key: string; label: string };
+
+/**
+ * Muammoning ish-holati — dinamik zanjir bo'yicha (Yangi → admin qo'shgan
+ * ish-bosqichlari, /sozlamalar → Hal qilindi). Har bir kartada FAQAT ikkita
+ * yo'nalish tugmasi (keyingi/oldingi bosqich, izohsiz) + alohida "Hal
+ * qilindi" (izoh MAJBURIY, istalgan bosqichdan to'g'ridan-to'g'ri) va
+ * "Qayta ochish" (yakundan, izoh MAJBURIY).
+ */
 export function TicketStatusControl({
   ticketId,
   status,
+  chain,
 }: {
   ticketId: string;
   status: string;
+  chain: ChainStep[];
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [resolutionNote, setResolutionNote] = useState("");
 
-  // Har qanday holat o'zgarishida natijaga ko'ra 2 soniyalik toast chiqadi.
   function change(next: string, note: string, okMsg: string) {
     start(async () => {
       const fd = new FormData();
@@ -35,52 +45,72 @@ export function TicketStatusControl({
     });
   }
 
-  // Qayta ochish — bo'lim o'tishi (Hal qilingan → Yangi/Biriktirilgan), izoh MAJBURIY.
   async function onReopen() {
     const { ok, note } = await confirmWithNote({
       title: "Muammoni qayta ochish",
       confirmLabel: "Qayta ochish",
       note: { label: "Nima uchun qayta ochilmoqda", required: true },
     });
-    if (ok) change("OPEN", note, "Muammo qayta ochildi");
+    if (ok) change(chain[0].key, note, "Muammo qayta ochildi");
+  }
+
+  if (chain.length === 0) return null;
+  const idx = Math.max(0, chain.findIndex((s) => s.key === status));
+  const isTerminal = idx === chain.length - 1;
+  const next = !isTerminal ? chain[idx + 1] : null;
+  const prev = idx > 0 ? chain[idx - 1] : null;
+  const terminal = chain[chain.length - 1];
+  // Yakunga bevosita "→" bilan o'tilmaydi — pastdagi izohli "Hal qilindi"dan.
+  const showNext = !!next && next.key !== terminal.key;
+
+  if (isTerminal) {
+    return (
+      <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={onReopen}>
+        Qayta ochish
+      </Button>
+    );
   }
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {status === "OPEN" && (
+      {showNext && (
         <Button
           type="button"
           variant="outline"
           size="sm"
           disabled={pending}
-          onClick={() => change("IN_PROGRESS", "", "Jarayonga olindi")}
+          onClick={() => change(next!.key, "", `"${next!.label}" bosqichiga o'tkazildi`)}
         >
-          Jarayonga olish
+          {next!.label} →
         </Button>
       )}
-
-      {status !== "RESOLVED" ? (
-        <div className="flex items-center gap-2">
-          <Input
-            value={resolutionNote}
-            onChange={(e) => setResolutionNote(e.target.value)}
-            placeholder="Yechim izohi (majburiy)"
-            className="h-8 w-48 text-xs"
-          />
-          <Button
-            type="button"
-            size="sm"
-            disabled={pending || !resolutionNote.trim()}
-            onClick={() => change("RESOLVED", resolutionNote, "Muammo hal qilindi")}
-          >
-            Hal qilindi
-          </Button>
-        </div>
-      ) : (
-        <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={onReopen}>
-          Qayta ochish
+      {prev && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={pending}
+          onClick={() => change(prev.key, "", `"${prev.label}" bosqichiga qaytarildi`)}
+        >
+          ← {prev.label}
         </Button>
       )}
+      <div className="flex items-center gap-2">
+        <Input
+          value={resolutionNote}
+          onChange={(e) => setResolutionNote(e.target.value)}
+          placeholder="Yechim izohi (majburiy)"
+          className="h-8 w-48 text-xs"
+        />
+        <Button
+          type="button"
+          size="sm"
+          disabled={pending || !resolutionNote.trim()}
+          onClick={() => change(terminal.key, resolutionNote, "Muammo hal qilindi")}
+        >
+          Hal qilindi
+        </Button>
+      </div>
     </div>
   );
 }

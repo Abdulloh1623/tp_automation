@@ -10,15 +10,15 @@ import { createNotification } from "@/lib/notifications";
 import {
   clientAppVersionLabel,
   isClientAppVersion,
-  TICKET_STATUS,
+  type Pipeline,
 } from "@/lib/constants";
 import {
   ticketTypeEnum,
   ticketPriorityEnum,
-  isTicketStatus,
   toFieldErrors,
   safeNote,
 } from "@/lib/validation";
+import { getFullChain, labelFor, nextKey } from "@/lib/pipeline-stages";
 
 const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
 
@@ -108,14 +108,25 @@ export async function createTicket(
     return { error: "Mijoz topilmadi" };
   }
 
+  const chain = await getFullChain(pipelineOf(parsed.data.type));
   await db.ticket.create({
     data: {
       clientId: client.id,
       title: parsed.data.title,
       type: parsed.data.type,
       priority: parsed.data.priority,
-      status: "OPEN",
       assignedToId: client.assignedToId ?? session.userId,
+      // TP xodim (OPERATOR) o'zi ochgan muammoga avtomatik mas'ul bo'ladi —
+      // eskalatsiyaning "mas'ul=mijoz operatori avto" naqshiga o'xshash —
+      // shu bois darhol ustaga biriktira oladi (admin triage kutmasdan).
+      // ADMIN/MANAGER ochsa — avvalgidek "Yangi" (biriktirilmagan, boshlanish) qoladi.
+      ...(session.role === "OPERATOR"
+        ? {
+            status: nextKey(chain, chain[0].key) ?? chain[0].key,
+            assignedStaffId: session.userId,
+            assigneeType: "XODIM",
+          }
+        : { status: chain[0].key }),
     },
   });
   // Muammo bo'limiga o'tkazilgan sana qo'ng'iroqlar tarixida ham qolsin
@@ -147,15 +158,21 @@ export async function setTicketStatus(
   const g = await guardRole([...STAFF, "INSTALLER"]);
   if (!g.ok) return { ok: false, error: g.error };
 
-  // status faqat ruxsat etilgan qiymatlardan biri bo'lishi shart
-  // (`in` prototip kalitlarini ham true qaytaradi — enum predikat ishlatamiz)
-  if (!isTicketStatus(status)) return { ok: false, error: "Noto'g'ri holat" };
-
   const owner = await db.ticket.findUnique({
     where: { id: ticketId },
-    select: { clientId: true, assignedUstaId: true },
+    select: { clientId: true, assignedUstaId: true, type: true },
   });
   if (!owner) return { ok: false, error: "Muammo topilmadi" };
+
+  // status — pipeline'ning haqiqiy (dinamik) zanjiridagi kalitlardan biri
+  // bo'lishi shart (boshlanish/yakun + admin qo'shgan ish-bosqichlari).
+  const pipeline = pipelineOf(owner.type);
+  const chain = await getFullChain(pipeline);
+  if (!chain.some((s) => s.key === status)) {
+    return { ok: false, error: "Noto'g'ri holat" };
+  }
+  const initialKey = chain[0].key;
+  const terminalKey = chain[chain.length - 1].key;
 
   // Egalik: OPERATOR faqat o'z mijozining muammosini, usta faqat o'ziga
   // biriktirilgan muammoni o'zgartira oladi (canMutateClient INSTALLER'ni
@@ -168,18 +185,18 @@ export async function setTicketStatus(
     return { ok: false, error: "Ruxsat yo'q" };
   }
 
-  // Yechim izohi (RESOLVED) va qayta ochish izohi (OPEN) — ikkalasi ham
-  // bo'lim o'tishi bo'lgani uchun MAJBURIY. "Jarayonga olish" (IN_PROGRESS)
-  // — bo'lim ichidagi belgilar (tab o'zgarmaydi), izohsiz qoladi.
+  // Yechim izohi (yakun) va qayta ochish izohi (boshlanish) — ikkalasi ham
+  // bo'lim o'tishi bo'lgani uchun MAJBURIY. Oradagi bosqichlar orasidagi
+  // o'tish (keyingi/oldingi) — izohsiz qoladi.
   const note = s(formData.get("resolutionNote")) ?? null;
-  if ((status === "RESOLVED" || status === "OPEN") && !note) {
+  if ((status === terminalKey || status === initialKey) && !note) {
     return { ok: false, error: "Izoh majburiy" };
   }
   const data = {
     status,
-    resolvedAt: status === "RESOLVED" ? new Date() : null,
-    // RESOLVED bo'lmasa (qayta ochilganda) eski yechim izohi tozalanadi
-    resolutionNote: status === "RESOLVED" ? note : null,
+    resolvedAt: status === terminalKey ? new Date() : null,
+    // Yakun bo'lmasa (qayta ochilganda) eski yechim izohi tozalanadi
+    resolutionNote: status === terminalKey ? note : null,
   };
 
   try {
@@ -189,25 +206,22 @@ export async function setTicketStatus(
       data: {
         clientId: ticket.clientId,
         result:
-          status === "RESOLVED"
+          status === terminalKey
             ? "RESOLVED"
-            : status === "IN_PROGRESS"
-              ? "TICKET_IN_PROGRESS"
-              : "TICKET_REOPENED",
-        note: status === "IN_PROGRESS" ? null : note,
+            : status === initialKey
+              ? "TICKET_REOPENED"
+              : "TICKET_IN_PROGRESS",
+        note: status === terminalKey || status === initialKey ? note : null,
         operatorId: g.session.userId,
       },
     });
-    if (status === "RESOLVED") {
+    if (status === terminalKey) {
       await releaseIssueOpenIfLastTicket(ticket.clientId);
     }
-    await logAudit(
-      `Muammo holati: ${TICKET_STATUS[status as keyof typeof TICKET_STATUS] ?? status}`,
-      {
-        entity: "Ticket",
-        entityId: ticketId,
-      },
-    );
+    await logAudit(`Muammo holati: ${labelFor(chain, status)}`, {
+      entity: "Ticket",
+      entityId: ticketId,
+    });
     revalidateTicket(ticket.clientId);
     return { ok: true };
   } catch {
@@ -420,9 +434,23 @@ function assignNote(note?: string): string | null {
   return t ? t.slice(0, 500) : null;
 }
 
-/** OPEN muammoni biriktirilganda "Jarayonda"ga o'tkazadi (boshqa holatga tegmaydi). */
-function progressIfOpen(status: string): "IN_PROGRESS" | undefined {
-  return status === "OPEN" ? "IN_PROGRESS" : undefined;
+/** Ticket turi bo'yicha qaysi kanban zanjiriga tegishli. */
+function pipelineOf(type: string): Pipeline {
+  return type === "VERSION_UPDATE" ? "VERSIYA" : "MUAMMOLAR";
+}
+
+/**
+ * OPEN muammo biriktirilganda zanjirdagi BIRINCHI (admin belgilagan)
+ * ish-bosqichiga o'tkazadi — standart holatda "Jarayonda" (boshqa holatda
+ * tegmaydi).
+ */
+async function progressIfOpen(
+  pipeline: Pipeline,
+  status: string,
+): Promise<string | undefined> {
+  const chain = await getFullChain(pipeline);
+  if (status !== chain[0]?.key) return undefined;
+  return nextKey(chain, status) ?? undefined;
 }
 
 /**
@@ -481,7 +509,7 @@ export async function assignTicketStaff(
   try {
     const current = await db.ticket.findUnique({
       where: { id: ticketId },
-      select: { status: true },
+      select: { status: true, type: true },
     });
     if (!current) return { ok: false, error: "Muammo topilmadi" };
     const ticket = await db.ticket.update({
@@ -490,7 +518,7 @@ export async function assignTicketStaff(
         assignedStaffId: staffId,
         assigneeType: "XODIM",
         staffNote: cleanNote,
-        status: progressIfOpen(current.status),
+        status: await progressIfOpen(pipelineOf(current.type), current.status),
       },
       select: {
         clientId: true,
@@ -527,18 +555,32 @@ export async function assignTicketStaff(
 }
 
 /**
- * Muammoga usta (integrator, joyida) biriktirish/olib tashlash — faqat boshliq/admin.
- * Bosqichlar zanjirining oxirgi qadami: Yangi → TP xodimiga biriktirildi →
- * Ustaga yetkazildi (`TicketIntegratorControl` mas'ul xodim tayinlangandan
- * keyingina usta tanlovini ko'rsatadi). `ustaId: null` — olib tashlaydi.
+ * Muammoga usta (integrator, joyida) biriktirish/olib tashlash — boshliq/admin
+ * ISTALGANini, mas'ul TP xodim (OPERATOR) esa faqat O'ZIGA (assignedStaffId)
+ * biriktirilgan muammoga usta biriktira oladi — eskalatsiyadagi `assignUsta`
+ * bilan bir xil naqsh. Bosqichlar zanjirining oxirgi qadami: Yangi → TP
+ * xodimiga biriktirildi → Ustaga yetkazildi (`TicketIntegratorControl` mas'ul
+ * xodim tayinlangandan keyingina usta tanlovini ko'rsatadi). `ustaId: null` —
+ * olib tashlaydi.
  */
 export async function assignTicketUsta(
   ticketId: string,
   ustaId: string | null,
   note?: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const g = await guardRole(["ADMIN", "MANAGER"]);
+  const g = await guardRole(["ADMIN", "MANAGER", "OPERATOR"]);
   if (!g.ok) return { ok: false, error: g.error };
+
+  if (g.session.role === "OPERATOR") {
+    const owner = await db.ticket.findUnique({
+      where: { id: ticketId },
+      select: { assignedStaffId: true },
+    });
+    if (!owner) return { ok: false, error: "Muammo topilmadi" };
+    if (owner.assignedStaffId !== g.session.userId) {
+      return { ok: false, error: "Ruxsat yo'q" };
+    }
+  }
 
   if (!ustaId) {
     try {
@@ -578,7 +620,7 @@ export async function assignTicketUsta(
   try {
     const current = await db.ticket.findUnique({
       where: { id: ticketId },
-      select: { status: true },
+      select: { status: true, type: true },
     });
     if (!current) return { ok: false, error: "Muammo topilmadi" };
     const ticket = await db.ticket.update({
@@ -587,7 +629,7 @@ export async function assignTicketUsta(
         assignedUstaId: ustaId,
         assigneeType: "USTA",
         ustaNote: cleanNote,
-        status: progressIfOpen(current.status),
+        status: await progressIfOpen(pipelineOf(current.type), current.status),
       },
     });
     await db.callLog.create({

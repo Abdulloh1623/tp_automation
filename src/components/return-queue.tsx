@@ -24,7 +24,6 @@ import {
 import {
   approveReturnRequest,
   rejectReturnRequest,
-  startReturnProgress,
   confirmReturnCollected,
   revertReturnRequest,
 } from "@/actions/equipment";
@@ -82,7 +81,7 @@ const SECTIONS: {
   {
     status: "APPROVED",
     title: "Biriktirildi",
-    hint: "Usta biriktirildi — jarayonni boshlang",
+    hint: "Usta biriktirildi — jarayonni usta o'zi (/vazifalarim) boshlaydi",
     tone: "sky",
     icon: <Wrench className="h-4 w-4" />,
   },
@@ -258,22 +257,6 @@ function Row({
     if (ok) run(() => confirmReturnCollected(r.id, note));
   }
 
-  // "Ustaga yetkazildi" = ustaga xabar berildi — izoh MAJBURIY.
-  async function onStartProgress() {
-    const { ok, note } = await confirmWithNote({
-      title: "Ustaga xabar berildi",
-      message: `"${r.restaurantName || r.fullName}" bo'yicha ${r.ustaName ?? "usta"}ga xabar berildi va jarayon boshlandi.`,
-      confirmLabel: "Ustaga yetkazildi",
-      variant: "primary",
-      note: {
-        label: "Ustaga qanday xabar berildi",
-        placeholder: "Masalan: qo'ng'iroq qildim, ertaga boradi",
-        required: true,
-      },
-    });
-    if (ok) run(() => startReturnProgress(r.id, note));
-  }
-
   async function onReject() {
     const { ok, note } = await confirmWithNote({
       title: "Arizani rad etish",
@@ -376,10 +359,7 @@ function Row({
             </>
           ) : r.status === "APPROVED" ? (
             <>
-              <Button size="sm" disabled={pending} onClick={onStartProgress}>
-                <PlayCircle className="h-4 w-4" /> Ustaga yetkazildi
-              </Button>
-              <Button size="sm" variant="outline" disabled={pending} onClick={onCollect}>
+              <Button size="sm" disabled={pending} onClick={onCollect}>
                 <PackageCheck className="h-4 w-4" /> Bajarildi (olib keldi)
               </Button>
               {canAssign && (

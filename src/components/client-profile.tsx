@@ -29,6 +29,7 @@ import {
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { getBiznexSubscription, type BiznexSubscription } from "@/lib/billing";
+import { getFullChain, labelFor } from "@/lib/pipeline-stages";
 import {
   ClientEquipmentPanel,
   type EqItem,
@@ -260,7 +261,16 @@ export async function ClientProfile({ id }: { id: string }) {
   // HAMMA mustaqil so'rov BIR VAQTDA — ilgari ular ketma-ket bajarilardi
   // (client → biznex → audit → turlar → ombor → ustalar), ya'ni profil ochilishi
   // shu kechikishlar YIG'INDISIni kutardi. Endi eng sekinigacha kutiladi.
-  const [client, activity, typeRows, whStock, ustaUsers, ustaStockRows] =
+  const [
+    client,
+    activity,
+    typeRows,
+    whStock,
+    ustaUsers,
+    ustaStockRows,
+    muammolarChain,
+    versiyaChain,
+  ] =
     await Promise.all([
       db.client.findUnique({
         where: { id },
@@ -325,6 +335,8 @@ export async function ClientProfile({ id }: { id: string }) {
         where: { locationType: "USTA", quantity: { gt: 0 } },
         select: { locationId: true, equipmentTypeId: true, quantity: true },
       }),
+      getFullChain("MUAMMOLAR"),
+      getFullChain("VERSIYA"),
     ]);
 
   if (!client) notFound();
@@ -741,37 +753,45 @@ export async function ClientProfile({ id }: { id: string }) {
                       Ochiq muammo yo'q
                     </p>
                   )}
-                  {client.tickets.map((t) => (
-                    <div
-                      key={t.id}
-                      className="border-b border-slate-100 dark:border-slate-800 pb-3 last:border-0"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="font-medium text-slate-800 dark:text-slate-100">
-                          {t.title}
+                  {client.tickets.map((t) => {
+                    const chain =
+                      t.type === "VERSION_UPDATE" ? versiyaChain : muammolarChain;
+                    return (
+                      <div
+                        key={t.id}
+                        className="border-b border-slate-100 dark:border-slate-800 pb-3 last:border-0"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="font-medium text-slate-800 dark:text-slate-100">
+                            {t.title}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <TicketTypeBadge type={t.type} />
+                            <TicketPriorityBadge priority={t.priority} />
+                            <TicketStatusBadge
+                              status={t.status}
+                              label={labelFor(chain, t.status)}
+                            />
+                          </div>
                         </div>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <TicketTypeBadge type={t.type} />
-                          <TicketPriorityBadge priority={t.priority} />
-                          <TicketStatusBadge status={t.status} />
+                        <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                          {formatDate(t.createdAt)}
+                        </div>
+                        {t.resolutionNote && (
+                          <div className="mt-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300">
+                            Yechim: {t.resolutionNote}
+                          </div>
+                        )}
+                        <div className="mt-2">
+                          <TicketStatusControl
+                            ticketId={t.id}
+                            status={t.status}
+                            chain={chain}
+                          />
                         </div>
                       </div>
-                      <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-                        {formatDate(t.createdAt)}
-                      </div>
-                      {t.resolutionNote && (
-                        <div className="mt-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-300">
-                          Yechim: {t.resolutionNote}
-                        </div>
-                      )}
-                      <div className="mt-2">
-                        <TicketStatusControl
-                          ticketId={t.id}
-                          status={t.status}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </Section>

@@ -122,10 +122,18 @@ const ticketStatusTone: Record<string, "amber" | "blue" | "green"> = {
   RESOLVED: "green",
 };
 
-export function TicketStatusBadge({ status }: { status: string }) {
+export function TicketStatusBadge({
+  status,
+  label,
+}: {
+  status: string;
+  /** Dinamik (admin qo'shgan) bosqich nomi — berilmasa qattiq kodlangan
+   *  TICKET_STATUS xaritasidan olinadi (OPEN/IN_PROGRESS/RESOLVED). */
+  label?: string;
+}) {
   return (
     <Badge tone={ticketStatusTone[status] ?? "neutral"}>
-      {TICKET_STATUS[status as TicketStatus] ?? status}
+      {label ?? TICKET_STATUS[status as TicketStatus] ?? status}
     </Badge>
   );
 }

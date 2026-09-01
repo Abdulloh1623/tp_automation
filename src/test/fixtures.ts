@@ -21,6 +21,20 @@ export async function resetDb(): Promise<void> {
   const list = rows.map((r) => `"${r.tablename}"`).join(", ");
   await db.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE`);
   clearTestCookies();
+  // `PipelineStage` — bo'sh zanjir bilan Muammolar/Eskalatsiya/Qaytarish/Yangi
+  // versiya endi ishlay olmaydi (bo'sh o'rtadagi bosqichlar = "IN_PROGRESS"
+  // kabi kalitlar noto'g'ri holat deb rad etiladi). Prodda bu qator migratsiya
+  // bilan keladi (`20260901123820_seed_pipeline_stages`) — testda ham xuddi
+  // shu boshlang'ich holatni takrorlaymiz.
+  await db.pipelineStage.createMany({
+    data: [
+      { pipeline: "MUAMMOLAR", key: "IN_PROGRESS", label: "Jarayonda", order: 0 },
+      { pipeline: "VERSIYA", key: "IN_PROGRESS", label: "Jarayonda", order: 0 },
+      { pipeline: "ESKALATSIYA", key: "EN_ROUTE", label: "Yo'ldaman", order: 0 },
+      { pipeline: "ESKALATSIYA", key: "ARRIVED", label: "Bordim", order: 1 },
+      { pipeline: "QAYTARISH", key: "IN_PROGRESS", label: "Jarayonda", order: 0 },
+    ],
+  });
 }
 
 type Role = "ADMIN" | "MANAGER" | "OPERATOR" | "INSTALLER";

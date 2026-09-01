@@ -107,11 +107,13 @@ export function ReturnQueue({
   ustalar,
   staffOptions,
   canAssign,
+  selfId,
 }: {
   items: ReturnQueueItem[];
   ustalar: UstaOpt[];
   staffOptions: StaffOpt[];
-  canAssign: boolean; // ADMIN/MANAGER — usta biriktirish va rad etish
+  canAssign: boolean; // ADMIN/MANAGER — usta biriktirish, rad etish va bekor qilish
+  selfId?: string | null; // OPERATOR — faqat o'zini mas'ul qilib usta biriktira oladi
 }) {
   const [err, setErr] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -186,6 +188,7 @@ export function ReturnQueue({
                       ustalar={ustalar}
                       staffOptions={staffOptions}
                       canAssign={canAssign}
+                      selfId={selfId}
                       onError={setErr}
                     />
                   ))
@@ -204,19 +207,26 @@ function Row({
   ustalar,
   staffOptions,
   canAssign,
+  selfId,
   onError,
 }: {
   r: ReturnQueueItem;
   ustalar: UstaOpt[];
   staffOptions: StaffOpt[];
   canAssign: boolean;
+  selfId?: string | null;
   onError: (e: string | null) => void;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [ustaId, setUstaId] = useState<string>(r.matchedUstaId ?? "");
-  const [staffId, setStaffId] = useState<string>(r.matchedStaffId ?? "");
+  const [staffId, setStaffId] = useState<string>(
+    selfId ?? r.matchedStaffId ?? "",
+  );
   const [assignNote, setAssignNote] = useState<string>("");
+  // OPERATOR faqat o'zini mas'ul qilib biriktira oladi — canAssign kabi to'liq
+  // huquq emas, shu bois "Biriktirish" formasi ko'rinishi uchun alohida shart.
+  const canApprove = canAssign || !!selfId;
 
   function run(fn: () => Promise<{ ok: boolean; error?: string }>) {
     onError(null);
@@ -387,22 +397,28 @@ function Row({
                 </Button>
               )}
             </>
-          ) : !canAssign ? (
+          ) : !canApprove ? (
             <Badge tone="amber">Operator/usta biriktirilishi kutilmoqda</Badge>
           ) : (
             <>
               <div className="flex flex-col items-end gap-2">
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <select
-                    value={staffId}
-                    onChange={(e) => setStaffId(e.target.value)}
-                    className="h-9 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-sm"
-                  >
-                    <option value="">Operator tanlang</option>
-                    {staffOptions.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
+                  {canAssign ? (
+                    <select
+                      value={staffId}
+                      onChange={(e) => setStaffId(e.target.value)}
+                      className="h-9 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 text-sm"
+                    >
+                      <option value="">Operator tanlang</option>
+                      {staffOptions.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <Badge tone="slate">
+                      Mas'ul: {staffOptions.find((s) => s.id === selfId)?.name ?? "siz"}
+                    </Badge>
+                  )}
                   <select
                     value={ustaId}
                     onChange={(e) => setUstaId(e.target.value)}
@@ -429,15 +445,18 @@ function Row({
                   <Check className="h-4 w-4" /> Biriktirish
                 </Button>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-red-300 dark:border-red-700 text-red-700 dark:text-red-300"
-                disabled={pending}
-                onClick={onReject}
-              >
-                <X className="h-4 w-4" /> Rad etish
-              </Button>
+              {canAssign && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-red-300 dark:border-red-700 text-red-700 dark:text-red-300"
+                  disabled={pending}
+                  onClick={onReject}
+                >
+                  <X className="h-4 w-4" /> Rad etish
+                </Button>
+              )}
+              {canAssign && (
               <Button
                 size="sm"
                 variant="outline"
@@ -450,6 +469,7 @@ function Row({
               >
                 <Undo2 className="h-4 w-4" /> Orqaga qaytarish
               </Button>
+              )}
             </>
           )}
         </div>

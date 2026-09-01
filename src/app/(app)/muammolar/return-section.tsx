@@ -13,6 +13,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export async function ReturnSection({ session }: { session: SessionPayload }) {
   const isManager = ["ADMIN", "MANAGER"].includes(session.role);
+  const isOperator = session.role === "OPERATOR";
 
   const clientSelect = {
     id: true,
@@ -135,7 +136,9 @@ export async function ReturnSection({ session }: { session: SessionPayload }) {
         <p className="text-sm text-slate-500 dark:text-slate-400">
           {isManager
             ? "Yangi arizaga usta biriktiring — keyingi kuzatuvni TP xodimlari olib boradi."
-            : "Usta biriktirilgan arizalarni kuzating: usta/mijoz bilan bog'laning va uskuna olib kelingach yakunlang."}
+            : isOperator
+              ? "Yangi arizaga o'zingizni mas'ul qilib usta biriktirishingiz mumkin, yoki usta biriktirilganlarni kuzating."
+              : "Usta biriktirilgan arizalarni kuzating: usta/mijoz bilan bog'laning va uskuna olib kelingach yakunlang."}
           {" "}Yangi: {pendingCount} · Biriktirilgan: {approvedCount} · Jarayonda: {inProgressCount}
         </p>
       </div>
@@ -145,6 +148,7 @@ export async function ReturnSection({ session }: { session: SessionPayload }) {
         ustalar={ustalar}
         staffOptions={staffOptions}
         canAssign={isManager}
+        selfId={session.role === "OPERATOR" ? session.userId : null}
       />
     </div>
   );

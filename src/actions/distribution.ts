@@ -6,12 +6,13 @@ import { guardRole } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import {
   ACTIVE_STAGES,
+  focusLabel,
   isLeadProfileId,
-  leadProfileLabel,
-  type LeadProfileId,
+  validateCustomFocusShares,
+  type LeadFocusSelection,
 } from "@/lib/constants";
 import { distributeLeadsCore } from "@/lib/leads-distribution";
-import { getActiveLeadProfile, setLeadProfile } from "@/lib/settings";
+import { getActiveLeadProfile, saveLeadFocusSelection } from "@/lib/settings";
 
 export type DistributeState = {
   ok?: boolean;
@@ -89,28 +90,38 @@ export async function redistributeLeads(
 }
 
 /**
- * Kunlik fokusni (lid ustuvorlik profilini) belgilaydi. Faqat ADMIN — bu
- * butun jamoaning kunlik ish tartibini o'zgartiradi.
+ * Kunlik fokusni (lid ustuvorlik tanlovini) belgilaydi — tayyor profil YOKI
+ * admin qo'lda tuzgan maxsus mezon+ulush ro'yxati. Faqat ADMIN — bu butun
+ * jamoaning kunlik ish tartibini o'zgartiradi.
  *
- * `todayOnly` — faqat bugungi kunga; ertaga doimiy profil qaytadi. Profil
- * o'zgarishi keyingi taqsimotdan (cron 08:00 yoki qo'lda "Qayta taqsimla")
- * kuchga kiradi — bugun allaqachon ishlangan lidlar egasida qoladi.
+ * `todayOnly` — faqat bugungi kunga; ertaga doimiy tanlov qaytadi. O'zgarish
+ * keyingi taqsimotdan (cron 08:00 yoki qo'lda "Qayta taqsimla") kuchga
+ * kiradi — bugun allaqachon ishlangan lidlar egasida qoladi.
  */
 export async function setLeadFocus(
-  profile: string,
+  selection: { kind: "preset"; id: string } | { kind: "custom"; shares: unknown },
   todayOnly: boolean,
 ): Promise<FocusState> {
   const g = await guardRole(["ADMIN"]);
   if (!g.ok) return { ok: false, error: g.error };
-  if (!isLeadProfileId(profile)) return { ok: false, error: "Noma'lum fokus profili" };
+
+  let sel: LeadFocusSelection;
+  if (selection.kind === "preset") {
+    if (!isLeadProfileId(selection.id)) return { ok: false, error: "Noma'lum fokus profili" };
+    sel = { kind: "preset", id: selection.id };
+  } else {
+    const res = validateCustomFocusShares(selection.shares);
+    if (!res.ok) return { ok: false, error: res.error };
+    sel = { kind: "custom", shares: res.shares };
+  }
 
   const before = await getActiveLeadProfile();
-  await setLeadProfile(profile as LeadProfileId, todayOnly);
+  await saveLeadFocusSelection(sel, todayOnly);
 
   await logAudit("Kunlik fokus o'zgartirildi", {
     entity: "AppSetting",
     detail:
-      `${leadProfileLabel(before.id)} → ${leadProfileLabel(profile)}` +
+      `${focusLabel(before.selection)} → ${focusLabel(sel)}` +
       (todayOnly ? " (faqat bugunga)" : " (doimiy)"),
   });
 

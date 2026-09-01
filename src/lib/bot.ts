@@ -9,10 +9,11 @@ import {
   userRoleLabel,
   LEAD_PRIORITY_PROFILES,
   isLeadProfileId,
-  leadProfileLabel,
+  focusLabel,
+  focusHint,
   type LeadProfileId,
 } from "./constants";
-import { getActiveLeadProfile, setLeadProfile } from "./settings";
+import { getActiveLeadProfile, saveLeadFocusSelection } from "./settings";
 import { logAudit } from "./audit";
 import { buildReport, buildReportAlbum, startOfTzDay, type ReportKind } from "./reports";
 import { distributeLeadsCore } from "./leads-distribution";
@@ -372,23 +373,30 @@ export async function startBot(): Promise<void> {
   // 🎯 Bugungi fokus — admin telefondan turib kunlik ustuvorlikni almashtiradi.
   // Bot orqali tanlov FAQAT BUGUNGA qo'yiladi (tezkor qaror); doimiy profilni
   // o'zgartirish web'da (/lidlar) qilinadi.
+  // Botda faqat tayyor profillar orasida almashtiriladi — mezon+ulushni
+  // qo'lda tuzish (Maxsus) faqat veb sahifada (/lidlar), matn orqali noqulay.
   bot.callbackQuery("ops_focus", async (ctx) => {
     await ctx.answerCallbackQuery();
     if (!opsAllowed(ctx)) return;
     const active = await getActiveLeadProfile();
+    const sel = active.selection;
     const kb = new InlineKeyboard();
     for (const id of Object.keys(LEAD_PRIORITY_PROFILES) as LeadProfileId[]) {
+      const isActive = sel.kind === "preset" && sel.id === id;
       kb.text(
-        `${id === active.id ? "✅ " : ""}${LEAD_PRIORITY_PROFILES[id].label}`,
+        `${isActive ? "✅ " : ""}${LEAD_PRIORITY_PROFILES[id].label}`,
         `ops_focus_set:${id}`,
       ).row();
     }
     kb.text("⬅️ Orqaga", "ops");
     await ctx.reply(
-      `🎯 <b>Bugungi fokus</b>: ${escapeHtml(leadProfileLabel(active.id))}` +
+      `🎯 <b>Bugungi fokus</b>: ${escapeHtml(focusLabel(sel))}` +
         (active.todayOnly ? " <i>(faqat bugunga)</i>" : "") +
-        `\n<i>${escapeHtml(LEAD_PRIORITY_PROFILES[active.id].hint)}</i>\n\n` +
-        "Yangi fokus faqat bugunga qo'yiladi — ertaga doimiy profil qaytadi.",
+        `\n<i>${escapeHtml(focusHint(sel))}</i>\n\n` +
+        (sel.kind === "custom"
+          ? "Joriy fokus veb sahifada (/lidlar) tuzilgan maxsus mezonlar. Pastdan tayyor profil tanlasangiz, u bilan almashadi.\n\n"
+          : "") +
+        "Yangi fokus faqat bugunga qo'yiladi — ertaga doimiy tanlov qaytadi.",
       { parse_mode: "HTML", reply_markup: kb },
     );
   });
@@ -401,14 +409,15 @@ export async function startBot(): Promise<void> {
       await ctx.reply("⚠️ Noma'lum fokus profili");
       return;
     }
-    await setLeadProfile(id, true);
+    const sel = { kind: "preset" as const, id };
+    await saveLeadFocusSelection(sel, true);
     await logAudit("Kunlik fokus o'zgartirildi (bot)", {
       entity: "AppSetting",
-      detail: `${leadProfileLabel(id)} (faqat bugunga)`,
+      detail: `${focusLabel(sel)} (faqat bugunga)`,
       actor: actorOf(ctx),
     });
     await ctx.reply(
-      `✅ Bugungi fokus: <b>${escapeHtml(leadProfileLabel(id))}</b>\n` +
+      `✅ Bugungi fokus: <b>${escapeHtml(focusLabel(sel))}</b>\n` +
         "Kuchga kirishi uchun «🔄 Taqsimotni qayta yurgizish»ni bosing.",
       { parse_mode: "HTML", reply_markup: opsMenu() },
     );

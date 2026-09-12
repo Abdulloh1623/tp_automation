@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -8,6 +7,11 @@ import { Button } from "@/components/ui/button";
  * `newTab`: chek navbati kabi joylarda sahifadan chiqib ketmaslik uchun yangi
  * tabda ochiladi — operator 190 ta chek orasidagi joyini yo'qotmasin.
  * Ro'yxat sahifalarida (mijozlar, to'lovlar) o'sha tabda ochilgani qulayroq.
+ *
+ * ODDIY `<a>` — Next `<Link>` EMAS: `/mijozlar/[id]` intercepting route
+ * (@modal) har qanday bitta segmentni (shu jumladan "yangi"ni) mijoz ID
+ * sifatida ilib olib, soft navigatsiyada 404 chiqarardi (mijoz topilmadi).
+ * Oddiy `<a>` — to'liq (hard) navigatsiya, klient routerini chetlab o'tadi.
  */
 export function AddClientLink({
   newTab = false,
@@ -19,7 +23,8 @@ export function AddClientLink({
   size?: "sm" | "md";
 }) {
   return (
-    <Link
+    // eslint-disable-next-line @next/next/no-html-link-for-pages -- yuqoridagi izohga qarang
+    <a
       href="/mijozlar/yangi"
       {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
       className="inline-block"
@@ -28,7 +33,7 @@ export function AddClientLink({
         <UserPlus className="h-4 w-4" />
         {label}
       </Button>
-    </Link>
+    </a>
   );
 }
 

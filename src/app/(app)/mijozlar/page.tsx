@@ -188,12 +188,16 @@ export default async function ClientsPage({
               <Download className="h-4 w-4" />
               Excel
             </a>
-            <Link href="/mijozlar/yangi">
+            {/* Oddiy `<a>` — Next `<Link>` EMAS: `/mijozlar/[id]` intercepting
+                route (@modal) "yangi"ni mijoz ID sifatida ilib olib, soft
+                navigatsiyada 404 chiqarardi. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a href="/mijozlar/yangi">
               <Button>
                 <Plus className="h-4 w-4" />
                 Yangi mijoz
               </Button>
-            </Link>
+            </a>
           </div>
         )}
       </div>

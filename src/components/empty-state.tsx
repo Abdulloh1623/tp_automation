@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -21,10 +20,13 @@ export function EmptyState({
       {Icon && <Icon className="mx-auto h-10 w-10 text-slate-300 dark:text-slate-600" aria-hidden />}
       <p className="mt-3 text-sm font-medium text-slate-600 dark:text-slate-300">{title}</p>
       {hint && <p className="mt-1 text-sm text-slate-400 dark:text-slate-500">{hint}</p>}
+      {/* Oddiy `<a>` — Next `<Link>` EMAS: yagona ishlatilishi (/mijozlar/yangi)
+          `/mijozlar/[id]` intercepting route (@modal) tomonidan soft
+          navigatsiyada mijoz ID sifatida ilinib, 404 chiqarardi. */}
       {actionHref && actionLabel && (
-        <Link href={actionHref} className="mt-4 inline-block">
+        <a href={actionHref} className="mt-4 inline-block">
           <Button size="sm">{actionLabel}</Button>
-        </Link>
+        </a>
       )}
     </div>
   );

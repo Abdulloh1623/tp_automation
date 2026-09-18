@@ -195,7 +195,7 @@ export async function buildManagerSummary(): Promise<string> {
 export async function sendManagerAlerts(): Promise<ReminderSummary["managers"]> {
   const msg = await buildManagerSummary();
   const managers = await db.user.findMany({
-    where: { role: { in: ["ADMIN", "MANAGER"] }, isActive: true, telegramId: { not: null } },
+    where: { role: { in: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] }, isActive: true, telegramId: { not: null } },
     select: { telegramId: true },
   });
 

@@ -100,7 +100,7 @@ export async function requireApiSession(
   if (roles && !roles.includes(u.role)) return { ok: false, status: 403 };
   // Texnik tanaffus — ADMIN'dan boshqa hech kim o'qimasin ham (tiklash paytida
   // ma'lumot bir necha soniya nomuvofiq bo'ladi).
-  if (u.role !== "ADMIN" && (await getMaintenance()).active) {
+  if (u.role !== "ADMIN" && u.role !== "SUPER_ADMIN" && (await getMaintenance()).active) {
     return { ok: false, status: 403 };
   }
   return { ok: true, session: { ...session, role: u.role } };
@@ -136,7 +136,7 @@ export async function guardRole(
   // Texnik tanaffus paytida YOZUV amallari to'xtatiladi: aks holda xodim
   // kiritgan ma'lumot tiklash bilan birga yo'qolib ketardi. ADMIN uchun
   // ochiq — tiklashni aynan u boshqaradi.
-  if (u.role !== "ADMIN") {
+  if (u.role !== "ADMIN" && u.role !== "SUPER_ADMIN") {
     const m = await getMaintenance();
     if (m.active) {
       return {

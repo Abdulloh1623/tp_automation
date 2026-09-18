@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireApiSession } from "@/lib/auth";
 import { buildReportPdf } from "@/lib/report-pdf";
 
-const ALLOWED = ["ADMIN", "MANAGER"];
+const ALLOWED = ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"];
 
 export async function GET() {
   const auth = await requireApiSession(ALLOWED);

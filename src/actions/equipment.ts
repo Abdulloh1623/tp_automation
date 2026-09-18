@@ -14,7 +14,7 @@ const WAREHOUSE = "WAREHOUSE";
 
 async function requireManager() {
   const session = await requireSession();
-  if (!["ADMIN", "MANAGER"].includes(session.role)) {
+  if (!["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"].includes(session.role)) {
     return { ok: false as const, error: "Ruxsat yo'q" };
   }
   return { ok: true as const, userId: session.userId };
@@ -389,7 +389,7 @@ export async function requestEquipmentReturn(
   note: string,
 ): Promise<EqState> {
   const session = await requireSession();
-  if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
+  if (!["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"].includes(session.role)) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
   const noteText = safeNote(note);
@@ -447,7 +447,7 @@ export async function requestEquipmentReturn(
 }
 
 // Qaytarishga mas'ul qilib biriktirilishi mumkin bo'lgan TP xodimi rollari.
-const RETURN_STAFF_ROLES = ["ADMIN", "MANAGER", "OPERATOR"];
+const RETURN_STAFF_ROLES = ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"];
 
 /**
  * Qaytarish arizasiga mas'ul TP xodim VA usta BIRGA biriktiriladi — bittasi
@@ -464,7 +464,7 @@ export async function approveReturnRequest(
   note: string,
 ): Promise<EqState> {
   const session = await requireSession();
-  if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
+  if (!["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"].includes(session.role)) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
   if (session.role === "OPERATOR" && staffId !== session.userId) {
@@ -604,7 +604,7 @@ export async function startReturnProgress(
   // TP xodimi/boshliq ISTALGAN arizani, usta esa faqat O'ZIGA biriktirilganini
   // (`confirmReturnCollected` bilan bir xil naqsh).
   const canStart =
-    ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) ||
+    ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"].includes(session.role) ||
     req.ustaId === session.userId;
   if (!canStart) {
     return { ok: false, error: "Ruxsat yo'q" };
@@ -666,7 +666,7 @@ export async function confirmReturnCollected(
     return { ok: false, error: "Ariza topilmadi yoki holati o'zgargan" };
   }
   const canConfirm =
-    ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) ||
+    ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"].includes(session.role) ||
     req.ustaId === session.userId;
   if (!canConfirm) {
     return { ok: false, error: "Ruxsat yo'q" };
@@ -753,7 +753,7 @@ export async function revertReturnRequest(requestId: string): Promise<EqState> {
     // TP xodimi/boshliq ISTALGANini, usta esa faqat O'ZIGA biriktirilganini
     // (`startReturnProgress`/`confirmReturnCollected` bilan bir xil naqsh).
     const canRevert =
-      ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) ||
+      ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"].includes(session.role) ||
       req.ustaId === session.userId;
     if (!canRevert) {
       return { ok: false, error: "Ruxsat yo'q" };
@@ -779,7 +779,7 @@ export async function revertReturnRequest(requestId: string): Promise<EqState> {
       detail: req.client.restaurantName,
     });
   } else if (req.status === "APPROVED") {
-    if (!["ADMIN", "MANAGER"].includes(session.role)) {
+    if (!["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"].includes(session.role)) {
       return { ok: false, error: "Ruxsat yo'q" };
     }
     await db.equipmentReturnRequest.update({
@@ -806,7 +806,7 @@ export async function revertReturnRequest(requestId: string): Promise<EqState> {
       },
     );
   } else if (req.status === "PENDING") {
-    if (!["ADMIN", "MANAGER"].includes(session.role)) {
+    if (!["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"].includes(session.role)) {
       return { ok: false, error: "Ruxsat yo'q" };
     }
     await db.equipmentReturnRequest.delete({ where: { id: requestId } });
@@ -853,7 +853,7 @@ export async function blockReturnRequest(
     return { ok: false, error: "Ariza topilmadi yoki holati o'zgargan" };
   }
   const canBlock =
-    ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) ||
+    ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"].includes(session.role) ||
     req.ustaId === session.userId;
   if (!canBlock) return { ok: false, error: "Ruxsat yo'q" };
 
@@ -891,7 +891,7 @@ export async function unblockReturnRequest(
   });
   if (!req) return { ok: false, error: "Ariza topilmadi" };
   const canUnblock =
-    ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) ||
+    ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"].includes(session.role) ||
     req.ustaId === session.userId;
   if (!canUnblock) return { ok: false, error: "Ruxsat yo'q" };
 

@@ -55,7 +55,7 @@ function totalByCurrency(items: { amount: number; currency: string }[]): string 
 }
 
 export default async function PaymentsPage() {
-  const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR", "VIEWER"]);
+  const session = await requireRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"]);
   const monthStart = startOfMonth(new Date());
 
   // To'rtta mustaqil so'rov BIR VAQTDA (ilgari ketma-ket edi — sahifa ularning
@@ -306,7 +306,7 @@ export default async function PaymentsPage() {
               pendingReceipts.length > 0 ? (
                 <PendingReceiptsQueue
                   items={pendingReceipts}
-                  isAdmin={session.role === "ADMIN"}
+                  isAdmin={session.role === "ADMIN" || session.role === "SUPER_ADMIN" || session.role === "HEAD_OF_SUPPORT"}
                 />
               ) : (
                 <EmptyState

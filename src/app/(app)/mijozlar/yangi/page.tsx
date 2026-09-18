@@ -9,8 +9,8 @@ import { createClient } from "@/actions/clients";
 export default async function NewClientPage() {
   // /mijozlar prefiksi INSTALLER (usta) uchun ham ochiq (o'qish uchun), lekin
   // yangi mijoz qo'shish bu yerda ATAYIN qayta cheklanadi.
-  const session = await requireRole(["ADMIN", "OPERATOR", "MANAGER", "VIEWER"]);
-  const canEquip = session.role === "ADMIN" || session.role === "MANAGER";
+  const session = await requireRole(["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"]);
+  const canEquip = session.role === "ADMIN" || session.role === "SUPER_ADMIN" || session.role === "HEAD_OF_SUPPORT";
 
   const operators = await db.user.findMany({
     where: { role: { in: ["OPERATOR", "ADMIN"] } },

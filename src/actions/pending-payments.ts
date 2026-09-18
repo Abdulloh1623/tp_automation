@@ -10,7 +10,7 @@ import { readReceipt, deleteReceipt } from "@/lib/receipts";
 import { processPayment } from "@/lib/payment-core";
 import { currencyEnum, noteString, paymentMethodEnum } from "@/lib/validation";
 
-const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
+const STAFF = ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT"];
 
 function s(v: FormDataEntryValue | null): string | undefined {
   const str = typeof v === "string" ? v.trim() : "";
@@ -212,7 +212,7 @@ export async function searchClientsForReceipt(
 export async function rejectAllPendingPayments(
   reason?: string,
 ): Promise<PendingFormState & { rejected?: number }> {
-  const g = await guardRole(["ADMIN"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return { error: g.error };
 
   const pending = await db.pendingPayment.findMany({

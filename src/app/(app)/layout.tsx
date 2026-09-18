@@ -18,7 +18,7 @@ export default async function AppLayout({
   // Tekshiruv shu yerda, middleware'da EMAS: middleware Edge runtime'da
   // ishlaydi va Prisma'ga kira olmaydi.
   const maintenance = await getMaintenance();
-  if (maintenance.active && session.role !== "ADMIN") {
+  if (maintenance.active && session.role !== "ADMIN" && session.role !== "SUPER_ADMIN") {
     return (
       <MaintenanceScreen reason={maintenance.reason} startedAt={maintenance.startedAt} />
     );

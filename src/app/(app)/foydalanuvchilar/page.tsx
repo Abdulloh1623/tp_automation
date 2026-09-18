@@ -8,17 +8,24 @@ import {
 import { formatDateTime } from "@/lib/utils";
 
 const ROLE_LABEL: Record<string, string> = {
+  SUPER_ADMIN: "Super Admin",
   ADMIN: "Administrator",
-  MANAGER: "Menejer",
+  HEAD_OF_SUPPORT: "Texnik bo'lim rahbari",
   OPERATOR: "Operator",
   INSTALLER: "Usta",
   VIEWER: "Kuzatuvchi",
 };
 
 export default async function UsersPage() {
-  await requireRole(["ADMIN", "VIEWER"]);
+  const session = await requireRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"]);
+  // Texnik bo'lim rahbari faqat TP xodimlari (OPERATOR) hisoblarini
+  // boshqaradi — boshqa rollar (ADMIN/SUPER_ADMIN/INSTALLER/VIEWER/o'z rasmi)
+  // bu ro'yxatda ko'rinmaydi (`src/actions/users.ts`dagi imtiyoz chegarasi
+  // bilan mos: server action ham xuddi shu doirani majburlaydi).
+  const isHeadOfSupport = session.role === "HEAD_OF_SUPPORT";
 
   const users = await db.user.findMany({
+    where: isHeadOfSupport ? { role: "OPERATOR" } : undefined,
     orderBy: [{ isActive: "desc" }, { role: "asc" }, { name: "asc" }],
     select: {
       id: true,
@@ -37,7 +44,10 @@ export default async function UsersPage() {
   });
 
   const pendingResets = await db.passwordResetRequest.findMany({
-    where: { status: "PENDING" },
+    where: {
+      status: "PENDING",
+      ...(isHeadOfSupport ? { user: { role: "OPERATOR" } } : {}),
+    },
     orderBy: { createdAt: "asc" },
     select: {
       id: true,
@@ -65,7 +75,7 @@ export default async function UsersPage() {
         </p>
       </div>
       <PasswordResetRequests requests={resetRows} />
-      <UserManager users={users as ManagedUser[]} />
+      <UserManager users={users as ManagedUser[]} viewerRole={session.role} />
     </div>
   );
 }

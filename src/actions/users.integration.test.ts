@@ -25,7 +25,7 @@ describe("createUser", () => {
       name: "Tasdiqlovchi Xodim",
       username: "tasdiqlovchi",
       password: "parol12345",
-      role: "MANAGER",
+      role: "HEAD_OF_SUPPORT",
       telegramId: "123456789",
       cardVerifier: true,
     });
@@ -123,15 +123,51 @@ describe("updateUser — login (username) o'zgartirish", () => {
     expect(after?.username).toBe("eski-login");
   });
 
-  it("MANAGER/OPERATOR loginni o'zgartira OLMAYDI (faqat ADMIN)", async () => {
-    const manager = await makeUser("MANAGER");
+  it("OPERATOR boshqa xodimning loginini o'zgartira OLMAYDI (faqat ADMIN/SUPER_ADMIN/HEAD_OF_SUPPORT)", async () => {
+    const other = await makeUser("OPERATOR");
     const staff = await makeUser("OPERATOR", { username: "eski-login" });
-    await loginAs(manager);
+    await loginAs(other);
 
     const res = await updateUser(staff.id, form({ username: "yangi-login" }));
 
     expect(res.ok).toBe(false);
     const after = await db.user.findUnique({ where: { id: staff.id } });
     expect(after?.username).toBe("eski-login");
+  });
+
+  it("SUPER_ADMIN xodimning loginini o'zgartira OLADI (ADMIN bilan bir xil)", async () => {
+    const superAdmin = await makeUser("SUPER_ADMIN");
+    const staff = await makeUser("OPERATOR", { username: "eski-login" });
+    await loginAs(superAdmin);
+
+    const res = await updateUser(staff.id, form({ username: "yangi-login" }));
+
+    expect(res.ok).toBe(true);
+    const after = await db.user.findUnique({ where: { id: staff.id } });
+    expect(after?.username).toBe("yangi-login");
+  });
+
+  it("ADMIN boshqa ADMIN/SUPER_ADMIN hisobini tahrirlay OLMAYDI (imtiyoz chegarasi)", async () => {
+    const admin = await makeUser("ADMIN");
+    const superAdmin = await makeUser("SUPER_ADMIN", { username: "boss" });
+    await loginAs(admin);
+
+    const res = await updateUser(superAdmin.id, form({ username: "boss2" }));
+
+    expect(res.ok).toBe(false);
+    const after = await db.user.findUnique({ where: { id: superAdmin.id } });
+    expect(after?.username).toBe("boss");
+  });
+
+  it("HEAD_OF_SUPPORT faqat OPERATOR hisobini tahrirlaydi, boshqa rolga tegmaydi", async () => {
+    const head = await makeUser("HEAD_OF_SUPPORT");
+    const admin = await makeUser("ADMIN", { username: "admin-hisob" });
+    await loginAs(head);
+
+    const res = await updateUser(admin.id, form({ username: "admin-hisob2" }));
+
+    expect(res.ok).toBe(false);
+    const after = await db.user.findUnique({ where: { id: admin.id } });
+    expect(after?.username).toBe("admin-hisob");
   });
 });

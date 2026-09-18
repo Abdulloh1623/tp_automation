@@ -31,8 +31,9 @@ import { formatDate, formatDateTime, formatMoney } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 const ROLE_LABEL: Record<string, string> = {
+  SUPER_ADMIN: "Super Admin",
   ADMIN: "Administrator",
-  MANAGER: "Menejer",
+  HEAD_OF_SUPPORT: "Texnik bo'lim rahbari",
   OPERATOR: "Operator",
   INSTALLER: "Usta",
   VIEWER: "Kuzatuvchi",
@@ -90,7 +91,7 @@ export default async function ProfilePage({
   // ADMIN/VIEWER — boshqa xodimning natijalarini ko'ra oladi (faqat o'qish;
   // /foydalanuvchilar'dagi "Faoliyat" havolasi orqali keladi). Boshqa rol
   // uchun parametr e'tiborsiz qoldiriladi — har doim o'z profili ko'rinadi.
-  const canBrowseOthers = user.role === "ADMIN" || user.role === "VIEWER";
+  const canBrowseOthers = user.role === "ADMIN" || user.role === "SUPER_ADMIN" || user.role === "HEAD_OF_SUPPORT" || user.role === "VIEWER";
   const { operator: operatorParam } = await searchParams;
   const target =
     canBrowseOthers && operatorParam && operatorParam !== user.id

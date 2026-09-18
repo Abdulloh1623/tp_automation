@@ -39,7 +39,7 @@ describe("confirmReturnCollected — mijoz otkazga o'tadi", () => {
 
   it("uskuna olib kelingach stage=REFUSED, status=INACTIVE bo'ladi", async () => {
     const { req, client, type, usta } = await makeReturnRequest();
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
 
     const res = await confirmReturnCollected(req.id, "printer shikastlangan");
 
@@ -53,7 +53,7 @@ describe("confirmReturnCollected — mijoz otkazga o'tadi", () => {
 
   it("izohsiz yakunlab bo'lmaydi — izoh majburiy", async () => {
     const { req } = await makeReturnRequest();
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
 
     const res = await confirmReturnCollected(req.id, "");
 
@@ -68,7 +68,7 @@ describe("confirmReturnCollected — mijoz otkazga o'tadi", () => {
       where: { id: client.id },
       data: { stage: "REFUSED", status: "INACTIVE" },
     });
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
 
     const res = await confirmReturnCollected(req.id, "uskuna qaytarildi");
 
@@ -109,7 +109,7 @@ describe("revertReturnRequest — bosqichlarni orqaga qaytarish", () => {
 
   it("APPROVED -> PENDING, MANAGER usta biriktiruvini yechadi", async () => {
     const { req, client } = await makeReturnRequest("APPROVED");
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
 
     const res = await revertReturnRequest(req.id);
 
@@ -123,7 +123,7 @@ describe("revertReturnRequest — bosqichlarni orqaga qaytarish", () => {
 
   it("PENDING'da orqasi yo'q — ariza butunlay o'chadi (faqat boshliq)", async () => {
     const { req } = await makeReturnRequest("PENDING");
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
 
     const res = await revertReturnRequest(req.id);
 

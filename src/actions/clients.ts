@@ -18,7 +18,7 @@ import {
   toFieldErrors,
 } from "@/lib/validation";
 
-const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
+const STAFF = ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT"];
 
 function s(v: FormDataEntryValue | null): string | undefined {
   const str = typeof v === "string" ? v.trim() : "";
@@ -236,7 +236,7 @@ export async function createClient(
   );
 
   // Uskuna tanlovi (faqat ADMIN/MANAGER)
-  const canEquip = g.session.role === "ADMIN" || g.session.role === "MANAGER";
+  const canEquip = g.session.role === "ADMIN" || g.session.role === "SUPER_ADMIN" || g.session.role === "HEAD_OF_SUPPORT";
   const { rows: eqRows, source: eqSource } = parseEquipmentSelection(
     formData,
     canEquip,
@@ -666,7 +666,7 @@ export async function bulkAssignOperator(
   clientIds: string[],
   operatorId: string | null,
 ): Promise<{ ok: boolean; count?: number; error?: string }> {
-  const g = await guardRole(["ADMIN", "MANAGER"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return { ok: false, error: g.error };
   const ids = (clientIds ?? []).filter((x) => typeof x === "string" && x);
   if (ids.length === 0) return { ok: false, error: "Mijoz tanlanmadi" };
@@ -676,7 +676,7 @@ export async function bulkAssignOperator(
     const op = await db.user.findFirst({
       where: {
         id: operatorId,
-        role: { in: ["OPERATOR", "ADMIN", "MANAGER"] },
+        role: { in: ["OPERATOR", "ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] },
         isActive: true,
       },
       select: { name: true, role: true, dailyLimit: true },
@@ -727,7 +727,7 @@ export async function assignExtraClient(
   userId: string,
   clientId: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const g = await guardRole(["ADMIN", "MANAGER"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return { ok: false, error: g.error };
   if (!userId || !clientId)
     return { ok: false, error: "Operator yoki mijoz tanlanmadi" };
@@ -735,7 +735,7 @@ export async function assignExtraClient(
   const op = await db.user.findFirst({
     where: {
       id: userId,
-      role: { in: ["OPERATOR", "ADMIN", "MANAGER"] },
+      role: { in: ["OPERATOR", "ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] },
       isActive: true,
     },
     select: { name: true, dailyLimit: true },
@@ -780,7 +780,7 @@ export async function assignExtraClient(
 export async function listAssignableClients(): Promise<
   { id: string; restaurantName: string; fullName: string }[]
 > {
-  const g = await guardRole(["ADMIN", "MANAGER"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return [];
   return db.client.findMany({
     where: { assignedToId: null, status: "ACTIVE" },
@@ -791,7 +791,7 @@ export async function listAssignableClients(): Promise<
 }
 
 export async function deleteClient(id: string): Promise<void> {
-  const g = await guardRole(["ADMIN", "MANAGER"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) redirect("/mijozlar"); // ruxsatsiz — o'chirilmaydi
   const removed = await db.client.delete({ where: { id } });
   await logAudit("Mijoz o'chirildi", {
@@ -811,7 +811,7 @@ export async function deleteClient(id: string): Promise<void> {
 export async function deleteClientInline(
   id: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const g = await guardRole(["ADMIN", "MANAGER"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return { ok: false, error: g.error };
   let removed;
   try {
@@ -849,7 +849,7 @@ export async function deactivateRefusedClients(): Promise<{
   error?: string;
   fixed?: number;
 }> {
-  const g = await guardRole(["ADMIN"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return { ok: false, error: g.error };
 
   const stale = await db.client.findMany({

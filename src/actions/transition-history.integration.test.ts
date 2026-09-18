@@ -64,7 +64,7 @@ describe("Muammolar — o'tkazilgan/holat o'zgargan sana", () => {
   });
 
   it("qo'lda muammo ochilganda CallLog(HAS_ISSUE) yoziladi", async () => {
-    const manager = await makeUser("MANAGER");
+    const manager = await makeUser("SUPER_ADMIN");
     const client = await makeClient();
     await loginAs(manager);
 
@@ -80,7 +80,7 @@ describe("Muammolar — o'tkazilgan/holat o'zgargan sana", () => {
   });
 
   it("holat o'zgarganda (jarayonga/hal qilindi/qayta ochish) CallLog yoziladi", async () => {
-    const manager = await makeUser("MANAGER");
+    const manager = await makeUser("SUPER_ADMIN");
     const client = await makeClient();
     const ticket = await db.ticket.create({
       data: { clientId: client.id, title: "Muammo", type: "TECHNICAL", priority: "MEDIUM", status: "OPEN" },

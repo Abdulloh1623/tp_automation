@@ -113,7 +113,7 @@ async function main() {
   console.log("Ustunlar soni:", header.length, "| Jami qator (sarlavhasiz):", rows.length - 1);
 
   const users = await db.user.findMany({
-    where: { role: { in: ["ADMIN", "OPERATOR", "MANAGER"] } },
+    where: { role: { in: ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] } },
     select: { id: true, name: true },
   });
   const findUser = (op?: string): string | null => {

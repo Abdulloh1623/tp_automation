@@ -29,7 +29,8 @@ export async function ClientEditView({
   const session = await requireRole([
     "ADMIN",
     "OPERATOR",
-    "MANAGER",
+    "SUPER_ADMIN",
+    "HEAD_OF_SUPPORT",
     "VIEWER",
     "INSTALLER",
   ]);

@@ -8,7 +8,7 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireApiSession(["ADMIN", "OPERATOR", "MANAGER"]);
+  const auth = await requireApiSession(["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!auth.ok) {
     return new NextResponse(auth.status === 401 ? "Unauthorized" : "Forbidden", {
       status: auth.status,

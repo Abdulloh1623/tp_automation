@@ -37,7 +37,7 @@ export async function resetDb(): Promise<void> {
   });
 }
 
-type Role = "ADMIN" | "MANAGER" | "OPERATOR" | "INSTALLER";
+type Role = "ADMIN" | "SUPER_ADMIN" | "HEAD_OF_SUPPORT" | "OPERATOR" | "INSTALLER" | "VIEWER";
 
 /** Foydalanuvchi yaratadi (parol: "parol12345"). */
 export async function makeUser(

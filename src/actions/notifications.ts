@@ -9,20 +9,27 @@ import { userRoleLabel } from "@/lib/constants";
 
 export type NotifyState = { ok: boolean; error?: string; sent?: number };
 
-const AUDIENCES = ["ALL", "OPERATOR", "MANAGER"] as const;
+const AUDIENCES = ["ALL", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] as const;
 type Audience = (typeof AUDIENCES)[number];
 
 async function requireAdmin() {
   const session = await requireSession();
-  if (session.role !== "ADMIN") return { ok: false as const, error: "Ruxsat yo'q" };
+  if (
+    session.role !== "ADMIN" &&
+    session.role !== "SUPER_ADMIN" &&
+    session.role !== "HEAD_OF_SUPPORT"
+  ) {
+    return { ok: false as const, error: "Ruxsat yo'q" };
+  }
   return { ok: true as const, session };
 }
 
 /** Tanlangan auditoriya bo'yicha faol qabul qiluvchilar (ustalar kirmaydi). */
 function audienceWhere(audience: Audience) {
   if (audience === "OPERATOR") return { isActive: true, role: "OPERATOR" };
-  if (audience === "MANAGER") return { isActive: true, role: "MANAGER" };
-  return { isActive: true, role: { in: ["OPERATOR", "MANAGER"] } }; // ALL — xodimlar
+  if (audience === "SUPER_ADMIN") return { isActive: true, role: "SUPER_ADMIN" };
+  if (audience === "HEAD_OF_SUPPORT") return { isActive: true, role: "HEAD_OF_SUPPORT" };
+  return { isActive: true, role: { in: ["OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] } }; // ALL — xodimlar
 }
 
 /** Admin bildirishnoma yozadi va xodimlarga yuboradi (ixtiyoriy: Telegram). */
@@ -98,7 +105,7 @@ export async function reportToAdmin(input: {
   body: string;
 }): Promise<NotifyState> {
   const session = await requireSession();
-  if (session.role !== "OPERATOR" && session.role !== "MANAGER") {
+  if (session.role !== "OPERATOR" && session.role !== "HEAD_OF_SUPPORT") {
     return { ok: false, error: "Ruxsat yo'q" };
   }
 
@@ -181,7 +188,11 @@ export async function deleteNotification(id: string): Promise<NotifyState> {
     select: { createdById: true },
   });
   if (!n) return { ok: false, error: "Topilmadi" };
-  if (session.role !== "ADMIN" && n.createdById !== session.userId) {
+  if (
+    session.role !== "ADMIN" &&
+    session.role !== "SUPER_ADMIN" &&
+    n.createdById !== session.userId
+  ) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
   await db.notification.delete({ where: { id } });

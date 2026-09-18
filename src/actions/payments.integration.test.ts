@@ -257,7 +257,7 @@ describe("rejectAllPendingPayments (navbatni ommaviy tozalash)", () => {
   });
 
   it("OPERATOR va MANAGER qila olmaydi", async () => {
-    for (const role of ["OPERATOR", "MANAGER"] as const) {
+    for (const role of ["OPERATOR", "SUPER_ADMIN"] as const) {
       await resetDb();
       await loginAs(await makeUser(role));
       await makePending(1);

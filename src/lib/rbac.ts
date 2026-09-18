@@ -6,57 +6,86 @@
 // ro'yxatlariga qo'shilgan — server action'lardagi `guardRole`/`requireAdmin`
 // ruxsat ro'yxatlariga ATAYIN qo'shilmagan, shu bilan yozuv avtomatik
 // bloklanadi (fail-closed — ro'yxatda yo'q rol hech narsa qila olmaydi).
-export type Role = "ADMIN" | "MANAGER" | "OPERATOR" | "INSTALLER" | "VIEWER";
+//
+// SUPER_ADMIN — cheklovsiz (eski MANAGER'ning o'rnini oladi, kengaytirilgan):
+// ADMIN qila oladigan hammasi + boshqa ADMIN/SUPER_ADMIN hisoblarini
+// boshqarish + `/malumotlar`dagi backup tiklash (server action darajasida,
+// `src/actions/users.ts` va `src/actions/restore.ts`da tekshiriladi).
+//
+// HEAD_OF_SUPPORT ("Texnik bo'lim rahbari") — TP xodimlari (OPERATOR)ni
+// to'liq boshqaradi va ularning barcha ishini (muammolar/eskalatsiya/
+// qaytarish/kunlik lidlar) cheklovsiz ko'radi, ombor+ustalar+uskuna-
+// analitikani yuritadi, ish jadvali/sozlamalar/ma'lumotlar (ommaviy yuklash)
+// ustidan ishlaydi. Moliya/hisobot/audit/backup tiklashga kirmaydi.
+export type Role =
+  | "ADMIN"
+  | "SUPER_ADMIN"
+  | "HEAD_OF_SUPPORT"
+  | "OPERATOR"
+  | "INSTALLER"
+  | "VIEWER";
 
 /** Foydalanuvchi roli uchun asosiy sahifa (login-redirect, ruxsatsiz holatda). */
 export function roleHome(role: string): string {
   if (role === "INSTALLER") return "/vazifalarim";
   if (role === "OPERATOR") return "/lidlar";
-  if (role === "MANAGER") return "/ombor";
-  return "/"; // ADMIN, VIEWER
+  return "/"; // ADMIN, SUPER_ADMIN, HEAD_OF_SUPPORT, VIEWER
 }
 
 /** Har bir route prefiksiga ruxsat etilgan rollar. */
 const ROUTE_ROLES: { prefix: string; roles: Role[] }[] = [
-  { prefix: "/lidlar", roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
+  { prefix: "/lidlar", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"] },
   // INSTALLER — mijoz ro'yxati + profili faqat O'QISH uchun (ma'lumot, qo'ng'iroq
   // tarixi, uskunalar); yangi/tahrir sahifalari uchun component ichida
   // requireRole bilan qo'shimcha to'sib qo'yilgan (bu prefiks ularni ham qamraydi).
-  { prefix: "/mijozlar", roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER", "INSTALLER"] },
-  { prefix: "/muammoli-mijozlar", roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
+  {
+    prefix: "/mijozlar",
+    roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER", "INSTALLER"],
+  },
+  {
+    prefix: "/muammoli-mijozlar",
+    roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"],
+  },
   // Eski manzil — /muammoli-mijozlar ga yo'naltiradi (ruxsat bir xil bo'lsin).
-  { prefix: "/toldirilmagan", roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
-  { prefix: "/tolovlar", roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
-  { prefix: "/muammolar", roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
-  { prefix: "/eskalatsiya", roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
-  { prefix: "/qaytarish", roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
+  { prefix: "/toldirilmagan", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"] },
+  { prefix: "/tolovlar", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"] },
+  { prefix: "/muammolar", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"] },
+  { prefix: "/eskalatsiya", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"] },
+  { prefix: "/qaytarish", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"] },
   // Ustalar aloqasi + uskuna narxlari — o'qish uchun ma'lumotnoma (tahrir /ustalar va /ombor'da).
-  { prefix: "/malumotnoma", roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
-  { prefix: "/soliq", roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
-  { prefix: "/otkaz", roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
-  { prefix: "/takliflar", roles: ["ADMIN", "MANAGER", "VIEWER"] },
-  { prefix: "/ombor", roles: ["ADMIN", "MANAGER", "VIEWER"] },
-  { prefix: "/ustalar", roles: ["ADMIN", "MANAGER", "VIEWER"] },
-  { prefix: "/uskuna-analitika", roles: ["ADMIN", "MANAGER", "VIEWER"] },
-  { prefix: "/analitika", roles: ["ADMIN", "MANAGER", "VIEWER"] },
-  { prefix: "/hisobot", roles: ["ADMIN", "MANAGER", "VIEWER"] },
-  { prefix: "/moliya", roles: ["ADMIN", "MANAGER", "VIEWER"] },
-  { prefix: "/foydalanuvchilar", roles: ["ADMIN", "VIEWER"] },
-  { prefix: "/audit", roles: ["ADMIN", "VIEWER"] },
-  // Sof boshqaruv vositalari (ommaviy yuklash/tiklash, jadval tahrirlash,
-  // qayta-aloqa qoidalari formasi) — ko'rish uchun mazmunli emas, VIEWER'ga
-  // ATAYIN ochilmagan.
-  { prefix: "/ish-jadvali", roles: ["ADMIN"] },
-  { prefix: "/import", roles: ["ADMIN"] }, // eski manzil — /malumotlar ga yo'naltiradi
-  { prefix: "/malumotlar", roles: ["ADMIN"] },
-  { prefix: "/sozlamalar", roles: ["ADMIN"] },
-  { prefix: "/profil", roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER", "INSTALLER"] },
-  { prefix: "/bildirishnomalar", roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
+  { prefix: "/malumotnoma", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"] },
+  { prefix: "/soliq", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"] },
+  { prefix: "/otkaz", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"] },
+  { prefix: "/takliflar", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
+  { prefix: "/ombor", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
+  { prefix: "/ustalar", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
+  { prefix: "/uskuna-analitika", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
+  { prefix: "/analitika", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
+  // Moliya/hisobot — ataylab HEAD_OF_SUPPORT'ga ochilmagan (moliyaviy ma'lumot).
+  { prefix: "/hisobot", roles: ["ADMIN", "SUPER_ADMIN", "VIEWER"] },
+  { prefix: "/moliya", roles: ["ADMIN", "SUPER_ADMIN", "VIEWER"] },
+  // Foydalanuvchilar — HEAD_OF_SUPPORT kirsa ham, sahifa ichida faqat
+  // OPERATOR qatorlarini ko'radi/tahrirlaydi (`foydalanuvchilar/page.tsx`).
+  { prefix: "/foydalanuvchilar", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
+  // Audit — ataylab HEAD_OF_SUPPORT'ga ochilmagan.
+  { prefix: "/audit", roles: ["ADMIN", "SUPER_ADMIN", "VIEWER"] },
+  { prefix: "/ish-jadvali", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] },
+  { prefix: "/import", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] }, // eski manzil — /malumotlar ga yo'naltiradi
+  // Ma'lumotlar — ommaviy yuklash ADMIN/SUPER_ADMIN/HEAD_OF_SUPPORT'ga ochiq;
+  // backup tiklash (ichki tab) sahifa/action darajasida faqat SUPER_ADMIN'ga
+  // cheklangan (`malumotlar/page.tsx`, `src/actions/restore.ts`, `backup.ts`).
+  { prefix: "/malumotlar", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] },
+  { prefix: "/sozlamalar", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] },
+  {
+    prefix: "/profil",
+    roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER", "INSTALLER"],
+  },
+  { prefix: "/bildirishnomalar", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"] },
   // FAQ — barcha xodim o'qiydi va qo'sha oladi; tahrir/o'chirish faqat ADMIN
-  // (action guardRole bilan). O'qish/qo'shish uchun uch rol ham ochiq.
-  { prefix: "/faq", roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
+  // (action guardRole bilan). O'qish/qo'shish uchun barcha rollar ochiq.
+  { prefix: "/faq", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"] },
   // Jonli tablo — xodimlar (ustalar bu yerga kirmaydi, ular /vazifalarim'da).
-  { prefix: "/tablo", roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
+  { prefix: "/tablo", roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"] },
   // Usta (INSTALLER) — o'ziga biriktirilgan muammolar; /mijozlar (o'qish) va
   // /profil bundan tashqari ochiq, qolgan hamma joy yopiq.
   { prefix: "/vazifalarim", roles: ["INSTALLER"] },
@@ -64,8 +93,12 @@ const ROUTE_ROLES: { prefix: string; roles: Role[] }[] = [
 
 /** Foydalanuvchi shu sahifaga kira oladimi. */
 export function canAccess(role: string, pathname: string): boolean {
-  // Bosh sahifa (boshqaruv paneli) — ADMIN va VIEWER
-  if (pathname === "/") return role === "ADMIN" || role === "VIEWER";
+  // Bosh sahifa (boshqaruv paneli) — ADMIN/SUPER_ADMIN/HEAD_OF_SUPPORT/VIEWER
+  if (pathname === "/") {
+    return (
+      role === "ADMIN" || role === "SUPER_ADMIN" || role === "HEAD_OF_SUPPORT" || role === "VIEWER"
+    );
+  }
   // API yo'llari o'z handler'ida rolni alohida tekshiradi (requireApiSession) —
   // bu yerda ularni bloklamaymiz, aks holda 401/403 o'rniga redirect ketardi.
   if (pathname.startsWith("/api/")) return true;

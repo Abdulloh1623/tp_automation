@@ -14,7 +14,7 @@ export type CardActionState = { ok?: boolean; error?: string };
  * jarayon to'xtab qolmasligi uchun kerak.
  */
 async function guardCardResolver() {
-  const g = await guardRole(["ADMIN", "MANAGER", "OPERATOR"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"]);
   if (!g.ok) return { ok: false as const, error: g.error };
   const me = await db.user.findUnique({
     where: { id: g.session.userId },

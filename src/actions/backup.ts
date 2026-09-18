@@ -8,7 +8,7 @@ export type BackupState = { ok: boolean; info?: string; error?: string };
 
 /** Admin: qo'lda backup yaratadi. */
 export async function runBackupNow(): Promise<BackupState> {
-  const g = await guardRole(["ADMIN"]);
+  const g = await guardRole(["SUPER_ADMIN"]);
   if (!g.ok) return { ok: false, error: g.error };
 
   const res = await createBackup();

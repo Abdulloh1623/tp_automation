@@ -84,14 +84,27 @@ async function main() {
     },
   });
 
-  // Texnik bo'lim boshlig'i (MANAGER)
+  // Super Admin (eski MANAGER/"boshliq" — cheklovsiz, ADMIN + admin-hisoblarni boshqarish)
   await db.user.create({
     data: {
       name: "Jahongir (boshliq)",
       username: "boshliq",
       passwordHash: commonPass,
-      role: "MANAGER",
+      role: "SUPER_ADMIN",
       phone: "+998 90 444 44 44",
+      region: "Toshkent",
+    },
+  });
+
+  // Texnik bo'lim rahbari — TP xodimlarini (OPERATOR) CRUD qiladi, ombor+
+  // ustalar+uskuna-analitikani yuritadi; moliya/hisobot/audit'ga kirmaydi.
+  await db.user.create({
+    data: {
+      name: "Nodira (TP rahbari)",
+      username: "tprahbar",
+      passwordHash: commonPass,
+      role: "HEAD_OF_SUPPORT",
+      phone: "+998 90 555 55 55",
       region: "Toshkent",
     },
   });

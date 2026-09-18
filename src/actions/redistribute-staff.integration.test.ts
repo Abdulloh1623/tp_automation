@@ -156,7 +156,7 @@ describe("redistributeStaffWork", () => {
   });
 
   it("ADMIN bo'lmagan chaqira olmaydi", async () => {
-    const manager = await makeUser("MANAGER");
+    const manager = await makeUser("SUPER_ADMIN");
     const departed = await makeUser("OPERATOR", { isActive: false });
     await makeUser("OPERATOR");
     await loginAs(manager);

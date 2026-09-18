@@ -5,7 +5,7 @@ import { withDbRetry } from "@/lib/db-retry";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const auth = await requireApiSession(["ADMIN", "MANAGER"]);
+  const auth = await requireApiSession(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!auth.ok) {
     return new Response(auth.status === 401 ? "Unauthorized" : "Forbidden", {
       status: auth.status,

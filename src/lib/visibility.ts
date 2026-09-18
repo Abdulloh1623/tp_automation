@@ -1,23 +1,25 @@
 // Muammo / eskalatsiya bo'limlarida "kimga ko'rinadi" qoidasi.
-// Boshqaruv rollari (ADMIN/MANAGER) hamma narsani ko'radi va biriktiradi;
-// TP xodim (OPERATOR) esa faqat o'ziga maxsus xodim qilib biriktirilganini ko'radi.
-// Biriktirilmagan (staff = null) elementlar shu bilan avtomatik faqat boshliqqa qoladi.
-// VIEWER (Kuzatuvchi) — ADMIN/MANAGER bilan bir xil TO'LIQ ko'rinishga ega, lekin
-// hech narsa biriktira olmaydi; shuning uchun `isManagerRole` (tahrirlash huquqi)
-// dan ATAYIN ajratilgan — `canViewAll` faqat ko'rinish qamrovini kengaytiradi.
+// Boshqaruv rollari (ADMIN/SUPER_ADMIN/HEAD_OF_SUPPORT) hamma narsani ko'radi
+// va biriktiradi; TP xodim (OPERATOR) esa faqat o'ziga maxsus xodim qilib
+// biriktirilganini ko'radi. Biriktirilmagan (staff = null) elementlar shu
+// bilan avtomatik faqat boshqaruvga qoladi.
+// VIEWER (Kuzatuvchi) — boshqaruv bilan bir xil TO'LIQ ko'rinishga ega, lekin
+// hech narsa biriktira olmaydi; shuning uchun `hasFullStaffAccess` (tahrirlash
+// huquqi) dan ATAYIN ajratilgan — `canViewAll` faqat ko'rinish qamrovini kengaytiradi.
 
-/** ADMIN yoki MANAGER — boshqaruv (hamma narsani ko'radi VA biriktiradi/tahrirlaydi). */
-export function isManagerRole(role: string): boolean {
-  return role === "ADMIN" || role === "MANAGER";
+/** ADMIN/SUPER_ADMIN/HEAD_OF_SUPPORT — boshqaruv (hamma narsani ko'radi VA biriktiradi/tahrirlaydi). */
+export function hasFullStaffAccess(role: string): boolean {
+  return role === "ADMIN" || role === "SUPER_ADMIN" || role === "HEAD_OF_SUPPORT";
 }
 
 /**
  * To'liq (cheklovsiz) ko'rinishga ega rollar — boshqaruv + Kuzatuvchi (VIEWER).
- * Faqat KO'RISH qamrovini kengaytiradi; tahrirlash huquqi uchun `isManagerRole`
- * ishlatilishda davom etadi (VIEWER'ni ATAYIN chiqarib tashlaydi).
+ * Faqat KO'RISH qamrovini kengaytiradi; tahrirlash huquqi uchun
+ * `hasFullStaffAccess` ishlatilishda davom etadi (VIEWER'ni ATAYIN chiqarib
+ * tashlaydi).
  */
 export function canViewAll(role: string): boolean {
-  return isManagerRole(role) || role === "VIEWER";
+  return hasFullStaffAccess(role) || role === "VIEWER";
 }
 
 /**

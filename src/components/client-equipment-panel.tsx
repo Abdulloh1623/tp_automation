@@ -97,8 +97,8 @@ export function ClientEquipmentPanel({
 
   const [rNote, setRNote] = useState("");
 
-  const isManager = role === "ADMIN" || role === "MANAGER";
-  const canReturn = role === "ADMIN" || role === "MANAGER" || role === "OPERATOR";
+  const isManager = role === "ADMIN" || role === "SUPER_ADMIN" || role === "HEAD_OF_SUPPORT";
+  const canReturn = role === "ADMIN" || role === "SUPER_ADMIN" || role === "HEAD_OF_SUPPORT" || role === "OPERATOR";
   const hasRental = items.some((i) => i.ownership === "RENTAL" && i.quantity > 0);
 
   // Manba ro'yxati (umumiy — barcha qatorlarga): ombor + zaxirasi bor ustalar.

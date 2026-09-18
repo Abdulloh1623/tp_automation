@@ -10,7 +10,7 @@ export const metadata = { title: "Ish jadvali" };
 type SearchParams = Promise<{ date?: string }>;
 
 export default async function RosterPage({ searchParams }: { searchParams: SearchParams }) {
-  await requireRole(["ADMIN"]);
+  await requireRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   const { date: dateParam } = await searchParams;
 
   const todayKey = tzDayKey(startOfTzDay(0));

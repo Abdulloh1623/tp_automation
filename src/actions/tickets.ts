@@ -20,7 +20,7 @@ import {
 } from "@/lib/validation";
 import { getFullChain, labelFor, nextKey } from "@/lib/pipeline-stages";
 
-const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
+const STAFF = ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT"];
 
 /**
  * Ticket RESOLVED bo'lganda chaqiriladi. Muammo ochiq bo'lgan mijoz (`stage:
@@ -388,7 +388,7 @@ export async function dismissTicket(
   ticketId: string,
   note: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const g = await guardRole(["ADMIN", "MANAGER"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return { ok: false, error: g.error };
   const noteText = note.trim();
   if (!noteText) return { ok: false, error: "Izoh majburiy" };
@@ -426,7 +426,7 @@ export async function dismissTicket(
 }
 
 // XODIM (ofis xodimi) sifatida mas'ul qilib biriktirilishi mumkin bo'lgan rollar
-const ASSIGNABLE_STAFF_ROLES = ["ADMIN", "MANAGER", "OPERATOR"];
+const ASSIGNABLE_STAFF_ROLES = ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"];
 
 // Biriktirish izohini tozalaydi: trim + 500 belgigacha; bo'sh bo'lsa null.
 function assignNote(note?: string): string | null {
@@ -464,7 +464,7 @@ export async function assignTicketStaff(
   staffId: string | null,
   note?: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const g = await guardRole(["ADMIN", "MANAGER"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return { ok: false, error: g.error };
 
   if (staffId && !assignNote(note)) {
@@ -568,7 +568,7 @@ export async function assignTicketUsta(
   ustaId: string | null,
   note?: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const g = await guardRole(["ADMIN", "MANAGER", "OPERATOR"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"]);
   if (!g.ok) return { ok: false, error: g.error };
 
   if (g.session.role === "OPERATOR") {

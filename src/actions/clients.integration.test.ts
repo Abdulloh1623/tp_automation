@@ -105,7 +105,7 @@ describe("updateClient — pul maydonlari", () => {
   });
 
   it("MANAGER ham qarzni o'zgartira oladi", async () => {
-    const mgr = await makeUser("MANAGER");
+    const mgr = await makeUser("SUPER_ADMIN");
     await loginAs(mgr);
     const client = await makeClient({ debtAmount: 500 });
 
@@ -269,7 +269,7 @@ describe("deactivateRefusedClients (otkaz, lekin hali faol)", () => {
   });
 
   it("OPERATOR va MANAGER qila olmaydi", async () => {
-    for (const role of ["OPERATOR", "MANAGER"] as const) {
+    for (const role of ["OPERATOR", "SUPER_ADMIN"] as const) {
       await resetDb();
       await loginAs(await makeUser(role));
       const c = await refusedActive();

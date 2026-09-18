@@ -77,21 +77,50 @@ const emptyForm: Form = {
   cardVerifier: false,
 };
 
-const roleTone: Record<string, "blue" | "amber" | "slate"> = {
+const roleTone: Record<string, "blue" | "amber" | "slate" | "red" | "green"> = {
+  SUPER_ADMIN: "red",
   ADMIN: "blue",
+  HEAD_OF_SUPPORT: "green",
   OPERATOR: "amber",
   INSTALLER: "slate",
 };
 
-export function UserManager({ users }: { users: ManagedUser[] }) {
+/** Admin-darajadagi rollar — faqat SUPER_ADMIN bularni yarata/tahrirlay oladi. */
+const ADMIN_TIER = ["ADMIN", "SUPER_ADMIN"];
+
+/**
+ * Kim qaysi rolni biriktira oladi (`src/actions/users.ts`dagi
+ * `requireUserManager` bilan bir xil chegara — UI shu yerda oldindan
+ * ko'rsatadi, server baribir qayta tekshiradi).
+ */
+function assignableRoles(viewerRole: string): string[] {
+  const all = Object.keys(USER_ROLE);
+  if (viewerRole === "SUPER_ADMIN") return all;
+  if (viewerRole === "HEAD_OF_SUPPORT") return ["OPERATOR"];
+  return all.filter((r) => !ADMIN_TIER.includes(r)); // ADMIN
+}
+
+export function UserManager({
+  users,
+  viewerRole,
+}: {
+  users: ManagedUser[];
+  viewerRole: string;
+}) {
+  const roles = assignableRoles(viewerRole);
+  // HEAD_OF_SUPPORT faqat OPERATOR yaratadi/tahrirlaydi — admin-darajadagi
+  // mavjud qatorlarga (agar ko'rinsa) tegmasin uchun amal tugmalari yashiriladi.
+  const canManageRow = (u: ManagedUser) =>
+    viewerRole === "SUPER_ADMIN" || !ADMIN_TIER.includes(u.role);
+
   const [mode, setMode] = useState<Mode>(null);
-  const [form, setForm] = useState<Form>(emptyForm);
+  const [form, setForm] = useState<Form>({ ...emptyForm, role: roles[0] ?? "OPERATOR" });
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const router = useRouter();
 
   function openCreate() {
-    setForm(emptyForm);
+    setForm({ ...emptyForm, role: roles[0] ?? "OPERATOR" });
     setError(null);
     setMode({ kind: "create" });
   }
@@ -276,37 +305,41 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                         <Shuffle className="h-3.5 w-3.5" /> Ishlarini taqsimlash
                       </Button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => openEdit(u)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" /> Tahrir
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => openPassword(u)}
-                    >
-                      <KeyRound className="h-3.5 w-3.5" /> Parol
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className={
-                        "h-7 px-2 text-xs " +
-                        (u.isActive
-                          ? "text-red-600 dark:text-red-400"
-                          : "text-emerald-600 dark:text-emerald-400")
-                      }
-                      onClick={() => toggleActive(u)}
-                      disabled={pending}
-                    >
-                      <Power className="h-3.5 w-3.5" />
-                      {u.isActive ? "O'chirish" : "Yoqish"}
-                    </Button>
+                    {canManageRow(u) && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => openEdit(u)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" /> Tahrir
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => openPassword(u)}
+                        >
+                          <KeyRound className="h-3.5 w-3.5" /> Parol
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={
+                            "h-7 px-2 text-xs " +
+                            (u.isActive
+                              ? "text-red-600 dark:text-red-400"
+                              : "text-emerald-600 dark:text-emerald-400")
+                          }
+                          onClick={() => toggleActive(u)}
+                          disabled={pending}
+                        >
+                          <Power className="h-3.5 w-3.5" />
+                          {u.isActive ? "O'chirish" : "Yoqish"}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -398,10 +431,11 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                     id="role"
                     value={form.role}
                     onChange={(e) => set("role", e.target.value)}
+                    disabled={roles.length <= 1}
                   >
-                    {Object.entries(USER_ROLE).map(([k, label]) => (
+                    {roles.map((k) => (
                       <option key={k} value={k}>
-                        {label}
+                        {userRoleLabel(k)}
                       </option>
                     ))}
                   </Select>

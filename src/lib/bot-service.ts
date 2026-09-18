@@ -15,7 +15,7 @@ export async function resolveActor(telegramId: string | number): Promise<Actor |
     where: {
       telegramId: String(telegramId),
       isActive: true,
-      role: { in: ["ADMIN", "MANAGER"] },
+      role: { in: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] },
     },
     select: { id: true, name: true, role: true },
   });
@@ -54,7 +54,7 @@ async function audit(actor: Actor, action: string, detail?: string) {
 /** Botda tanlash uchun xodimlar ro'yxati (faqat login qiladiganlar — ustalar emas). */
 export async function listEmployees(): Promise<{ id: string; name: string; role: string }[]> {
   return db.user.findMany({
-    where: { role: { in: ["OPERATOR", "MANAGER"] }, isActive: true },
+    where: { role: { in: ["OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] }, isActive: true },
     select: { id: true, name: true, role: true },
     orderBy: [{ role: "asc" }, { name: "asc" }],
   });
@@ -102,7 +102,7 @@ export async function changePassword(
   // Webda parol tiklash ADMIN-only (actions/users.ts). Bot shu qoidani
   // kengaytirib yubormasligi kerak edi: MANAGER bot orqali boshqa MANAGER'ning
   // parolini almashtirib, uning nomidan ishlay olardi.
-  if (actor.role !== "ADMIN" && u.role !== "OPERATOR") {
+  if (actor.role !== "ADMIN" && actor.role !== "SUPER_ADMIN" && u.role !== "OPERATOR") {
     return { ok: false, error: "Faqat admin boshqa boshliqning parolini almashtira oladi" };
   }
   await db.user.update({

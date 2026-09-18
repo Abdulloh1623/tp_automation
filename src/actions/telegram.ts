@@ -9,7 +9,7 @@ export type SendState = { ok: boolean; mode?: string; error?: string };
 /** Admin/manager: hisobot albomini darhol Telegram kanaliga yuboradi. */
 export async function sendReportNow(kind: ReportKind): Promise<SendState> {
   const session = await requireSession();
-  if (!["ADMIN", "MANAGER"].includes(session.role)) {
+  if (!["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"].includes(session.role)) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
   try {

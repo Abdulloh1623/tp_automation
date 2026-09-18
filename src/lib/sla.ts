@@ -55,7 +55,7 @@ export async function runSlaCheck(
 
   // Ogohlantiriladigan boshliqlar (admin + menejer) — bir marta olinadi
   const managers = await db.user.findMany({
-    where: { role: { in: ["ADMIN", "MANAGER"] }, isActive: true },
+    where: { role: { in: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] }, isActive: true },
     select: { id: true, telegramId: true },
   });
   const managerIds = managers.map((m) => m.id);

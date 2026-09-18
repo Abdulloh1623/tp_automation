@@ -32,7 +32,7 @@ import { TICKET_TYPE, TICKET_PRIORITY } from "@/lib/constants";
 import { formatDate, formatPhone, normalizePhone } from "@/lib/utils";
 import { slaThreshold } from "@/lib/sla";
 import { tzDayStartFromInput } from "@/lib/tz";
-import { assignedStaffScope, isManagerRole } from "@/lib/visibility";
+import { assignedStaffScope, hasFullStaffAccess } from "@/lib/visibility";
 import { getFullChain, labelFor, type StageStep } from "@/lib/pipeline-stages";
 import type { Bolim } from "./section-tabs";
 
@@ -75,7 +75,7 @@ export async function TicketsSection({
   const selectableTypes = Object.entries(TICKET_TYPE).filter(
     ([k]) => isVersion || k !== "VERSION_UPDATE",
   );
-  const canAssign = isManagerRole(session.role);
+  const canAssign = hasFullStaffAccess(session.role);
 
   // Ustaga biriktirish/olib tashlash — boshliq/admin ISTALGANini, mas'ul TP
   // xodim (OPERATOR) esa faqat O'ZIGA (assignedStaffId) biriktirilgan
@@ -173,7 +173,7 @@ export async function TicketsSection({
         orderBy: { restaurantName: "asc" },
       }),
       db.user.findMany({
-        where: { role: { in: ["ADMIN", "MANAGER", "OPERATOR"] }, isActive: true },
+        where: { role: { in: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"] }, isActive: true },
         select: { id: true, name: true, phone: true },
         orderBy: { name: "asc" },
       }),

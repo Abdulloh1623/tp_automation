@@ -53,60 +53,64 @@ type NavSection = { title?: string; items: NavItem[] };
 const NAV_SECTIONS: NavSection[] = [
   {
     items: [
-      { href: "/", label: "Boshqaruv paneli", icon: LayoutDashboard, roles: ["ADMIN", "VIEWER"] },
-      { href: "/lidlar", label: "Kunlik ish", icon: PhoneCall, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
+      { href: "/", label: "Boshqaruv paneli", icon: LayoutDashboard, roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
+      { href: "/lidlar", label: "Kunlik ish", icon: PhoneCall, roles: ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
       { href: "/vazifalarim", label: "Vazifalarim", icon: HardHat, roles: ["INSTALLER"] },
     ],
   },
   {
     title: "Mijozlar",
     items: [
-      { href: "/mijozlar", label: "Mijozlar", icon: Users, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER", "INSTALLER"] },
-      { href: "/muammoli-mijozlar", label: "Muammoli mijozlar", icon: UserX, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
-      { href: "/tolovlar", label: "To'lovlar", icon: CreditCard, roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
+      { href: "/mijozlar", label: "Mijozlar", icon: Users, roles: ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER", "INSTALLER"] },
+      { href: "/muammoli-mijozlar", label: "Muammoli mijozlar", icon: UserX, roles: ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
+      { href: "/tolovlar", label: "To'lovlar", icon: CreditCard, roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"] },
     ],
   },
   {
     title: "Xizmat",
     items: [
-      { href: "/muammolar", label: "Muammolar", icon: Wrench, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
-      { href: "/malumotnoma", label: "Ustalar va narxlar", icon: BookOpen, roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
-      { href: "/soliq", label: "Soliqqa ulash", icon: Landmark, roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
-      { href: "/otkaz", label: "Otkaz", icon: Ban, roles: ["ADMIN", "MANAGER", "OPERATOR", "VIEWER"] },
-      { href: "/takliflar", label: "Takliflar", icon: Lightbulb, roles: ["ADMIN", "MANAGER", "VIEWER"] },
+      { href: "/muammolar", label: "Muammolar", icon: Wrench, roles: ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
+      { href: "/malumotnoma", label: "Ustalar va narxlar", icon: BookOpen, roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"] },
+      { href: "/soliq", label: "Soliqqa ulash", icon: Landmark, roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"] },
+      { href: "/otkaz", label: "Otkaz", icon: Ban, roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"] },
+      { href: "/takliflar", label: "Takliflar", icon: Lightbulb, roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
     ],
   },
   {
     title: "Ombor",
     items: [
-      { href: "/ombor", label: "Ombor", icon: Warehouse, roles: ["ADMIN", "MANAGER", "VIEWER"] },
-      { href: "/ustalar", label: "Ustalar", icon: HardHat, roles: ["ADMIN", "MANAGER", "VIEWER"] },
-      { href: "/uskuna-analitika", label: "Uskuna analitikasi", icon: PackageSearch, roles: ["ADMIN", "MANAGER", "VIEWER"] },
+      { href: "/ombor", label: "Ombor", icon: Warehouse, roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
+      { href: "/ustalar", label: "Ustalar", icon: HardHat, roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
+      { href: "/uskuna-analitika", label: "Uskuna analitikasi", icon: PackageSearch, roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
     ],
   },
   {
     title: "Tahlil",
     items: [
-      { href: "/analitika", label: "Jonli analitika", icon: Activity, roles: ["ADMIN", "MANAGER", "VIEWER"] },
-      { href: "/moliya", label: "Moliya", icon: Wallet, roles: ["ADMIN", "MANAGER", "VIEWER"] },
-      { href: "/hisobot", label: "Hisobot", icon: BarChart3, roles: ["ADMIN", "MANAGER", "VIEWER"] },
+      { href: "/analitika", label: "Jonli analitika", icon: Activity, roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
+      // Moliya/hisobot — ataylab HEAD_OF_SUPPORT'ga ochilmagan (moliyaviy ma'lumot).
+      { href: "/moliya", label: "Moliya", icon: Wallet, roles: ["ADMIN", "SUPER_ADMIN", "VIEWER"] },
+      { href: "/hisobot", label: "Hisobot", icon: BarChart3, roles: ["ADMIN", "SUPER_ADMIN", "VIEWER"] },
     ],
   },
   {
     title: "Boshqaruv",
     items: [
-      { href: "/foydalanuvchilar", label: "Foydalanuvchilar", icon: UserCog, roles: ["ADMIN", "VIEWER"] },
-      { href: "/ish-jadvali", label: "Ish jadvali", icon: CalendarClock, roles: ["ADMIN"] },
-      { href: "/audit", label: "Audit", icon: ScrollText, roles: ["ADMIN", "VIEWER"] },
-      { href: "/malumotlar", label: "Ma'lumotlar", icon: Database, roles: ["ADMIN"] },
-      { href: "/sozlamalar", label: "Sozlamalar", icon: SlidersHorizontal, roles: ["ADMIN"] },
+      { href: "/foydalanuvchilar", label: "Foydalanuvchilar", icon: UserCog, roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
+      { href: "/ish-jadvali", label: "Ish jadvali", icon: CalendarClock, roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] },
+      // Audit — ataylab HEAD_OF_SUPPORT'ga ochilmagan.
+      { href: "/audit", label: "Audit", icon: ScrollText, roles: ["ADMIN", "SUPER_ADMIN", "VIEWER"] },
+      // Ma'lumotlar — ommaviy yuklash ADMIN/SUPER_ADMIN/HEAD_OF_SUPPORT'ga ochiq;
+      // backup tiklash ichki tab sahifa darajasida faqat SUPER_ADMIN'ga ko'rinadi.
+      { href: "/malumotlar", label: "Ma'lumotlar", icon: Database, roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] },
+      { href: "/sozlamalar", label: "Sozlamalar", icon: SlidersHorizontal, roles: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] },
     ],
   },
   {
     items: [
-      { href: "/faq", label: "FAQ", icon: HelpCircle, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
-      { href: "/bildirishnomalar", label: "Bildirishnomalar", icon: Bell, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER"] },
-      { href: "/profil", label: "Profil", icon: CircleUser, roles: ["ADMIN", "OPERATOR", "MANAGER", "VIEWER", "INSTALLER"] },
+      { href: "/faq", label: "FAQ", icon: HelpCircle, roles: ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
+      { href: "/bildirishnomalar", label: "Bildirishnomalar", icon: Bell, roles: ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"] },
+      { href: "/profil", label: "Profil", icon: CircleUser, roles: ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER", "INSTALLER"] },
     ],
   },
 ];

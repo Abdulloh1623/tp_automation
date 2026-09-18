@@ -64,8 +64,8 @@ describe("getNavBadges", () => {
     expect(b["/tolovlar"]).toBe(1);
   });
 
-  it("boshliq (MANAGER) — barcha bo'limlar sanaladi", async () => {
-    const b = await getNavBadges("u1", "MANAGER");
+  it("boshliq (SUPER_ADMIN) — barcha bo'limlar sanaladi", async () => {
+    const b = await getNavBadges("u1", "SUPER_ADMIN");
     expect(b["/bildirishnomalar"]).toBe(2);
     // Muammolar/Eskalatsiya/Qaytarish endi bitta badge — 3 (ticket) + 5 (client, eskalatsiya) + 4 (qaytarish)
     expect(b["/muammolar"]).toBe(12);

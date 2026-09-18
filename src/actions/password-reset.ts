@@ -9,10 +9,24 @@ import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH } from "@/lib/constants";
 
 export type ResetActionState = { ok: boolean; error?: string };
 
-async function requireAdmin() {
+/**
+ * So'rovni ko'rib chiqish uchun ruxsat: ADMIN/SUPER_ADMIN — istalgan so'rov;
+ * HEAD_OF_SUPPORT — faqat OPERATOR hisobining so'rovi (TP xodimlarini CRUD
+ * qilish vakolati doirasida).
+ */
+async function requireReviewer(targetUserId: string) {
   const session = await requireSession();
-  if (session.role !== "ADMIN") return { ok: false as const, error: "Ruxsat yo'q" };
-  return { ok: true as const, session };
+  if (session.role === "ADMIN" || session.role === "SUPER_ADMIN") {
+    return { ok: true as const, session };
+  }
+  if (session.role === "HEAD_OF_SUPPORT") {
+    const target = await db.user.findUnique({
+      where: { id: targetUserId },
+      select: { role: true },
+    });
+    if (target?.role === "OPERATOR") return { ok: true as const, session };
+  }
+  return { ok: false as const, error: "Ruxsat yo'q" };
 }
 
 /** Foydalanuvchi o'z profili orqali parolni tiklash so'rovini yuboradi (PENDING). */
@@ -64,12 +78,12 @@ export async function cancelMyPasswordReset(): Promise<ResetActionState> {
   return { ok: true };
 }
 
-/** Admin so'rovni tasdiqlaydi — yangi parol kuchga kiradi. */
+/** Admin/TP rahbari so'rovni tasdiqlaydi — yangi parol kuchga kiradi. */
 export async function approvePasswordReset(id: string): Promise<ResetActionState> {
-  const admin = await requireAdmin();
-  if (!admin.ok) return admin;
   const req = await db.passwordResetRequest.findUnique({ where: { id } });
   if (!req || req.status !== "PENDING") return { ok: false, error: "So'rov topilmadi yoki allaqachon ko'rib chiqilgan" };
+  const admin = await requireReviewer(req.userId);
+  if (!admin.ok) return admin;
 
   await db.$transaction([
     // sessionVersion — parol almashgach eski cookie'lar bekor bo'lsin
@@ -91,12 +105,12 @@ export async function approvePasswordReset(id: string): Promise<ResetActionState
   return { ok: true };
 }
 
-/** Admin so'rovni rad etadi — parol o'zgarmaydi. */
+/** Admin/TP rahbari so'rovni rad etadi — parol o'zgarmaydi. */
 export async function rejectPasswordReset(id: string): Promise<ResetActionState> {
-  const admin = await requireAdmin();
-  if (!admin.ok) return admin;
   const req = await db.passwordResetRequest.findUnique({ where: { id } });
   if (!req || req.status !== "PENDING") return { ok: false, error: "So'rov topilmadi yoki allaqachon ko'rib chiqilgan" };
+  const admin = await requireReviewer(req.userId);
+  if (!admin.ok) return admin;
 
   await db.passwordResetRequest.update({
     where: { id },

@@ -15,7 +15,7 @@ export async function sendRemindersNow(
   _prev: SendRemindersState,
   _formData: FormData,
 ): Promise<SendRemindersState> {
-  const g = await guardRole(["ADMIN", "MANAGER"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return { error: g.error };
 
   try {

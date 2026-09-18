@@ -74,7 +74,7 @@ async function reissueSession(userId: string, username: string): Promise<boolean
 }
 
 async function requireAdmin() {
-  const g = await guardRole(["ADMIN"]);
+  const g = await guardRole(["SUPER_ADMIN"]);
   return g;
 }
 

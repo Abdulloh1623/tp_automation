@@ -6,9 +6,9 @@ import { resolveClientUsta } from "@/lib/usta-region";
 import { expectedRentalValue } from "@/lib/inventory-stats";
 
 export default async function RefusedPage() {
-  const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR", "VIEWER"]);
+  const session = await requireRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"]);
   // Operator faqat ko'radi (telefon/izoh) — orqaga qaytarish boshliqda
-  const isManager = ["ADMIN", "MANAGER"].includes(session.role);
+  const isManager = ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"].includes(session.role);
 
   const [clients, ustalar] = await Promise.all([
     db.client.findMany({

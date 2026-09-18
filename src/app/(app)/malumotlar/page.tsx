@@ -10,21 +10,24 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Ma'lumotlar" };
 
 /**
- * Ma'lumotlar bilan ishlash bo'limi (ADMIN).
+ * Ma'lumotlar bilan ishlash bo'limi.
  *
  * Ichida ikki mustaqil funksiya tab sifatida turadi — loyihadagi mavjud naqsh
  * (Muammolar, Eskalatsiya, To'lovlar):
- *   - Ommaviy yuklash — mijozlar bazasini fayldan kiritish;
- *   - Backup va tiklash — bazani zaxira nusxadan qayta tiklash.
+ *   - Ommaviy yuklash — mijozlar bazasini fayldan kiritish (ADMIN/SUPER_ADMIN/
+ *     HEAD_OF_SUPPORT);
+ *   - Backup va tiklash — bazani zaxira nusxadan qayta tiklash (FAQAT
+ *     SUPER_ADMIN — eng xavfli, qaytarib bo'lmaydigan amal).
  */
 export default async function MalumotlarPage({
   searchParams,
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
-  await requireRole(["ADMIN"]);
+  const session = await requireRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
+  const canRestore = session.role === "SUPER_ADMIN";
   const sp = await searchParams;
-  const maintenance = await getMaintenance();
+  const maintenance = canRestore ? await getMaintenance() : null;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -33,12 +36,14 @@ export default async function MalumotlarPage({
           Ma'lumotlar
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Ommaviy yuklash va zaxira nusxadan tiklash — faqat administrator uchun
+          {canRestore
+            ? "Ommaviy yuklash va zaxira nusxadan tiklash"
+            : "Ommaviy yuklash — bazani zaxiradan tiklash faqat Super Admin uchun"}
         </p>
       </div>
 
       <TicketTabs
-        initialKey={sp.tab === "backup" ? "backup" : "yuklash"}
+        initialKey={sp.tab === "backup" && canRestore ? "backup" : "yuklash"}
         tabs={[
           {
             key: "yuklash",
@@ -61,13 +66,17 @@ export default async function MalumotlarPage({
               </div>
             ),
           },
-          {
-            key: "backup",
-            label: "Backup va tiklash",
-            icon: <DatabaseBackup className="h-4 w-4" />,
-            tone: "amber",
-            content: <BackupRestore maintenanceActive={maintenance.active} />,
-          },
+          ...(canRestore
+            ? [
+                {
+                  key: "backup",
+                  label: "Backup va tiklash",
+                  icon: <DatabaseBackup className="h-4 w-4" />,
+                  tone: "amber" as const,
+                  content: <BackupRestore maintenanceActive={maintenance?.active ?? false} />,
+                },
+              ]
+            : []),
         ]}
       />
     </div>

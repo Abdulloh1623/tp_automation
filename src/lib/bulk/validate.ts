@@ -172,7 +172,7 @@ export function resolveEquipment(row: ParsedRow, lk: Lookups): RowResult<Equipme
 export type StaffRecord = {
   name: string;
   username: string | null;
-  role: "ADMIN" | "MANAGER" | "OPERATOR" | "INSTALLER";
+  role: "ADMIN" | "SUPER_ADMIN" | "HEAD_OF_SUPPORT" | "OPERATOR" | "INSTALLER";
   phone: string | null;
   regions: string[];
   shift: "DAY" | "NIGHT";
@@ -180,12 +180,17 @@ export type StaffRecord = {
   dailyLeadTarget: number | null;
 };
 
-const ROLES = ["ADMIN", "MANAGER", "OPERATOR", "INSTALLER"] as const;
+const ROLES = ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "INSTALLER"] as const;
 const ROLE_ALIASES: Record<string, StaffRecord["role"]> = {
   admin: "ADMIN",
-  manager: "MANAGER",
-  menejer: "MANAGER",
-  boshliq: "MANAGER",
+  "super admin": "SUPER_ADMIN",
+  superadmin: "SUPER_ADMIN",
+  manager: "SUPER_ADMIN",
+  menejer: "SUPER_ADMIN",
+  boshliq: "SUPER_ADMIN",
+  "texnik bo'lim rahbari": "HEAD_OF_SUPPORT",
+  "tp rahbari": "HEAD_OF_SUPPORT",
+  "head of support": "HEAD_OF_SUPPORT",
   operator: "OPERATOR",
   installer: "INSTALLER",
   usta: "INSTALLER",

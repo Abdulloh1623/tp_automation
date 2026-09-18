@@ -11,7 +11,7 @@ import { tzDayKey } from "@/lib/tz";
 import { CALL_RESULT, MISSED_OUTCOMES, callResultLabel, type LeadOutcome } from "@/lib/constants";
 import { noteString, toFieldErrors } from "@/lib/validation";
 
-const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
+const STAFF = ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT"];
 
 // Operator o'z izohini yozgandan keyin 5 soat ichida o'chirishi mumkin; keyin
 // faqat tahrirlash qoladi. Admin har doim (vaqtdan qat'i nazar) o'chira/tahrirlay oladi.
@@ -131,7 +131,7 @@ export async function editCallLog(
   });
   if (!log) return { ok: false, error: "Izoh topilmadi" };
 
-  const isAdmin = session.role === "ADMIN";
+  const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN" || session.role === "HEAD_OF_SUPPORT";
   const isOwner = !!log.operatorId && log.operatorId === session.userId;
   if (!isAdmin && !isOwner) return { ok: false, error: "Ruxsat yo'q" };
 
@@ -220,7 +220,7 @@ export async function deleteCallLog(logId: string): Promise<CallLogActionState> 
   });
   if (!log) return { ok: false, error: "Izoh topilmadi" };
 
-  const isAdmin = session.role === "ADMIN";
+  const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN" || session.role === "HEAD_OF_SUPPORT";
   const isOwner = !!log.operatorId && log.operatorId === session.userId;
   if (!isAdmin && !isOwner) return { ok: false, error: "Ruxsat yo'q" };
   // Egasi bo'lsa — faqat 5 soatlik oyna ichida (admin cheklovsiz).

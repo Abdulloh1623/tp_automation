@@ -13,12 +13,48 @@ import { createNotification } from "@/lib/notifications";
 
 export type UserActionState = { ok: boolean; error?: string };
 
-const ROLES = ["ADMIN", "MANAGER", "OPERATOR", "INSTALLER", "VIEWER"];
+const ROLES = ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "INSTALLER", "VIEWER"];
 
-async function requireAdmin(): Promise<{ ok: true } | { ok: false; error: string }> {
+/** Admin-darajadagi rollar — bularni faqat SUPER_ADMIN yarata/tahrirlay oladi. */
+const ADMIN_TIER = ["ADMIN", "SUPER_ADMIN"];
+
+/**
+ * Xodim hisobini boshqarish huquqi — imtiyoz chegarasi bilan:
+ * - SUPER_ADMIN: istalgan hisobni yaratadi/tahrirlaydi (cheklovsiz).
+ * - ADMIN: ADMIN/SUPER_ADMIN hisobini YARATA OLMAYDI va TAHRIRLAY OLMAYDI
+ *   (o'zini yoki boshqasini admin-darajaga ko'tarib/tushirib qo'ymasin —
+ *   imtiyoz eskalatsiyasidan himoya). Qolgan barcha rol (HEAD_OF_SUPPORT,
+ *   OPERATOR, INSTALLER, VIEWER) uchun to'liq huquqli.
+ * - HEAD_OF_SUPPORT: FAQAT OPERATOR hisobini yaratadi/tahrirlaydi (TP
+ *   xodimlarini CRUD qilish vakolati doirasida) — boshqa hech qanday rolga
+ *   tegmaydi.
+ *
+ * @param targetRole   yaratilayotgan/o'rnatilayotgan yangi rol (agar mavjud bo'lsa).
+ * @param existingRole mavjud hisobning HOZIRGI roli (tahrirlash/faolsizlantirish/
+ *                     parol tiklashda — yangi hisobda `undefined`).
+ */
+async function requireUserManager(
+  targetRole?: string,
+  existingRole?: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const session = await requireSession();
-  if (session.role !== "ADMIN") return { ok: false, error: "Ruxsat yo'q" };
-  return { ok: true };
+  if (session.role === "SUPER_ADMIN") return { ok: true };
+  if (session.role === "ADMIN") {
+    if (targetRole && ADMIN_TIER.includes(targetRole)) {
+      return { ok: false, error: "Faqat Super Admin admin-darajadagi hisob yarata oladi" };
+    }
+    if (existingRole && ADMIN_TIER.includes(existingRole)) {
+      return { ok: false, error: "Faqat Super Admin admin-darajadagi hisobni tahrirlay oladi" };
+    }
+    return { ok: true };
+  }
+  if (session.role === "HEAD_OF_SUPPORT") {
+    if ((targetRole ?? "OPERATOR") === "OPERATOR" && (existingRole ?? "OPERATOR") === "OPERATOR") {
+      return { ok: true };
+    }
+    return { ok: false, error: "Faqat TP xodimi (operator) hisoblarini boshqarasiz" };
+  }
+  return { ok: false, error: "Ruxsat yo'q" };
 }
 
 const baseSchema = z.object({
@@ -64,9 +100,6 @@ export async function createUser(input: {
   shift?: string;
   cardVerifier?: boolean;
 }): Promise<UserActionState> {
-  const admin = await requireAdmin();
-  if (!admin.ok) return admin;
-
   const schema = baseSchema.extend({
     username: z.string().min(3, "Login kamida 3 belgi"),
     password: z
@@ -81,6 +114,8 @@ export async function createUser(input: {
   if (!ROLES.includes(parsed.data.role)) {
     return { ok: false, error: "Rol noto'g'ri" };
   }
+  const admin = await requireUserManager(parsed.data.role);
+  if (!admin.ok) return admin;
 
   const username = parsed.data.username.trim().toLowerCase();
   const exists = await db.user.findUnique({ where: { username } });
@@ -131,9 +166,6 @@ export async function updateUser(
     cardVerifier?: boolean;
   },
 ): Promise<UserActionState> {
-  const admin = await requireAdmin();
-  if (!admin.ok) return admin;
-
   const parsed = baseSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Xato" };
@@ -144,6 +176,8 @@ export async function updateUser(
 
   const before = await db.user.findUnique({ where: { id }, select: { role: true, username: true } });
   if (!before) return { ok: false, error: "Xodim topilmadi" };
+  const admin = await requireUserManager(parsed.data.role, before.role);
+  if (!admin.ok) return admin;
   // Rol o'zgarsa — ochiq sessiyalarni bekor qilamiz. Aks holda tushirilgan
   // xodimning cookie'sidagi eski rol token amal qilgunicha (7 kun) kuchda
   // qolardi va u admin amallarini bajaraverardi.
@@ -195,7 +229,9 @@ export async function resetPassword(
   id: string,
   password: string,
 ): Promise<UserActionState> {
-  const admin = await requireAdmin();
+  const target = await db.user.findUnique({ where: { id }, select: { role: true } });
+  if (!target) return { ok: false, error: "Xodim topilmadi" };
+  const admin = await requireUserManager(undefined, target.role);
   if (!admin.ok) return admin;
   if (!password || password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
     return { ok: false, error: `Parol ${MIN_PASSWORD_LENGTH}–${MAX_PASSWORD_LENGTH} belgi bo'lsin` };
@@ -224,7 +260,11 @@ export async function updateUserDailyLimit(
   limit: number,
 ): Promise<UserActionState> {
   const session = await requireSession();
-  if (session.role !== "ADMIN" && session.role !== "MANAGER") {
+  if (
+    session.role !== "ADMIN" &&
+    session.role !== "SUPER_ADMIN" &&
+    session.role !== "HEAD_OF_SUPPORT"
+  ) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
 
@@ -275,7 +315,13 @@ function shuffle<T>(arr: T[]): void {
  */
 export async function redistributeStaffWork(departedUserId: string): Promise<RedistributeState> {
   const session = await requireSession();
-  if (session.role !== "ADMIN") return { ok: false, error: "Ruxsat yo'q" };
+  if (
+    session.role !== "ADMIN" &&
+    session.role !== "SUPER_ADMIN" &&
+    session.role !== "HEAD_OF_SUPPORT"
+  ) {
+    return { ok: false, error: "Ruxsat yo'q" };
+  }
 
   const departed = await db.user.findUnique({
     where: { id: departedUserId },
@@ -369,7 +415,9 @@ export async function setUserActive(
   id: string,
   active: boolean,
 ): Promise<UserActionState> {
-  const admin = await requireAdmin();
+  const target = await db.user.findUnique({ where: { id }, select: { role: true } });
+  if (!target) return { ok: false, error: "Xodim topilmadi" };
+  const admin = await requireUserManager(undefined, target.role);
   if (!admin.ok) return admin;
   await db.user.update({ where: { id }, data: { isActive: active } });
   await logAudit(active ? "Xodim yoqildi" : "Xodim faolsizlantirildi", {

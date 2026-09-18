@@ -3,7 +3,7 @@ import { requireApiSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { readSoliqDoc } from "@/lib/soliq-docs";
 
-const MANAGERS = ["ADMIN", "MANAGER"];
+const MANAGERS = ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"];
 
 // Himoyalangan soliqqa ulash hujjati: fayl nomi (uuid.ext) bo'yicha topib beradi.
 // Admin/menejer barchasini; operator faqat o'zi yuborgan arizaning hujjatini ko'radi.

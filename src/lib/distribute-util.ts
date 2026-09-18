@@ -1,6 +1,6 @@
 // Taqsimotning sof (DB'siz) mantig'i — izolyatsiyada testlanadi.
 
-import type { LeadSegment, ProfileShare } from "@/lib/constants";
+import { normalizeRegion, parseRegions, type LeadSegment, type ProfileShare } from "@/lib/constants";
 
 export type OperatorSlot = { id: string; cap: number };
 
@@ -106,4 +106,87 @@ export function allocateByProfile(
     for (const id of list) if (!taken.has(id)) leftover.push(id);
   }
   return { picked, leftover };
+}
+
+// --- Viloyat bo'yicha taqsimlash (kunlik lid) ---
+//
+// Har operator qoplaydigan viloyat(lar) — kanonik nom -> shu viloyatni
+// bugun qoplaydigan (ishlayotgan) operator id'lari ro'yxati.
+export type RegionCoverage = Map<string, string[]>;
+
+/**
+ * Bugun ishlayotgan operatorlarning viloyat qamrovini quradi. Ustalar uchun
+ * ishlatiladigan `usta-region.ts` bilan bir xil manba (`User.regions`/`region`,
+ * `parseRegions` + `normalizeRegion`), lekin natija BIR EMAS — bitta viloyatni
+ * bir nechta operator qoplashi mumkin (shunda ular orasida keyinroq
+ * `splitByCapacity` bilan bo'linadi).
+ */
+export function buildRegionCoverage(
+  operators: { id: string; region: string | null; regions: string | null }[],
+): RegionCoverage {
+  const coverage: RegionCoverage = new Map();
+  for (const o of operators) {
+    for (const raw of parseRegions(o.regions, o.region)) {
+      const region = normalizeRegion(raw);
+      if (!region) continue;
+      const list = coverage.get(region);
+      if (list) {
+        if (!list.includes(o.id)) list.push(o.id);
+      } else {
+        coverage.set(region, [o.id]);
+      }
+    }
+  }
+  return coverage;
+}
+
+/**
+ * Mijozlar hovuzini bugun QOPLANGAN viloyat guruhlariga va umumiy (fallback)
+ * qismga ajratadi. Fallbackka tushadi: viloyati yo'q/notanish mijozlar VA
+ * hech kim (bugun ishlayotgan) qoplamagan viloyat mijozlari — ikkalasi ham
+ * "umumiy hovuzga" degan qarorga ko'ra bir xil yo'l bilan taqsimlanadi.
+ */
+export function splitPoolByRegionCoverage<T extends { region: string | null }>(
+  pool: T[],
+  coverage: RegionCoverage,
+): { byRegion: Map<string, T[]>; fallback: T[] } {
+  const byRegion = new Map<string, T[]>();
+  const fallback: T[] = [];
+  for (const c of pool) {
+    const region = normalizeRegion(c.region);
+    if (region && coverage.has(region)) {
+      const list = byRegion.get(region);
+      if (list) list.push(c);
+      else byRegion.set(region, [c]);
+    } else {
+      fallback.push(c);
+    }
+  }
+  return { byRegion, fallback };
+}
+
+/**
+ * Kunduzgi/kechki og'irlikli avtomatik kvota — bitta hovuz o'lchamini
+ * kunduzgi/kechki operatorlar orasida bo'ladi (kechkiga siyosatdagi foizga
+ * kamroq). Global (viloyatsiz) va har-viloyat/fallback hisob-kitobida BIR XIL
+ * formula ishlatiladi — shu funksiya orqali takrorlanmaydi.
+ */
+export function weightedAutoLimit(
+  poolSize: number,
+  dayCount: number,
+  nightCount: number,
+  discountPercent: number,
+  policy: { minPerOperator: number; maxPerOperator: number },
+): { dayAuto: number; nightAuto: number } {
+  const discount = Math.max(0, Math.min(100, discountPercent)) / 100;
+  const weighted = dayCount + nightCount * (1 - discount);
+  const dayAuto =
+    weighted > 0
+      ? Math.min(
+          policy.maxPerOperator,
+          Math.max(policy.minPerOperator, Math.ceil(poolSize / weighted)),
+        )
+      : 0;
+  const nightAuto = Math.max(0, Math.round(dayAuto * (1 - discount)));
+  return { dayAuto, nightAuto };
 }

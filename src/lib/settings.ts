@@ -98,21 +98,38 @@ export async function setLoadPolicy(policy: LoadPolicy): Promise<void> {
  * odatda alohida cron chaqiruvida ishlaydi (bir-birining operatorini
  * ko'rmaydi), shu bois kechki smena ulushini hisoblash uchun kunduzgi
  * qiymat shu kunga saqlanadi. Boshqa kunning eski qiymati qaytarilmaydi.
+ *
+ * Xarita ko'rinishida: kalit — kanonik viloyat nomi (`src/lib/constants.ts`
+ * `REGIONS`) yoki umumiy/fallback hovuz uchun `FALLBACK_AUTO_LIMIT_KEY`.
+ * Viloyat bo'yicha taqsimlash o'chirilgan bo'lsa, faqat fallback kaliti
+ * ishlatiladi (ya'ni eski bitta sonli xatti-harakat AYNAN saqlanadi).
  */
-export async function getTodayDayAutoLimit(now = new Date()): Promise<number | null> {
+export const FALLBACK_AUTO_LIMIT_KEY = "__fallback__";
+
+export async function getTodayDayAutoLimits(
+  now = new Date(),
+): Promise<Record<string, number> | null> {
   const row = await db.appSetting.findUnique({ where: { key: DAY_AUTO_LIMIT_KEY } });
   if (!row) return null;
   try {
-    const o = JSON.parse(row.value) as { day?: string; value?: number };
-    if (o.day === tzDayKey(now) && Number.isFinite(o.value)) return o.value!;
+    const o = JSON.parse(row.value) as { day?: string; values?: Record<string, unknown> };
+    if (o.day !== tzDayKey(now) || !o.values || typeof o.values !== "object") return null;
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(o.values)) {
+      if (Number.isFinite(v)) out[k] = v as number;
+    }
+    return out;
   } catch {
     // buzilgan qiymat — e'tiborsiz qoldiramiz
   }
   return null;
 }
 
-export async function setTodayDayAutoLimit(value: number, now = new Date()): Promise<void> {
-  const v = JSON.stringify({ day: tzDayKey(now), value });
+export async function setTodayDayAutoLimits(
+  values: Record<string, number>,
+  now = new Date(),
+): Promise<void> {
+  const v = JSON.stringify({ day: tzDayKey(now), values });
   await db.appSetting.upsert({
     where: { key: DAY_AUTO_LIMIT_KEY },
     create: { key: DAY_AUTO_LIMIT_KEY, value: v },

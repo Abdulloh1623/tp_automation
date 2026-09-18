@@ -182,6 +182,20 @@ describe("mergeLoadPolicy", () => {
     expect(p.minPerOperator).toBe(20);
     expect(p.maxPerOperator).toBe(20);
   });
+
+  it("regionBasedDistribution standart holatda o'chirilgan", () => {
+    expect(mergeLoadPolicy(null).regionBasedDistribution).toBe(false);
+    expect(mergeLoadPolicy({}).regionBasedDistribution).toBe(false);
+  });
+
+  it("regionBasedDistribution true qilib saqlanadi va o'qiladi", () => {
+    expect(mergeLoadPolicy({ regionBasedDistribution: true }).regionBasedDistribution).toBe(true);
+  });
+
+  it("regionBasedDistribution noto'g'ri (bool bo'lmagan) qiymat — standart qoladi", () => {
+    expect(mergeLoadPolicy({ regionBasedDistribution: "yes" }).regionBasedDistribution).toBe(false);
+    expect(mergeLoadPolicy({ regionBasedDistribution: 1 }).regionBasedDistribution).toBe(false);
+  });
 });
 
 describe("autoDailyLimit", () => {

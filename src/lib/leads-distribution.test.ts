@@ -12,8 +12,8 @@ const {
   currentShift,
   grantFindMany,
   getRecallSettings,
-  getTodayDayAutoLimit,
-  setTodayDayAutoLimit,
+  getTodayDayAutoLimits,
+  setTodayDayAutoLimits,
 } = vi.hoisted(() => ({
   userFindMany: vi.fn(),
   clientFindMany: vi.fn(),
@@ -25,8 +25,8 @@ const {
   currentShift: vi.fn(),
   grantFindMany: vi.fn(),
   getRecallSettings: vi.fn(),
-  getTodayDayAutoLimit: vi.fn(),
-  setTodayDayAutoLimit: vi.fn(),
+  getTodayDayAutoLimits: vi.fn(),
+  setTodayDayAutoLimits: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -40,10 +40,11 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/audit", () => ({ logAudit }));
 vi.mock("@/lib/settings", () => ({
+  FALLBACK_AUTO_LIMIT_KEY: "__fallback__",
   getActiveLeadProfile,
   getRecallSettings,
-  getTodayDayAutoLimit,
-  setTodayDayAutoLimit,
+  getTodayDayAutoLimits,
+  setTodayDayAutoLimits,
 }));
 vi.mock("@/lib/shift", () => ({ currentShift }));
 
@@ -71,6 +72,7 @@ function lead(id: string, over: Partial<Record<string, unknown>> = {}) {
     missedCallCount: 0,
     monthlyAmount: 30,
     currency: "USD",
+    region: null,
     ...over,
   };
 }
@@ -129,8 +131,8 @@ beforeEach(() => {
   clientUpdateMany.mockImplementation(countByIds);
   // Standart: bugungi DAY kvotasi hali saqlanmagan (NIGHT testlari eski
   // mustaqil formulaga tushadi, agar aynan test o'zi boshqacha belgilamasa).
-  getTodayDayAutoLimit.mockResolvedValue(null);
-  setTodayDayAutoLimit.mockResolvedValue(undefined);
+  getTodayDayAutoLimits.mockResolvedValue(null);
+  setTodayDayAutoLimits.mockResolvedValue(undefined);
 });
 
 describe("distributeLeadsCore", () => {
@@ -501,7 +503,7 @@ describe("distributeLeadsCore", () => {
   // --- Avtomatik kvota (dailyLimit = null) ---
 
   /** Siyosatni almashtirish uchun qisqa yordamchi. */
-  function policy(over: Record<string, number> = {}) {
+  function policy(over: Record<string, number | boolean> = {}) {
     getRecallSettings.mockResolvedValue({
       rules: {},
       policy: {
@@ -612,7 +614,7 @@ describe("distributeLeadsCore", () => {
     policy({ minPerOperator: 0, maxPerOperator: 100, nightShiftDiscountPercent: 40 });
     dutyDayFindMany.mockResolvedValue([{ userId: "night1", shift: "NIGHT" }]);
     userFindMany.mockResolvedValue([{ id: "night1", dailyLimit: null }]);
-    getTodayDayAutoLimit.mockResolvedValue(20); // DAY ishga tushganda saqlagan qiymat
+    getTodayDayAutoLimits.mockResolvedValue({ __fallback__: 20 }); // DAY ishga tushganda saqlagan qiymat
     setPool(Array.from({ length: 100 }, (_, i) => lead(`c${i}`)));
 
     const r = await distributeLeadsCore("NIGHT");
@@ -627,7 +629,7 @@ describe("distributeLeadsCore", () => {
     setPool(Array.from({ length: 30 }, (_, i) => lead(`c${i}`)));
 
     await distributeLeadsCore("DAY");
-    expect(setTodayDayAutoLimit).toHaveBeenCalledWith(30, expect.any(Date));
+    expect(setTodayDayAutoLimits).toHaveBeenCalledWith({ __fallback__: 30 }, expect.any(Date));
   });
 
   it("qarzdorni qayta ko'rsatish oralig'i so'rovga kiradi", async () => {
@@ -649,5 +651,164 @@ describe("distributeLeadsCore", () => {
     await distributeLeadsCore();
     expect(logAudit).toHaveBeenCalledTimes(1);
     expect(logAudit.mock.calls[0][1].detail).toContain("Muvozanat");
+  });
+
+  // --- Viloyat bo'yicha taqsimlash (LoadPolicy.regionBasedDistribution) ---
+
+  describe("viloyat bo'yicha taqsimlash", () => {
+    it("o'chirilgan bo'lsa — regions bo'lsa ham eskicha umumiy hovuzga tushadi", async () => {
+      policy({ minPerOperator: 0, maxPerOperator: 50, regionBasedDistribution: false });
+      userFindMany.mockResolvedValue([
+        { id: "toshkent-op", dailyLimit: 50, region: null, regions: "Toshkent" },
+        { id: "andijon-op", dailyLimit: 50, region: null, regions: "Andijon" },
+      ]);
+      setPool([
+        lead("t0", { region: "Toshkent" }),
+        lead("a0", { region: "Andijon" }),
+        lead("x0", { region: null }),
+      ]);
+
+      const r = await distributeLeadsCore();
+      expect(r.regionEnabled).toBe(false);
+      expect(r.assigned).toBe(3);
+      // Ikkalasi ham hammasidan olishi mumkin — viloyat cheklovi yo'q.
+    });
+
+    it("yoqilgan bo'lsa — mijoz FAQAT o'z viloyatini qoplovchi operatorga tushadi", async () => {
+      policy({ minPerOperator: 0, maxPerOperator: 50, regionBasedDistribution: true });
+      userFindMany.mockResolvedValue([
+        { id: "toshkent-op", dailyLimit: 50, region: null, regions: "Toshkent" },
+        { id: "andijon-op", dailyLimit: 50, region: null, regions: "Andijon" },
+      ]);
+      setPool([
+        lead("t0", { region: "Toshkent" }),
+        lead("t1", { region: "Toshkent" }),
+        lead("a0", { region: "Andijon" }),
+      ]);
+
+      const r = await distributeLeadsCore();
+      expect(r.regionEnabled).toBe(true);
+
+      const byOp = new Map<string, string[]>();
+      for (const call of clientUpdateMany.mock.calls) {
+        const op = call[0].data.assignedToId;
+        if (op) byOp.set(op, [...(byOp.get(op) ?? []), ...(call[0].where.id.in as string[])]);
+      }
+      expect(byOp.get("toshkent-op")!.sort()).toEqual(["t0", "t1"]);
+      expect(byOp.get("andijon-op")).toEqual(["a0"]);
+      expect(r.assigned).toBe(3);
+    });
+
+    it("viloyatsiz mijoz umumiy/fallback hovuzga tushadi (hech kim qoplamasa ham beriladi)", async () => {
+      policy({ minPerOperator: 0, maxPerOperator: 50, regionBasedDistribution: true });
+      userFindMany.mockResolvedValue([
+        { id: "toshkent-op", dailyLimit: 50, region: null, regions: "Toshkent" },
+      ]);
+      setPool([lead("t0", { region: "Toshkent" }), lead("no-region", { region: null })]);
+
+      const r = await distributeLeadsCore();
+      expect(r.fallbackAssigned).toBe(1);
+      expect(r.regionAssigned).toBe(1);
+      const all = assignedIds();
+      expect(all.sort()).toEqual(["no-region", "t0"]);
+    });
+
+    it("hech kim qoplamagan viloyat mijozi ham umumiy hovuz orqali beriladi", async () => {
+      policy({ minPerOperator: 0, maxPerOperator: 50, regionBasedDistribution: true });
+      userFindMany.mockResolvedValue([
+        { id: "toshkent-op", dailyLimit: 50, region: null, regions: "Toshkent" },
+      ]);
+      // "Andijon"ni hech kim qoplamaydi — baribir toshkent-op orqali beriladi.
+      setPool([lead("a0", { region: "Andijon" })]);
+
+      const r = await distributeLeadsCore();
+      expect(r.fallbackAssigned).toBe(1);
+      expect(assignedIds()).toEqual(["a0"]);
+    });
+
+    it("bir viloyatni bir nechta operator qoplasa — ular orasida bo'linadi", async () => {
+      policy({ minPerOperator: 0, maxPerOperator: 50, regionBasedDistribution: true });
+      userFindMany.mockResolvedValue([
+        { id: "op1", dailyLimit: 3, region: null, regions: "Toshkent" },
+        { id: "op2", dailyLimit: 3, region: null, regions: "Toshkent" },
+      ]);
+      setPool(Array.from({ length: 6 }, (_, i) => lead(`t${i}`, { region: "Toshkent" })));
+
+      const r = await distributeLeadsCore();
+      expect(r.assigned).toBe(6);
+      const byOp = new Map<string, number>();
+      for (const call of clientUpdateMany.mock.calls) {
+        const op = call[0].data.assignedToId;
+        if (op) byOp.set(op, (byOp.get(op) ?? 0) + call[0].where.id.in.length);
+      }
+      expect(byOp.get("op1")).toBe(3);
+      expect(byOp.get("op2")).toBe(3);
+    });
+
+    it("ko'p viloyatli operator ikkala viloyatidan ham lid oladi (jami dailyLimit ichida)", async () => {
+      policy({ minPerOperator: 0, maxPerOperator: 50, regionBasedDistribution: true });
+      userFindMany.mockResolvedValue([
+        { id: "op1", dailyLimit: 10, region: null, regions: "Toshkent,Andijon" },
+      ]);
+      setPool([
+        ...Array.from({ length: 3 }, (_, i) => lead(`t${i}`, { region: "Toshkent" })),
+        ...Array.from({ length: 3 }, (_, i) => lead(`a${i}`, { region: "Andijon" })),
+      ]);
+
+      const r = await distributeLeadsCore();
+      expect(r.assigned).toBe(6);
+      expect(assignedIds().sort()).toEqual(["a0", "a1", "a2", "t0", "t1", "t2"]);
+    });
+
+    it("boshqa viloyatning ortiqcha lidlari operatorning o'z sig'imiga sig'masa navbatda qoladi (boshqaga oqmaydi)", async () => {
+      policy({ minPerOperator: 0, maxPerOperator: 50, regionBasedDistribution: true });
+      userFindMany.mockResolvedValue([
+        { id: "toshkent-op", dailyLimit: 2, region: null, regions: "Toshkent" },
+        { id: "andijon-op", dailyLimit: 50, region: null, regions: "Andijon" },
+      ]);
+      setPool(Array.from({ length: 5 }, (_, i) => lead(`t${i}`, { region: "Toshkent" })));
+
+      const r = await distributeLeadsCore();
+      expect(r.assigned).toBe(2); // faqat toshkent-op'ning 2 tasi
+      const unassignedCall = clientUpdateMany.mock.calls.find(
+        (c) => c[0].data.assignedToId === null,
+      );
+      expect(unassignedCall![0].where.id.in.length).toBe(3);
+      // andijon-op hech narsa olmadi — Toshkentning ortiqchasi unga oqmadi.
+      const toAndijon = clientUpdateMany.mock.calls.filter(
+        (c) => c[0].data.assignedToId === "andijon-op",
+      );
+      expect(toAndijon).toHaveLength(0);
+    });
+
+    it("viloyatda bugun hovuz bo'sh bo'lsa ham, o'z viloyatidan oldinga tortiladi (fallbackka oqmaydi)", async () => {
+      policy({ minPerOperator: 5, maxPerOperator: 50, regionBasedDistribution: true });
+      userFindMany.mockResolvedValue([
+        { id: "toshkent-op", dailyLimit: null, region: null, regions: "Toshkent" },
+      ]);
+      // Bugun Toshkentda muddati kelgan hech kim yo'q, lekin kelajakdagilar bor.
+      setPool(
+        [],
+        Array.from({ length: 10 }, (_, i) =>
+          lead(`kelasi${i}`, { region: "Toshkent", nextContactDate: inDays(2) }),
+        ),
+      );
+
+      const r = await distributeLeadsCore();
+      expect(r.pulled).toBeGreaterThan(0);
+      expect(r.regionAssigned).toBeGreaterThan(0);
+      expect(r.fallbackAssigned).toBe(0);
+    });
+
+    it("operatorga hali viloyat biriktirilmagan bo'lsa — u faqat fallback orqali oladi", async () => {
+      policy({ minPerOperator: 0, maxPerOperator: 50, regionBasedDistribution: true });
+      userFindMany.mockResolvedValue([{ id: "op1", dailyLimit: 10, region: null, regions: null }]);
+      setPool([lead("c0", { region: "Toshkent" }), lead("c1", { region: null })]);
+
+      const r = await distributeLeadsCore();
+      // Hech kim "Toshkent"ni qoplamagani uchun ikkalasi ham fallback orqali beriladi.
+      expect(r.fallbackAssigned).toBe(2);
+      expect(assignedIds().sort()).toEqual(["c0", "c1"]);
+    });
   });
 });

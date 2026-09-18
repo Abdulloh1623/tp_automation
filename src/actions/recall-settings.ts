@@ -10,7 +10,6 @@ import {
   leadOutcomeLabelSafe,
   mergeLoadPolicy,
   mergeRecallRules,
-  type LoadPolicy,
   type RecallRules,
 } from "@/lib/recall-rules";
 import { getRecallSettings, setLoadPolicy, setRecallRules } from "@/lib/settings";
@@ -59,7 +58,7 @@ export async function saveLoadPolicy(raw: unknown): Promise<SettingsState> {
   if (!g.ok) return { ok: false, error: g.error };
 
   const input = (raw ?? {}) as Record<string, unknown>;
-  for (const key of Object.keys(LOAD_POLICY_BOUNDS) as (keyof LoadPolicy)[]) {
+  for (const key of Object.keys(LOAD_POLICY_BOUNDS) as (keyof typeof LOAD_POLICY_BOUNDS)[]) {
     const v = Number(input[key]);
     const b = LOAD_POLICY_BOUNDS[key];
     if (!Number.isFinite(v) || v < b.min || v > b.max) {
@@ -77,7 +76,8 @@ export async function saveLoadPolicy(raw: unknown): Promise<SettingsState> {
     detail:
       `eng kam ${policy.minPerOperator} · eng ko'p ${policy.maxPerOperator} · ` +
       `qarzdor oralig'i ${policy.debtorCooldownDays} kun · ` +
-      `eskalatsiya ${policy.escalationThreshold} marta`,
+      `eskalatsiya ${policy.escalationThreshold} marta · ` +
+      `viloyat bo'yicha taqsimlash: ${policy.regionBasedDistribution ? "yoqilgan" : "o'chirilgan"}`,
   });
   revalidatePath("/sozlamalar");
   revalidatePath("/lidlar");

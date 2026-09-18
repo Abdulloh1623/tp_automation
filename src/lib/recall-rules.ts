@@ -167,6 +167,14 @@ export type LoadPolicy = {
   newClientMaxDays: number;
   /** Kechki smena operatoriga kunduzgidan necha % kam lid berilsin. 0 = teng. */
   nightShiftDiscountPercent: number;
+  /**
+   * Kunlik taqsimot operatorning biriktirilgan viloyati (`User.regions`)
+   * bo'yicha bo'linsinmi. `false` (standart) — eski, viloyatsiz umumiy hovuz
+   * xatti-harakati (o'zgarishsiz). Admin barcha operatorlarga viloyat
+   * biriktirib bo'lgach yoqadi — aks holda viloyati yo'q operator kunlik
+   * avtomatik lid olmay qolib ketardi.
+   */
+  regionBasedDistribution: boolean;
 };
 
 export const DEFAULT_LOAD_POLICY: LoadPolicy = {
@@ -177,6 +185,7 @@ export const DEFAULT_LOAD_POLICY: LoadPolicy = {
   newClientMonths: 3,
   newClientMaxDays: 3,
   nightShiftDiscountPercent: 40,
+  regionBasedDistribution: false,
 };
 
 export const LOAD_POLICY_BOUNDS = {
@@ -192,8 +201,9 @@ export const LOAD_POLICY_BOUNDS = {
 export function mergeLoadPolicy(raw: unknown): LoadPolicy {
   const merged: LoadPolicy = { ...DEFAULT_LOAD_POLICY };
   if (!raw || typeof raw !== "object") return merged;
-  for (const key of Object.keys(DEFAULT_LOAD_POLICY) as (keyof LoadPolicy)[]) {
-    const v = Number((raw as Record<string, unknown>)[key]);
+  const r = raw as Record<string, unknown>;
+  for (const key of Object.keys(LOAD_POLICY_BOUNDS) as (keyof typeof LOAD_POLICY_BOUNDS)[]) {
+    const v = Number(r[key]);
     const b = LOAD_POLICY_BOUNDS[key];
     if (!Number.isFinite(v) || v < b.min || v > b.max) continue;
     merged[key] = Math.round(v);
@@ -201,6 +211,10 @@ export function mergeLoadPolicy(raw: unknown): LoadPolicy {
   // Eng kam eng ko'pdan oshib ketmasin (sozlamada xato bo'lsa ham).
   if (merged.minPerOperator > merged.maxPerOperator) {
     merged.minPerOperator = merged.maxPerOperator;
+  }
+  // Boolean maydon — sonli chegaralar ro'yxatida yo'q, alohida o'qiladi.
+  if (typeof r.regionBasedDistribution === "boolean") {
+    merged.regionBasedDistribution = r.regionBasedDistribution;
   }
   return merged;
 }

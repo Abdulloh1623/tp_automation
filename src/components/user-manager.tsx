@@ -412,6 +412,12 @@ export function UserManager({ users }: { users: ManagedUser[] }) {
                     value={form.regions}
                     onChange={(v) => set("regions", v)}
                   />
+                  {form.role === "OPERATOR" && (
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      /sozlamalar&apos;da &quot;Viloyat bo&apos;yicha taqsimlash&quot; yoqilgan
+                      bo&apos;lsa, kunlik lidlar shu operatorga faqat shu viloyat(lar)dan beriladi.
+                    </p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>

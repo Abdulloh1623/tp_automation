@@ -25,7 +25,7 @@ import { toast } from "@/components/toaster";
 type Forecast = { day: string; count: number }[];
 
 const POLICY_FIELDS: {
-  key: keyof LoadPolicy;
+  key: keyof typeof LOAD_POLICY_BOUNDS;
   label: string;
   hint: string;
 }[] = [
@@ -212,6 +212,26 @@ export function RecallSettingsForm({
               </div>
             ))}
           </div>
+          <label className="mt-4 flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              checked={policy.regionBasedDistribution}
+              onChange={(e) =>
+                setPolicy((p) => ({ ...p, regionBasedDistribution: e.target.checked }))
+              }
+            />
+            <span>
+              Viloyat bo&apos;yicha taqsimlash
+              <span className="block text-xs text-slate-500 dark:text-slate-400">
+                Yoqilsa, kunlik lidlar operatorning{" "}
+                <b>/foydalanuvchilar</b>&apos;da biriktirilgan viloyat(lar)iga qarab beriladi;
+                viloyatsiz/qoplanmagan mijozlar umumiy hovuzda qoladi. Yoqishdan oldin barcha
+                operatorlarga viloyat biriktirilganini tekshiring — aks holda viloyati yo&apos;q
+                operator kunlik avtomatik lid olmay qoladi.
+              </span>
+            </span>
+          </label>
           <div className="mt-4">
             <SaveButton pending={pending} onClick={savePolicy} />
           </div>

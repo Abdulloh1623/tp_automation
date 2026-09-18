@@ -13,14 +13,22 @@ import {
   type LeadSegment,
   type UserShift,
 } from "@/lib/constants";
-import { allocateByProfile, splitByCapacity } from "@/lib/distribute-util";
+import {
+  allocateByProfile,
+  buildRegionCoverage,
+  splitByCapacity,
+  splitPoolByRegionCoverage,
+  weightedAutoLimit,
+  type RegionCoverage,
+} from "@/lib/distribute-util";
 import { classifyLead, isFloorLead, overdueDays } from "@/lib/lead-segments";
 import { autoDailyLimit } from "@/lib/recall-rules";
 import {
+  FALLBACK_AUTO_LIMIT_KEY,
   getActiveLeadProfile,
   getRecallSettings,
-  getTodayDayAutoLimit,
-  setTodayDayAutoLimit,
+  getTodayDayAutoLimits,
+  setTodayDayAutoLimits,
 } from "@/lib/settings";
 import { currentShift } from "@/lib/shift";
 import { startOfTzDay } from "@/lib/tz";
@@ -50,6 +58,12 @@ export type DistributeResult = {
   error?: string;
   /** Admin jadval belgilamagani uchun DEFAULT_DUTY_ROSTER (zaxira brigada) ishlatildi. */
   usedFallbackRoster?: boolean;
+  /** Viloyat bo'yicha taqsimlash sozlamada yoqilganmi (`LoadPolicy.regionBasedDistribution`). */
+  regionEnabled?: boolean;
+  /** O'z viloyati orqali (operatorning `regions`iga to'g'ri kelib) biriktirilganlar soni. */
+  regionAssigned?: number;
+  /** Umumiy/fallback hovuzdan (viloyatsiz yoki hech kim qoplamagan viloyat) biriktirilganlar soni. */
+  fallbackAssigned?: number;
 };
 
 /** Hovuz uchun kerakli ustunlar — segmentlash va saralash shularga tayanadi. */
@@ -65,6 +79,7 @@ const POOL_SELECT = {
   missedCallCount: true,
   monthlyAmount: true,
   currency: true,
+  region: true,
 } as const;
 
 /** Fisher–Yates — segment ichida navbat tasodifiy bo'lsin (operatorlar teng sharoitda). */
@@ -157,7 +172,7 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
 
   const operators = await db.user.findMany({
     where: { role: "OPERATOR", isActive: true, id: { in: rosterIds } },
-    select: { id: true, dailyLimit: true },
+    select: { id: true, dailyLimit: true, region: true, regions: true },
   });
   if (operators.length === 0) {
     return {
@@ -236,7 +251,9 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
 
   // Bugungi qo'shimcha lidlar — boshliq botdan "+N lid" berganda yoziladi
   // (`DailyLeadGrant`). Ilgari bu jadval hech kim tomonidan o'qilmasdi, ya'ni
-  // tugma tasdiq berardi-yu, natija bermasdi.
+  // tugma tasdiq berardi-yu, natija bermasdi. Grant — umumiy/fallback
+  // qatlamiga qo'shiladi (aniq bitta viloyatga bog'lab bo'lmaydi, chunki bot
+  // "+N lid" so'raganda qaysi viloyatdan ekanini bilmaydi).
   const grantRows = await db.dailyLeadGrant.findMany({
     where: { date: startOfTzDay(0), userId: { in: operators.map((o) => o.id) } },
     select: { userId: true, extraCount: true },
@@ -244,107 +261,204 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
   const grants = new Map(grantRows.map((g) => [g.userId, g.extraCount]));
   const granted = grantRows.reduce((s, g) => s + g.extraCount, 0);
 
-  // Kunlik kvota: `dailyLimit` qo'yilgan bo'lsa — o'sha, aks holda AVTOMATIK.
-  // Kunduzgi operatorlarga TENG bo'linadi; kechki smena operatoriga siyosatda
-  // belgilangan foizga KAMROQ beriladi (`nightShiftDiscountPercent`). DAY va
-  // NIGHT odatda ALOHIDA cron chaqiruvida ishlaydi (bir-birining operatorini
-  // ko'rmaydi), shu bois kunduzgi bazaviy kvota shu kunga `AppSetting`ga
-  // yozib qo'yiladi — kechqurun o'shandan foiz hisoblanadi. Ikkalasi bitta
-  // chaqiruvda bo'lsa (qo'lda "Qayta taqsimla", `shift` bo'sh) — og'irlikli
-  // formula bilan bir yo'la hisoblanadi, AppSetting shart emas.
-  const discount = Math.max(0, Math.min(100, policy.nightShiftDiscountPercent ?? 0)) / 100;
-  const isNight = (o: { id: string }) => shiftOf.get(o.id) === "NIGHT";
-  const dayOperators = operators.filter((o) => !isNight(o));
-  const nightOperators = operators.filter(isNight);
+  // --- Viloyat qamrovi (LoadPolicy.regionBasedDistribution) ---
+  //
+  // Ikki qatlamli taqsimot:
+  //   A) VILOYAT qatlami — bugun ishlayotgan operator o'z biriktirilgan
+  //      viloyat(lar)idagi ("User.regions") mijozlarni oladi;
+  //   B) UMUMIY/FALLBACK qatlami — viloyatsiz/notanish mijozlar VA hech kim
+  //      (bugun) qoplamagan viloyat mijozlari — bularning barchasi eski
+  //      global algoritm bilan barcha operatorlar orasida taqsimlanadi.
+  //
+  // Sozlama O'CHIQ bo'lsa (yoki hech bir operatorga hali viloyat
+  // biriktirilmagan bo'lsa) — `coverage` bo'sh, demak HAMMASI fallback
+  // qatlamiga tushadi va natija AYNAN eski (viloyatsiz) xatti-harakatga teng.
+  const coverage: RegionCoverage = policy.regionBasedDistribution
+    ? buildRegionCoverage(operators.map((o) => ({ id: o.id, region: o.region, regions: o.regions })))
+    : new Map();
+  const { byRegion, fallback: fallbackPoolInitial } = splitPoolByRegionCoverage(free, coverage);
 
-  let dayAuto: number;
-  if (shift === "NIGHT" && dayOperators.length === 0) {
-    // Faqat kechki operatorlar shu chaqiruvda — bugungi kunduzgi bazaviy
-    // kvota (DAY ishga tushganda saqlangan) shundan olinadi. Topilmasa
-    // (masalan DAY hali ishlamagan) — eski mustaqil formulaga tushamiz.
-    dayAuto =
-      (await getTodayDayAutoLimit(now)) ??
-      autoDailyLimit(free.length, operators.length, policy);
-  } else {
-    const weighted = dayOperators.length + nightOperators.length * (1 - discount);
-    dayAuto =
-      weighted > 0
-        ? Math.min(
-            policy.maxPerOperator,
-            Math.max(policy.minPerOperator, Math.ceil(free.length / weighted)),
-          )
-        : 0;
-    if (shift === "DAY") await setTodayDayAutoLimit(dayAuto, now);
+  const isNight = (id: string) => shiftOf.get(id) === "NIGHT";
+  // "NIGHT-yolg'iz" holatda (bugun kunduzgi hech kim yo'q shu chaqiruvda)
+  // saqlangan kunduzgi bazaviy qiymatlarni o'qiymiz — DAY va NIGHT odatda
+  // alohida cron chaqiruvida ishlaydi (bir-birining operatorini ko'rmaydi).
+  const storedDayLimits = shift === "NIGHT" ? await getTodayDayAutoLimits(now) : null;
+  const dayLimitsToStore: Record<string, number> = {};
+  const discountFrac =
+    Math.max(0, Math.min(100, policy.nightShiftDiscountPercent ?? 0)) / 100;
+  const nightFromDay = (d: number) => Math.max(0, Math.round(d * (1 - discountFrac)));
+
+  /** Bitta kontekst (bitta viloyat yoki fallback)ning kunduzgi/kechki avto kvotasi. */
+  function contextAuto(
+    key: string,
+    poolSize: number,
+    opIds: string[],
+  ): { dayAuto: number; nightAuto: number } {
+    const dayCount = opIds.filter((id) => !isNight(id)).length;
+    const nightCount = opIds.length - dayCount;
+    let dayAuto: number;
+    if (shift === "NIGHT" && dayCount === 0) {
+      dayAuto = storedDayLimits?.[key] ?? autoDailyLimit(poolSize, opIds.length, policy);
+    } else {
+      dayAuto = weightedAutoLimit(
+        poolSize,
+        dayCount,
+        nightCount,
+        policy.nightShiftDiscountPercent ?? 0,
+        policy,
+      ).dayAuto;
+      if (shift === "DAY") dayLimitsToStore[key] = dayAuto;
+    }
+    return { dayAuto, nightAuto: nightFromDay(dayAuto) };
   }
-  const nightAuto = Math.max(0, Math.round(dayAuto * (1 - discount)));
-  const autoOf = (o: { id: string }) => (isNight(o) ? nightAuto : dayAuto);
-  const limitOf = (o: { id: string; dailyLimit: number | null }) => o.dailyLimit ?? autoOf(o);
 
-  // Ro'yxat kam bo'lsa — muddati eng yaqin lidlarni oldinga tortamiz, operator
-  // bo'sh o'tirmasin. Faqat AVTOMATIK rejimda ma'noga ega.
-  const wanted = operators.reduce((s, o) => s + limitOf(o), 0);
+  const regionAuto = new Map<string, { dayAuto: number; nightAuto: number }>();
+  for (const [region, opIds] of coverage) {
+    regionAuto.set(region, contextAuto(region, byRegion.get(region)?.length ?? 0, opIds));
+  }
+  const fallbackOpIds = operators.map((o) => o.id);
+  const fallbackAuto = contextAuto(FALLBACK_AUTO_LIMIT_KEY, fallbackPoolInitial.length, fallbackOpIds);
+  if (shift === "DAY") await setTodayDayAutoLimits(dayLimitsToStore, now);
+
+  // Operatorning AVTOMATIK (dailyLimit=null) jami kvotasi — o'zi qoplagan har
+  // viloyatning kvotasi + fallback ulushi yig'indisi. `dailyLimit` qo'yilgan
+  // bo'lsa — bu YAGONA qat'iy jami chegara (viloyatlardan qat'i nazar).
+  function autoTotal(opId: string): number {
+    let total = isNight(opId) ? fallbackAuto.nightAuto : fallbackAuto.dayAuto;
+    for (const [region, opIds] of coverage) {
+      if (!opIds.includes(opId)) continue;
+      const a = regionAuto.get(region)!;
+      total += isNight(opId) ? a.nightAuto : a.dayAuto;
+    }
+    return total;
+  }
+  const limitOf = (o: { id: string; dailyLimit: number | null }) => o.dailyLimit ?? autoTotal(o.id);
+
+  // Har operatorning bugungi QOLGAN sig'imi — ikkala qatlam ORASIDA
+  // ULASHILADI (umumiy manba): viloyat qatlami avval iste'mol qiladi,
+  // fallback qatlami esa qolganidan foydalanadi.
+  const remaining = new Map<string, number>();
+  for (const o of operators) {
+    remaining.set(
+      o.id,
+      Math.max(0, limitOf(o) + (grants.get(o.id) ?? 0) - (locked.get(o.id) ?? 0)),
+    );
+  }
+  const capacity = [...remaining.values()].reduce((s, n) => s + n, 0);
+
+  const pulledIds = new Set(free.map((c) => c.id));
   let pulled = 0;
-  if (free.length < wanted) {
+  const floorTotal = { count: 0 };
+  const unassigned: string[] = [];
+  const finalByOp = new Map<string, string[]>(operators.map((o) => [o.id, []]));
+  const regionAssignedCount = new Map<string, number>();
+  let fallbackAssigned = 0;
+
+  /** Ro'yxat kam bo'lsa — muddati eng yaqin lidlarni oldinga tortadi (region=null — fallback filtri). */
+  async function pullForwardExtra(
+    region: string | null,
+    need: number,
+  ): Promise<typeof free> {
+    if (need <= 0) return [];
+    const regionWhere = region
+      ? { region }
+      : { OR: [{ region: null }, { region: { notIn: [...coverage.keys()] } }] };
     const extra = await db.client.findMany({
       where: {
         status: "ACTIVE",
         stage: { in: ACTIVE_STAGES as unknown as string[] },
         nextContactDate: { gt: endOfDay(now) },
-        id: { notIn: free.map((c) => c.id) },
+        id: { notIn: [...pulledIds] },
+        ...regionWhere,
       },
       orderBy: { nextContactDate: "asc" },
-      take: wanted - free.length,
+      take: need,
       select: { ...POOL_SELECT },
     });
     // Boshqa smenaning (hali ishlayotgan) lidini tortib olmaymiz.
     const usable = extra.filter(
       (c) => !(shift && c.assignedToId && shiftOf.get(c.assignedToId) === other && !otherEnded),
     );
-    free.push(...usable);
-    pulled = usable.length;
+    for (const c of usable) pulledIds.add(c.id);
+    return usable;
   }
 
-  const slots = operators.map((o) => ({
-    id: o.id,
-    cap: Math.max(0, limitOf(o) + (grants.get(o.id) ?? 0) - (locked.get(o.id) ?? 0)),
-  }));
-  const capacity = slots.reduce((sum, o) => sum + o.cap, 0);
+  /** Bitta guruh (viloyat yoki fallback)ni segmentlab, profil bo'yicha operatorlarga bo'ladi. */
+  async function allocateGroup(
+    poolRows: typeof free,
+    opIds: string[],
+    region: string | null,
+  ): Promise<void> {
+    const wanted = opIds.reduce((s, id) => s + (remaining.get(id) ?? 0), 0);
+    let rows = poolRows;
+    if (wanted > 0 && rows.length < wanted) {
+      const extra = await pullForwardExtra(region, wanted - rows.length);
+      rows = [...rows, ...extra];
+      pulled += extra.length;
+    }
 
-  // Segmentlash — profil tartibida (birinchi mos segment yutadi).
-  const buckets = new Map<LeadSegment, string[]>();
-  for (const c of free) {
-    const seg = classifyLead(c, order, now);
-    const list = buckets.get(seg);
-    if (list) list.push(c.id);
-    else buckets.set(seg, [c.id]);
+    const buckets = new Map<LeadSegment, string[]>();
+    for (const c of rows) {
+      const seg = classifyLead(c, order, now);
+      const list = buckets.get(seg);
+      if (list) list.push(c.id);
+      else buckets.set(seg, [c.id]);
+    }
+    for (const list of buckets.values()) shuffle(list);
+
+    // Majburiy pol: avval bugunga va'da berilganlar (mijozga sana aytilgan),
+    // keyin eng eski qarzdorlar.
+    const floorRows = rows.filter((c) => isFloorLead(c, now));
+    floorRows.sort((a, b) => {
+      const pa = a.nextContactDate ? 1 : 0;
+      const pb = b.nextContactDate ? 1 : 0;
+      if (pa !== pb) return pb - pa;
+      return overdueDays(b, now) - overdueDays(a, now);
+    });
+    floorTotal.count += floorRows.length;
+
+    const { picked, leftover } = allocateByProfile(
+      buckets,
+      order,
+      floorRows.map((c) => c.id),
+      wanted,
+    );
+    const slots = opIds.map((id) => ({ id, cap: remaining.get(id) ?? 0 }));
+    const { byOp, overflow } = splitByCapacity(picked, slots);
+
+    let assignedHere = 0;
+    for (const [opId, ids] of byOp) {
+      if (ids.length === 0) continue;
+      finalByOp.get(opId)!.push(...ids);
+      remaining.set(opId, (remaining.get(opId) ?? 0) - ids.length);
+      assignedHere += ids.length;
+    }
+    if (region) regionAssignedCount.set(region, assignedHere);
+    else fallbackAssigned = assignedHere;
+    unassigned.push(...leftover, ...overflow);
   }
-  for (const list of buckets.values()) shuffle(list);
 
-  // Majburiy pol: avval bugunga va'da berilganlar (mijozga sana aytilgan),
-  // keyin eng eski qarzdorlar.
-  const floorRows = free.filter((c) => isFloorLead(c, now));
-  floorRows.sort((a, b) => {
-    const pa = a.nextContactDate ? 1 : 0;
-    const pb = b.nextContactDate ? 1 : 0;
-    if (pa !== pb) return pb - pa;
-    return overdueDays(b, now) - overdueDays(a, now);
-  });
+  // A qatlam — viloyatlar (tasodifiy tartibda, ko'p-viloyatli operatorning
+  // umumiy sig'imi adolatli taqsimlansin uchun har chaqiruvda boshqa tartib).
+  // HAMMA qoplangan viloyat ishlanadi — bugun hovuzi bo'sh bo'lsa ham (operator
+  // sig'imi bo'sh qolmasin uchun o'z viloyatidan oldinga tortish sinaladi).
+  const regionOrder = [...coverage.keys()];
+  shuffle(regionOrder);
+  for (const region of regionOrder) {
+    const opIds = coverage.get(region)!;
+    await allocateGroup(byRegion.get(region) ?? [], opIds, region);
+  }
 
-  const { picked, leftover } = allocateByProfile(
-    buckets,
-    order,
-    floorRows.map((c) => c.id),
-    capacity,
-  );
-  const { byOp, overflow } = splitByCapacity(picked, slots);
+  // B qatlam — umumiy/fallback (viloyatsiz + qoplanmagan viloyat mijozlari),
+  // barcha bugun ishlayotgan operatorlarning QOLGAN sig'imi orasida.
+  await allocateGroup(fallbackPoolInitial, fallbackOpIds, null);
 
   let assigned = 0;
-  for (const [opId, list] of byOp) {
+  for (const [opId, list] of finalByOp) {
     if (list.length === 0) continue;
     const r = await db.client.updateMany({ where: { id: { in: list } }, data: { assignedToId: opId } });
     assigned += r.count;
   }
-  const unassigned = [...leftover, ...overflow];
   if (unassigned.length) {
     await db.client.updateMany({ where: { id: { in: unassigned } }, data: { assignedToId: null } });
   }
@@ -352,35 +466,46 @@ export async function distributeLeadsCore(shift?: UserShift): Promise<Distribute
   const kept = [...locked.values()].reduce((s, n) => s + n, 0);
   const label = focusLabel(active.selection);
   const shiftLabel = shift ? USER_SHIFT[shift] : undefined;
+  const regionEnabled = policy.regionBasedDistribution && coverage.size > 0;
+  const regionSummary = [...regionAssignedCount.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([r, n]) => `${r}:${n}`)
+    .join(", ");
   await logAudit("Lidlar kunlik taqsimlandi", {
     entity: "Client",
     detail:
       `${assigned} mijoz → ${operators.length} operator (sig'im ${capacity})` +
       (shiftLabel ? ` · smena: ${shiftLabel}` : "") +
       ` · fokus: ${label}${active.todayOnly ? " (faqat bugunga)" : ""} · ` +
-      `majburiy: ${floorRows.length} · egasida qoldi: ${kept}` +
+      `majburiy: ${floorTotal.count} · egasida qoldi: ${kept}` +
       (granted ? ` · qo'shimcha grant: +${granted}` : "") +
       (pulled ? ` · oldinga tortildi: ${pulled}` : "") +
-      ` · avto kvota: ${dayAuto}` +
-      (nightOperators.length > 0 ? ` (kechki: ${nightAuto})` : "") +
+      ` · avto kvota: ${fallbackAuto.dayAuto}` +
+      (fallbackOpIds.some(isNight) ? ` (kechki: ${fallbackAuto.nightAuto})` : "") +
       (released ? ` · tugagan smenadan olindi: ${released}` : "") +
       ` · navbatda: ${unassigned.length}` +
-      (usedFallback ? " · ⚠️ jadval belgilanmagan, zaxira brigada ishlatildi" : ""),
+      (usedFallback ? " · ⚠️ jadval belgilanmagan, zaxira brigada ishlatildi" : "") +
+      (regionEnabled
+        ? ` · viloyat rejimi: yoqilgan (${regionSummary || "qoplangan viloyat yo'q"} · umumiy: ${fallbackAssigned})`
+        : ""),
   });
   return {
     assigned,
     operators: operators.length,
     kept,
-    floor: floorRows.length,
+    floor: floorTotal.count,
     released,
     granted,
     capacity,
-    autoLimit: dayAuto,
+    autoLimit: fallbackAuto.dayAuto,
     pulled,
     shift,
     shiftLabel,
     profileLabel: label,
     todayOnly: active.todayOnly,
     usedFallbackRoster: usedFallback,
+    regionEnabled,
+    regionAssigned: [...regionAssignedCount.values()].reduce((s, n) => s + n, 0),
+    fallbackAssigned,
   };
 }

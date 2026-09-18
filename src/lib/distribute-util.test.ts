@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { allocateByProfile, splitByCapacity, splitRoundRobin } from "./distribute-util";
+import {
+  allocateByProfile,
+  buildRegionCoverage,
+  splitByCapacity,
+  splitPoolByRegionCoverage,
+  splitRoundRobin,
+  weightedAutoLimit,
+} from "./distribute-util";
 import type { LeadSegment, ProfileShare } from "./constants";
 
 describe("splitRoundRobin", () => {
@@ -129,5 +136,133 @@ describe("allocateByProfile", () => {
     );
     expect(picked).toEqual([]);
     expect(leftover.length).toBe(3);
+  });
+});
+
+describe("buildRegionCoverage", () => {
+  it("bitta viloyatga bitta operator — bir yozuv", () => {
+    const cov = buildRegionCoverage([{ id: "op1", region: null, regions: "Toshkent" }]);
+    expect(cov.get("Toshkent")).toEqual(["op1"]);
+  });
+
+  it("ko'p viloyatli operator — har biriga qo'shiladi", () => {
+    const cov = buildRegionCoverage([
+      { id: "op1", region: null, regions: "Andijon,Farg'ona,Namangan" },
+    ]);
+    expect([...cov.keys()].sort()).toEqual(["Andijon", "Farg'ona", "Namangan"]);
+    for (const list of cov.values()) expect(list).toEqual(["op1"]);
+  });
+
+  it("bir viloyatni bir nechta operator qoplasa — ikkalasi ham ro'yxatda", () => {
+    const cov = buildRegionCoverage([
+      { id: "op1", region: null, regions: "Toshkent" },
+      { id: "op2", region: null, regions: "Toshkent,Andijon" },
+    ]);
+    expect(cov.get("Toshkent")!.sort()).toEqual(["op1", "op2"]);
+    expect(cov.get("Andijon")).toEqual(["op2"]);
+  });
+
+  it("imlo variantlari kanonik nomga birlashadi (normalizeRegion)", () => {
+    const cov = buildRegionCoverage([{ id: "op1", region: null, regions: "Surxandaryo" }]);
+    expect(cov.has("Surxondaryo")).toBe(true);
+    expect(cov.has("Surxandaryo")).toBe(false);
+  });
+
+  it("eski `region` (birlamchi) ham `regions` bilan birga qo'shiladi", () => {
+    const cov = buildRegionCoverage([{ id: "op1", region: "Buxoro", regions: "Navoiy" }]);
+    expect([...cov.keys()].sort()).toEqual(["Buxoro", "Navoiy"]);
+  });
+
+  it("viloyati yo'q operator — hech qayerga qo'shilmaydi", () => {
+    const cov = buildRegionCoverage([{ id: "op1", region: null, regions: null }]);
+    expect(cov.size).toBe(0);
+  });
+});
+
+describe("splitPoolByRegionCoverage", () => {
+  const coverage = buildRegionCoverage([{ id: "op1", region: null, regions: "Toshkent" }]);
+
+  it("qoplangan viloyat mijozi o'z guruhiga tushadi", () => {
+    const { byRegion, fallback } = splitPoolByRegionCoverage(
+      [{ id: "c1", region: "Toshkent" }],
+      coverage,
+    );
+    expect(byRegion.get("Toshkent")).toEqual([{ id: "c1", region: "Toshkent" }]);
+    expect(fallback).toEqual([]);
+  });
+
+  it("qoplanmagan viloyat mijozi fallbackka tushadi", () => {
+    const { byRegion, fallback } = splitPoolByRegionCoverage(
+      [{ id: "c1", region: "Andijon" }],
+      coverage,
+    );
+    expect(byRegion.size).toBe(0);
+    expect(fallback).toEqual([{ id: "c1", region: "Andijon" }]);
+  });
+
+  it("viloyatsiz mijoz fallbackka tushadi", () => {
+    const { byRegion, fallback } = splitPoolByRegionCoverage(
+      [{ id: "c1", region: null }],
+      coverage,
+    );
+    expect(byRegion.size).toBe(0);
+    expect(fallback).toEqual([{ id: "c1", region: null }]);
+  });
+
+  it("imlo varianti ham to'g'ri guruhga tushadi", () => {
+    const cov = buildRegionCoverage([{ id: "op1", region: null, regions: "Surxondaryo" }]);
+    const { byRegion, fallback } = splitPoolByRegionCoverage(
+      [{ id: "c1", region: "Surxandaryo" }],
+      cov,
+    );
+    expect(byRegion.get("Surxondaryo")).toEqual([{ id: "c1", region: "Surxandaryo" }]);
+    expect(fallback).toEqual([]);
+  });
+
+  it("aralash hovuz to'g'ri bo'linadi, hech narsa yo'qolmaydi", () => {
+    const pool = [
+      { id: "a", region: "Toshkent" },
+      { id: "b", region: "Andijon" },
+      { id: "c", region: null },
+      { id: "d", region: "Toshkent" },
+    ];
+    const { byRegion, fallback } = splitPoolByRegionCoverage(pool, coverage);
+    expect(byRegion.get("Toshkent")!.map((c) => c.id)).toEqual(["a", "d"]);
+    expect(fallback.map((c) => c.id)).toEqual(["b", "c"]);
+  });
+});
+
+describe("weightedAutoLimit", () => {
+  const policy = { minPerOperator: 10, maxPerOperator: 50 };
+
+  it("faqat kunduzgi operatorlar — teng bo'linadi", () => {
+    const { dayAuto, nightAuto } = weightedAutoLimit(100, 4, 0, 40, policy);
+    expect(dayAuto).toBe(25);
+    expect(nightAuto).toBe(15); // 25 * 0.6
+  });
+
+  it("kechki chegirma kunduzgidan kamroq beradi", () => {
+    const { dayAuto, nightAuto } = weightedAutoLimit(60, 2, 1, 50, policy);
+    // weighted = 2 + 1*0.5 = 2.5 -> ceil(60/2.5)=24
+    expect(dayAuto).toBe(24);
+    expect(nightAuto).toBe(12);
+  });
+
+  it("chegaralar hurmat qilinadi (min/max)", () => {
+    const tiny = weightedAutoLimit(1, 10, 0, 0, policy);
+    expect(tiny.dayAuto).toBe(policy.minPerOperator);
+    const huge = weightedAutoLimit(10000, 1, 0, 0, policy);
+    expect(huge.dayAuto).toBe(policy.maxPerOperator);
+  });
+
+  it("operator yo'q bo'lsa — 0", () => {
+    const { dayAuto, nightAuto } = weightedAutoLimit(50, 0, 0, 40, policy);
+    expect(dayAuto).toBe(0);
+    expect(nightAuto).toBe(0);
+  });
+
+  it("chegirma 0% — kechki kunduzgiga teng", () => {
+    const { dayAuto, nightAuto } = weightedAutoLimit(40, 2, 2, 0, policy);
+    expect(dayAuto).toBe(nightAuto);
   });
 });

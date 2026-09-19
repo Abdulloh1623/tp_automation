@@ -67,8 +67,9 @@ kanaliga yuboriladi.
 
 | Rol | Kirish | Asosiy vazifa |
 | --- | --- | --- |
-| **ADMIN** | hammasi | foydalanuvchilar, import, audit, bildirishnomalar, umumiy nazorat |
-| **MANAGER** (boshliq) | operatsion bo'limlar | usta biriktirish (eskalatsiya/qaytarish/muammo), ombor, hisobot, moliya |
+| **SUPER_ADMIN** (bosh boshliq) | hammasi | ADMIN qila oladigan hammasi + admin-darajadagi hisoblarni boshqarish + backup tiklash |
+| **ADMIN** | admin-darajadan tashqari hammasi | foydalanuvchilar (admin-tierdan tashqari), import, audit, bildirishnomalar, umumiy nazorat |
+| **HEAD_OF_SUPPORT** (texnik bo'lim rahbari) | TP jamoasi + ombor | TP xodimlarini (OPERATOR) CRUD qiladi, ularning barcha ishini kuzatadi, ombor/ustalar/uskuna-analitikani yuritadi, ish jadvali/sozlamalar/ommaviy yuklash |
 | **OPERATOR** (TP xodimi) | kunlik ish + kuzatuv | qo'ng'iroqlar, to'lov yozish, usta bilan bog'lanib jarayon yuritish |
 | **INSTALLER** (usta) | tizimga kirmaydi | ma'lumot sifatida saqlanadi; boshliq/xodim telefon orqali boshqaradi |
 
@@ -129,7 +130,8 @@ npm run dev                 # → http://localhost:3100
 ```
 
 Seed hisoblari (hammasiga parol `parol123`): `admin` (ADMIN), `boshliq`
-(MANAGER), `abdulla` / `javohir` / `biloliddin` / `mehroj` (OPERATOR).
+(SUPER_ADMIN), `tprahbar` (HEAD_OF_SUPPORT), `abdulla` / `javohir` /
+`biloliddin` / `mehroj` (OPERATOR).
 
 > ⚠️ `npm run bot` ni lokalda ishga tushirmang — bot production'da doimiy
 > ishlab turadi; bitta Telegram token bilan ikkita joyda polling qilish

@@ -24,7 +24,7 @@ describe("dismissTicket", () => {
   });
 
   it("boshliq muammoni rad etadi — RESOLVED + izoh", async () => {
-    const manager = await makeUser("MANAGER");
+    const manager = await makeUser("SUPER_ADMIN");
     const client = await makeClient();
     const ticket = await makeTicket(client.id);
 
@@ -52,7 +52,7 @@ describe("dismissTicket", () => {
   });
 
   it("izohsiz rad eta OLMAYDI", async () => {
-    const manager = await makeUser("MANAGER");
+    const manager = await makeUser("SUPER_ADMIN");
     const client = await makeClient();
     const ticket = await makeTicket(client.id);
 

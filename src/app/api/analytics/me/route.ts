@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 // Feature B — joriy operatorning bugungi ko'rsatkichlari (jonli progress bar).
 // Har bir foydalanuvchi faqat o'z ma'lumotini oladi (session.userId).
 export async function GET() {
-  const auth = await requireApiSession(["ADMIN", "OPERATOR", "MANAGER"]);
+  const auth = await requireApiSession(["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!auth.ok) {
     return new Response(auth.status === 401 ? "Unauthorized" : "Forbidden", {
       status: auth.status,

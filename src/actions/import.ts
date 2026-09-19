@@ -105,7 +105,7 @@ export async function importClients(payload: {
     unmatchedEquipment: [],
     errors: [],
   };
-  if (session.role !== "ADMIN") {
+  if (session.role !== "ADMIN" && session.role !== "SUPER_ADMIN" && session.role !== "HEAD_OF_SUPPORT") {
     return { ...report, unauthorized: true };
   }
 

@@ -17,7 +17,8 @@ export async function canMutateClient(
   if (!clientId) return false;
   if (
     session.role !== "ADMIN" &&
-    session.role !== "MANAGER" &&
+    session.role !== "SUPER_ADMIN" &&
+    session.role !== "HEAD_OF_SUPPORT" &&
     session.role !== "OPERATOR"
   ) {
     return false;
@@ -26,7 +27,7 @@ export async function canMutateClient(
   return !!c;
 }
 
-const ASSIGNABLE_ROLES = ["OPERATOR", "ADMIN", "MANAGER"];
+const ASSIGNABLE_ROLES = ["OPERATOR", "ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"];
 
 /**
  * Mijozga yoziladigan `assignedToId`ni xavfsiz aniqlaydi:

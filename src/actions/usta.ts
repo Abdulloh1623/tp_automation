@@ -113,7 +113,7 @@ export async function assignUsta(
   note: string,
 ): Promise<AssignState> {
   const session = await requireSession();
-  if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
+  if (!["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"].includes(session.role)) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
   const noteText = safeNote(note);
@@ -199,7 +199,7 @@ export async function updateUstaStatus(
   // TP xodimi (OPERATOR/ADMIN/MANAGER) usta bilan bog'lanib yozadi, YOKI usta
   // endi o'zi (faqat o'ziga biriktirilgan vazifasini) yangilaydi.
   const canUpdate =
-    ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) ||
+    ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"].includes(session.role) ||
     (session.role === "INSTALLER" && client.assignedUstaId === session.userId);
   if (!canUpdate) {
     return { ok: false, error: "Ruxsat yo'q" };
@@ -263,7 +263,7 @@ export async function blockUstaTask(
   const client = await db.client.findUnique({ where: { id: clientId } });
   if (!client) return { ok: false, error: "Vazifa topilmadi" };
   const canUpdate =
-    ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) ||
+    ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"].includes(session.role) ||
     (session.role === "INSTALLER" && client.assignedUstaId === session.userId);
   if (!canUpdate) return { ok: false, error: "Ruxsat yo'q" };
 
@@ -305,7 +305,7 @@ export async function unblockUstaTask(
   const client = await db.client.findUnique({ where: { id: clientId } });
   if (!client) return { ok: false, error: "Vazifa topilmadi" };
   const canUpdate =
-    ["ADMIN", "MANAGER", "OPERATOR"].includes(session.role) ||
+    ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"].includes(session.role) ||
     (session.role === "INSTALLER" && client.assignedUstaId === session.userId);
   if (!canUpdate) return { ok: false, error: "Ruxsat yo'q" };
 
@@ -336,7 +336,7 @@ export async function resolveEscalation(
   note: string,
 ): Promise<AssignState> {
   const session = await requireSession();
-  if (!["ADMIN", "MANAGER", "OPERATOR"].includes(session.role)) {
+  if (!["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"].includes(session.role)) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
   const resolutionNote = safeNote(note);
@@ -378,7 +378,7 @@ export async function resolveEscalation(
 }
 
 // Eskalatsiyaga mas'ul qilib biriktirilishi mumkin bo'lgan TP xodimi rollari
-const ESCALATION_STAFF_ROLES = ["ADMIN", "MANAGER", "OPERATOR"];
+const ESCALATION_STAFF_ROLES = ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"];
 
 /**
  * Eskalatsiyaga mas'ul TP xodimini biriktirish/olib tashlash — faqat boshliq/admin.
@@ -392,7 +392,7 @@ export async function assignEscalationStaff(
   note?: string,
 ): Promise<AssignState> {
   const session = await requireSession();
-  if (!["ADMIN", "MANAGER"].includes(session.role)) {
+  if (!["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"].includes(session.role)) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
 

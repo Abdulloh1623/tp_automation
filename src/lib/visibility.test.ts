@@ -1,24 +1,26 @@
 import { describe, it, expect } from "vitest";
-import { isManagerRole, canViewAll, assignedStaffScope } from "./visibility";
+import { hasFullStaffAccess, canViewAll, assignedStaffScope } from "./visibility";
 
-describe("isManagerRole", () => {
-  it("ADMIN va MANAGER — boshqaruv", () => {
-    expect(isManagerRole("ADMIN")).toBe(true);
-    expect(isManagerRole("MANAGER")).toBe(true);
+describe("hasFullStaffAccess", () => {
+  it("ADMIN, SUPER_ADMIN va HEAD_OF_SUPPORT — boshqaruv", () => {
+    expect(hasFullStaffAccess("ADMIN")).toBe(true);
+    expect(hasFullStaffAccess("SUPER_ADMIN")).toBe(true);
+    expect(hasFullStaffAccess("HEAD_OF_SUPPORT")).toBe(true);
   });
   it("OPERATOR va INSTALLER — boshqaruv emas", () => {
-    expect(isManagerRole("OPERATOR")).toBe(false);
-    expect(isManagerRole("INSTALLER")).toBe(false);
+    expect(hasFullStaffAccess("OPERATOR")).toBe(false);
+    expect(hasFullStaffAccess("INSTALLER")).toBe(false);
   });
   it("VIEWER — boshqaruv EMAS (tahrirlay olmaydi)", () => {
-    expect(isManagerRole("VIEWER")).toBe(false);
+    expect(hasFullStaffAccess("VIEWER")).toBe(false);
   });
 });
 
 describe("canViewAll", () => {
-  it("ADMIN, MANAGER va VIEWER — to'liq ko'rinish", () => {
+  it("ADMIN, SUPER_ADMIN, HEAD_OF_SUPPORT va VIEWER — to'liq ko'rinish", () => {
     expect(canViewAll("ADMIN")).toBe(true);
-    expect(canViewAll("MANAGER")).toBe(true);
+    expect(canViewAll("SUPER_ADMIN")).toBe(true);
+    expect(canViewAll("HEAD_OF_SUPPORT")).toBe(true);
     expect(canViewAll("VIEWER")).toBe(true);
   });
   it("OPERATOR va INSTALLER — cheklangan", () => {
@@ -30,7 +32,8 @@ describe("canViewAll", () => {
 describe("assignedStaffScope", () => {
   it("boshqaruv roli — cheklovsiz (bo'sh qamrov)", () => {
     expect(assignedStaffScope("ADMIN", "u1", "assignedStaffId")).toEqual({});
-    expect(assignedStaffScope("MANAGER", "u1", "escalationStaffId")).toEqual({});
+    expect(assignedStaffScope("SUPER_ADMIN", "u1", "escalationStaffId")).toEqual({});
+    expect(assignedStaffScope("HEAD_OF_SUPPORT", "u1", "escalationStaffId")).toEqual({});
   });
 
   it("VIEWER — cheklovsiz (bo'sh qamrov), lekin faqat ko'rish uchun", () => {

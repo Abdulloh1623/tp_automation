@@ -3,7 +3,7 @@ import { requireApiSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { readReceipt } from "@/lib/receipts";
 
-const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
+const STAFF = ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT"];
 
 // Himoyalangan chek rasmi: faqat STAFF ko'ra oladi.
 export async function GET(

@@ -5,7 +5,7 @@ import { AnalyticsLive } from "@/components/analytics-live";
 export const dynamic = "force-dynamic";
 
 export default async function AnalitikaPage() {
-  await requireRole(["ADMIN", "MANAGER", "VIEWER"]);
+  await requireRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"]);
   const initial = await getAnalytics();
   return <AnalyticsLive initial={initial} />;
 }

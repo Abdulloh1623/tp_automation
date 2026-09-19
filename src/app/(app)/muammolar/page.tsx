@@ -35,8 +35,8 @@ export default async function MuammolarPage({
     await searchParams;
   const bolim = parseBolim(bolimParam);
 
-  const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR", "VIEWER"]);
-  const isManager = ["ADMIN", "MANAGER"].includes(session.role);
+  const session = await requireRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"]);
+  const isManager = ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"].includes(session.role);
   const ticketScope = assignedStaffScope(session.role, session.userId, "assignedStaffId");
   const escScope = assignedStaffScope(session.role, session.userId, "escalationStaffId");
 

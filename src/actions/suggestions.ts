@@ -8,7 +8,7 @@ import { safeNote } from "@/lib/validation";
 
 export type SuggestionState = { ok: boolean; error?: string };
 
-const MANAGERS = ["ADMIN", "MANAGER"];
+const MANAGERS = ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"];
 
 /**
  * Taklifni hal qilingan deb belgilaydi (admin/menejer).

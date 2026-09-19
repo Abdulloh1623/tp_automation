@@ -86,8 +86,13 @@ export function documentStatusLabel(s?: string | null): string {
 }
 
 export const USER_ROLE = {
+  // Cheklovsiz — ADMIN yaratadigan/boshqaradigan hamma narsa + boshqa
+  // ADMIN/SUPER_ADMIN hisoblarini boshqarish + backup tiklash.
+  SUPER_ADMIN: "Super Admin",
   ADMIN: "Administrator",
-  MANAGER: "Texnik bo'lim boshlig'i",
+  // TP xodimlari (OPERATOR)ni to'liq boshqaradi, ombor+ustalar+uskuna-
+  // analitikani yuritadi; moliya/hisobot/audit/backup tiklashga kirmaydi.
+  HEAD_OF_SUPPORT: "Texnik bo'lim rahbari",
   OPERATOR: "Texnik xodim",
   INSTALLER: "Usta",
   // Admin bilan bir xil ko'rish huquqi, lekin hech narsa o'zgartira olmaydi

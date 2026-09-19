@@ -12,7 +12,13 @@ async function requireAdmin(): Promise<
   { ok: true; userId: string } | { ok: false; error: string }
 > {
   const session = await requireSession();
-  if (session.role !== "ADMIN") return { ok: false, error: "Ruxsat yo'q" };
+  if (
+    session.role !== "ADMIN" &&
+    session.role !== "SUPER_ADMIN" &&
+    session.role !== "HEAD_OF_SUPPORT"
+  ) {
+    return { ok: false, error: "Ruxsat yo'q" };
+  }
   return { ok: true, userId: session.userId };
 }
 

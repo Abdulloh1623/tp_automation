@@ -17,7 +17,7 @@ import { PAYMENT_METHOD, type PaymentMethod } from "@/lib/constants";
 import { currencyEnum, noteString, paymentMethodEnum } from "@/lib/validation";
 
 // Mijoz/to'lov bilan ishlovchi xodimlar (usta — INSTALLER taqiqlanadi)
-const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
+const STAFF = ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT"];
 
 function s(v: FormDataEntryValue | null): string | undefined {
   const str = typeof v === "string" ? v.trim() : "";
@@ -196,7 +196,7 @@ export async function updatePayment(
   paymentId: string,
   formData: FormData,
 ): Promise<PaymentFormState> {
-  const g = await guardRole(["ADMIN"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return { error: g.error };
 
   const parsed = paymentEditSchema.safeParse({
@@ -277,7 +277,7 @@ export async function updatePayment(
 
 /** ADMIN: to'lovni o'chiradi + chek fayli; keyingi to'lov sanasi qayta hisoblanadi. */
 export async function deletePayment(paymentId: string): Promise<PaymentFormState> {
-  const g = await guardRole(["ADMIN"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return { error: g.error };
 
   const existing = await db.payment.findUnique({

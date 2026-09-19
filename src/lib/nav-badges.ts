@@ -5,7 +5,7 @@
 import { startOfDay, endOfDay } from "date-fns";
 import { db } from "@/lib/db";
 import { ACTIVE_STAGES, NO_CONTACT_STAGES, OFF_BOARD_STAGES } from "@/lib/constants";
-import { assignedStaffScope, isManagerRole } from "@/lib/visibility";
+import { assignedStaffScope, hasFullStaffAccess } from "@/lib/visibility";
 
 /** href → ochiq (o'ziga tegishli) elementlar soni. Nol bo'lganlari badge chiqarmaydi. */
 export async function getNavBadges(
@@ -17,7 +17,7 @@ export async function getNavBadges(
   const todayStart = startOfDay(now);
   const ticketScope = assignedStaffScope(role, userId, "assignedStaffId");
   const escScope = assignedStaffScope(role, userId, "escalationStaffId");
-  const manager = isManagerRole(role);
+  const manager = hasFullStaffAccess(role);
 
   const [unread, lidlar, muammolar, eskalatsiya, qaytarish, takliflar, soliq, karta, me, vazifalarim] =
     await Promise.all([
@@ -62,7 +62,7 @@ export async function getNavBadges(
       // (tasdiqlovchi/admin) pastda hal qilinadi: shu bitta COUNT'ni ham
       // parallel bajarib, qo'shimcha round-trip'dan qutulamiz.
       db.pendingCardPayment.count({ where: { status: "PENDING" } }),
-      role === "ADMIN"
+      role === "ADMIN" || role === "SUPER_ADMIN"
         ? Promise.resolve(null)
         : db.user.findFirst({
             where: { id: userId, cardVerifier: true },
@@ -91,7 +91,7 @@ export async function getNavBadges(
     ]);
 
   // Karta tasdig'i — faqat tasdiqlovchi va adminlarga ko'rinadi
-  const cardResolver = role === "ADMIN" || !!me;
+  const cardResolver = role === "ADMIN" || role === "SUPER_ADMIN" || !!me;
 
   return {
     "/bildirishnomalar": unread,

@@ -22,7 +22,7 @@ export const metadata = { title: "Sozlamalar" };
 const FORECAST_DAYS = 14;
 
 export default async function SettingsPage() {
-  await requireRole(["ADMIN"]);
+  await requireRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
 
   const now = new Date();
   const today = endOfDay(now);

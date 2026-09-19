@@ -155,14 +155,28 @@ describe("redistributeStaffWork", () => {
     expect(res.ok).toBe(false);
   });
 
-  it("ADMIN bo'lmagan chaqira olmaydi", async () => {
-    const manager = await makeUser("MANAGER");
+  it("OPERATOR chaqira olmaydi", async () => {
+    const operator = await makeUser("OPERATOR");
     const departed = await makeUser("OPERATOR", { isActive: false });
     await makeUser("OPERATOR");
-    await loginAs(manager);
+    await loginAs(operator);
 
     const res = await redistributeStaffWork(departed.id);
 
     expect(res.ok).toBe(false);
+  });
+
+  it("SUPER_ADMIN va HEAD_OF_SUPPORT ham chaqira oladi", async () => {
+    for (const role of ["SUPER_ADMIN", "HEAD_OF_SUPPORT"] as const) {
+      await resetDb();
+      const manager = await makeUser(role);
+      const departed = await makeUser("OPERATOR", { isActive: false });
+      await makeUser("OPERATOR");
+      await loginAs(manager);
+
+      const res = await redistributeStaffWork(departed.id);
+
+      expect(res.ok, `rol ${role}`).toBe(true);
+    }
   });
 });

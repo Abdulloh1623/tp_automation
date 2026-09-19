@@ -13,7 +13,7 @@ async function requireMgr(): Promise<
   { ok: true; userId: string } | { ok: false; error: string }
 > {
   const session = await requireSession();
-  if (!["ADMIN", "MANAGER"].includes(session.role)) {
+  if (!["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"].includes(session.role)) {
     return { ok: false, error: "Ruxsat yo'q" };
   }
   return { ok: true, userId: session.userId };

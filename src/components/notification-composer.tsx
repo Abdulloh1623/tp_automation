@@ -78,7 +78,8 @@ export function NotificationComposer() {
             <Select id="n-audience" value={audience} onChange={(e) => setAudience(e.target.value)}>
               <option value="ALL">Barcha xodimlar</option>
               <option value="OPERATOR">Operatorlar</option>
-              <option value="MANAGER">Menejerlar</option>
+              <option value="SUPER_ADMIN">Super Adminlar</option>
+              <option value="HEAD_OF_SUPPORT">Texnik bo'lim rahbarlari</option>
             </Select>
           </div>
           <div>

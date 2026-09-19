@@ -12,8 +12,8 @@ import { saveSoliqDoc } from "@/lib/soliq-docs";
 
 type State = { ok: boolean; error?: string };
 
-const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
-const MANAGERS = ["ADMIN", "MANAGER"];
+const STAFF = ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT"];
+const MANAGERS = ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"];
 
 function str(v: FormDataEntryValue | null): string {
   return typeof v === "string" ? v.trim() : "";

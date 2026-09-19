@@ -12,7 +12,7 @@ import { ReturnStats, type ReturnStatsData } from "@/components/return-stats";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export async function ReturnSection({ session }: { session: SessionPayload }) {
-  const isManager = ["ADMIN", "MANAGER"].includes(session.role);
+  const isManager = ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"].includes(session.role);
   const isOperator = session.role === "OPERATOR";
 
   const clientSelect = {
@@ -49,7 +49,7 @@ export async function ReturnSection({ session }: { session: SessionPayload }) {
     db.user.findMany({ select: { id: true, name: true, phone: true } }),
     // Mas'ul TP xodim tanlash uchun ro'yxat (ariza qo'sha oladigan rollar bilan bir xil).
     db.user.findMany({
-      where: { role: { in: ["ADMIN", "MANAGER", "OPERATOR"] }, isActive: true },
+      where: { role: { in: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"] }, isActive: true },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

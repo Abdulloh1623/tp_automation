@@ -45,9 +45,9 @@ describe("canMutateClient — egalik / IDOR himoyasi", () => {
     expect(clientFindUnique).toHaveBeenCalledWith({ where: { id: "c1" }, select: { id: true } });
   });
 
-  it("MANAGER: mijoz mavjud emas → false", async () => {
+  it("SUPER_ADMIN: mijoz mavjud emas → false", async () => {
     clientFindUnique.mockResolvedValue(null);
-    expect(await canMutateClient(sess("MANAGER"), "c1")).toBe(false);
+    expect(await canMutateClient(sess("SUPER_ADMIN"), "c1")).toBe(false);
   });
 
   it("OPERATOR: istalgan mavjud mijozni o'zgartira oladi (egalik filtri YO'Q)", async () => {
@@ -79,13 +79,17 @@ describe("resolveAssignee — biriktirishni xavfsiz aniqlash", () => {
     userFindFirst.mockResolvedValue({ id: "u5" });
     expect(await resolveAssignee(sess("ADMIN"), "u5")).toBe("u5");
     expect(userFindFirst).toHaveBeenCalledWith({
-      where: { id: "u5", role: { in: ["OPERATOR", "ADMIN", "MANAGER"] }, isActive: true },
+      where: {
+        id: "u5",
+        role: { in: ["OPERATOR", "ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] },
+        isActive: true,
+      },
       select: { id: true },
     });
   });
 
   it("ADMIN: mavjud emas / faol emas / noto'g'ri rol → null", async () => {
     userFindFirst.mockResolvedValue(null);
-    expect(await resolveAssignee(sess("MANAGER"), "ghost")).toBeNull();
+    expect(await resolveAssignee(sess("SUPER_ADMIN"), "ghost")).toBeNull();
   });
 });

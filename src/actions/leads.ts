@@ -12,7 +12,7 @@ import { autoEscalationTarget, escalationStagePatch, shouldEscalate } from "@/li
 import { capForNewClient, computeNextContact } from "@/lib/recall-rules";
 import { getRecallSettings } from "@/lib/settings";
 
-const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
+const STAFF = ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT"];
 import {
   ACTIVE_STAGES,
   LEAD_OUTCOME,
@@ -583,7 +583,7 @@ export async function setSpecialNote(
 export async function revertLead(
   clientId: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const g = await guardRole(["ADMIN", "MANAGER"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return { ok: false, error: g.error };
   try {
     await db.client.update({

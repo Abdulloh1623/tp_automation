@@ -36,7 +36,7 @@ export type ReleaseState = { ok: boolean; released?: number; error?: string };
 export async function releaseOperatorLeads(
   operatorId: string,
 ): Promise<ReleaseState> {
-  const g = await guardRole(["ADMIN", "MANAGER"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return { ok: false, error: g.error };
   if (!operatorId) return { ok: false, error: "Operator tanlanmadi" };
 
@@ -72,7 +72,7 @@ export async function redistributeLeads(
   _prev?: DistributeState,
   _formData?: FormData,
 ): Promise<DistributeState> {
-  const g = await guardRole(["ADMIN", "MANAGER"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return { error: g.error };
 
   const res = await distributeLeadsCore();
@@ -102,7 +102,7 @@ export async function setLeadFocus(
   selection: { kind: "preset"; id: string } | { kind: "custom"; shares: unknown },
   todayOnly: boolean,
 ): Promise<FocusState> {
-  const g = await guardRole(["ADMIN"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return { ok: false, error: g.error };
 
   let sel: LeadFocusSelection;

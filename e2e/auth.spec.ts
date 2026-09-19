@@ -3,6 +3,8 @@ import { test, expect, type Page } from "@playwright/test";
 // Seed (prisma/seed.ts) yaratadigan test akkauntlari — barcha parol: parol123
 const ADMIN = { username: "admin", password: "parol123" };
 const OPERATOR = { username: "asadbek", password: "parol123" };
+const SUPER_ADMIN = { username: "boshliq", password: "parol123" };
+const HEAD_OF_SUPPORT = { username: "tprahbar", password: "parol123" };
 
 async function login(page: Page, creds: { username: string; password: string }) {
   await page.goto("/login");
@@ -49,5 +51,24 @@ test.describe("Autentifikatsiya va RBAC", () => {
     await expect(page).toHaveURL("/lidlar"); // login redirect tugashini (cookie) kutamiz
     await page.goto("/");
     await expect(page).toHaveURL("/lidlar");
+  });
+
+  test("super admin login → boshqaruv paneli (/), foydalanuvchilar va audit ochiq", async ({ page }) => {
+    await login(page, SUPER_ADMIN);
+    await expect(page).toHaveURL("/");
+    await page.goto("/foydalanuvchilar");
+    await expect(page).toHaveURL("/foydalanuvchilar");
+    await page.goto("/audit");
+    await expect(page).toHaveURL("/audit");
+  });
+
+  test("TP rahbari login → boshqaruv paneli (/), foydalanuvchilar ochiq, audit YO'Q", async ({ page }) => {
+    await login(page, HEAD_OF_SUPPORT);
+    await expect(page).toHaveURL("/");
+    await page.goto("/foydalanuvchilar");
+    await expect(page).toHaveURL("/foydalanuvchilar");
+    // Audit ataylab yopiq — roleHome ("/") ga qaytariladi.
+    await page.goto("/audit");
+    await expect(page).toHaveURL("/");
   });
 });

@@ -11,13 +11,14 @@ export const dynamic = "force-dynamic";
 const AUDIENCE_LABEL: Record<string, string> = {
   ALL: "Barcha xodimlar",
   OPERATOR: "Operatorlar",
-  MANAGER: "Menejerlar",
+  SUPER_ADMIN: "Super Adminlar",
+  HEAD_OF_SUPPORT: "Texnik bo'lim rahbarlari",
   ADMIN: "Administrator",
 };
 
 export default async function NotificationsPage() {
   const session = await requireSession();
-  const isAdmin = session.role === "ADMIN";
+  const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN" || session.role === "HEAD_OF_SUPPORT";
 
   // Qabul qilingan bildirishnomalar (har bir foydalanuvchi uchun)
   const recs = await db.notificationRecipient.findMany({

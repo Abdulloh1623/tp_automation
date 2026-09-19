@@ -23,7 +23,7 @@ export default async function LeadsPage({
 }) {
   const session = await requireSession();
   const { operator } = await searchParams;
-  const isAdmin = session.role === "ADMIN";
+  const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN" || session.role === "HEAD_OF_SUPPORT";
   // VIEWER — ADMIN kabi istalgan operator taxtasini ko'ra oladi (faqat ko'rish,
   // yozuv action'da bloklanadi); lekin LeadFocusCard'ni tahrirlay olmaydi.
   const canBrowseBoards = isAdmin || session.role === "VIEWER";

@@ -10,8 +10,8 @@ export const dynamic = "force-dynamic";
 // savol/yechim qo'sha oladi; tahrir/o'chirish faqat ADMIN qo'lida (action'da
 // guardRole bilan qat'iy). RBAC: `/faq` → ROUTE_ROLES (lib/rbac.ts).
 export default async function FaqPage() {
-  const session = await requireRole(["ADMIN", "OPERATOR", "MANAGER", "VIEWER"]);
-  const isAdmin = session.role === "ADMIN";
+  const session = await requireRole(["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"]);
+  const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN" || session.role === "HEAD_OF_SUPPORT";
   const canCreate = session.role !== "VIEWER";
 
   const rows = await db.faqEntry.findMany({

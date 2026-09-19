@@ -38,7 +38,7 @@ export async function runSilentChurnCheck(): Promise<SilentChurnAlertResult> {
   if (s.count === 0) return { count: 0, notified: 0, telegram: 0 };
 
   const managers = await db.user.findMany({
-    where: { role: { in: ["ADMIN", "MANAGER"] }, isActive: true },
+    where: { role: { in: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] }, isActive: true },
     select: { id: true, telegramId: true },
   });
 

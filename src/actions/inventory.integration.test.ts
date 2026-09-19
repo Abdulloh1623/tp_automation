@@ -16,7 +16,7 @@ describe("addStock (omborga kirim)", () => {
   });
 
   it("qoldiqni oshiradi va harakat yozadi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const type = await makeEquipment("Monoblok");
 
     const res = await addStock(type.id, 10);
@@ -40,7 +40,7 @@ describe("addStock (omborga kirim)", () => {
   });
 
   it("nol yoki manfiy miqdor qabul qilinmaydi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const type = await makeEquipment("Monoblok", { warehouseQty: 5 });
 
     expect((await addStock(type.id, 0)).ok).toBe(false);
@@ -55,7 +55,7 @@ describe("transferToUsta (ombor -> usta)", () => {
   });
 
   it("qoldiq ombordan ustaga KO'CHADI (yo'qolmaydi, ko'paymaydi)", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const usta = await makeUser("INSTALLER");
     const type = await makeEquipment("Monoblok", { warehouseQty: 10 });
 
@@ -69,7 +69,7 @@ describe("transferToUsta (ombor -> usta)", () => {
   });
 
   it("omborda yetarli bo'lmasa — HECH NARSA o'zgarmaydi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const usta = await makeUser("INSTALLER");
     const type = await makeEquipment("Monoblok", { warehouseQty: 3 });
 
@@ -83,7 +83,7 @@ describe("transferToUsta (ombor -> usta)", () => {
   });
 
   it("izoh majburiy", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const usta = await makeUser("INSTALLER");
     const type = await makeEquipment("Monoblok", { warehouseQty: 10 });
 
@@ -94,7 +94,7 @@ describe("transferToUsta (ombor -> usta)", () => {
   });
 
   it("nishon usta bo'lmasa — o'tkazilmaydi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const operator = await makeUser("OPERATOR");
     const type = await makeEquipment("Monoblok", { warehouseQty: 10 });
 
@@ -111,7 +111,7 @@ describe("transferBatchToUsta — tranzaksiya butunligi", () => {
   });
 
   it("bitta qator yiqilsa — BUTUN partiya bekor qilinadi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const usta = await makeUser("INSTALLER");
     const ok = await makeEquipment("Monoblok", { warehouseQty: 10 });
     const low = await makeEquipment("Printer", { warehouseQty: 1 });
@@ -135,7 +135,7 @@ describe("transferBatchToUsta — tranzaksiya butunligi", () => {
   });
 
   it("hammasi joyida bo'lsa — barcha qatorlar qo'llanadi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const usta = await makeUser("INSTALLER");
     const a = await makeEquipment("Monoblok", { warehouseQty: 10 });
     const b = await makeEquipment("Printer", { warehouseQty: 10 });
@@ -158,7 +158,7 @@ describe("transferBatchToUsta — tranzaksiya butunligi", () => {
   });
 
   it("hujjatsiz rejimda izoh majburiy", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const usta = await makeUser("INSTALLER");
     const type = await makeEquipment("Monoblok", { warehouseQty: 10 });
 
@@ -174,7 +174,7 @@ describe("transferBatchToUsta — tranzaksiya butunligi", () => {
   });
 
   it("hujjat manzili soxta bo'lsa rad etiladi (XSS himoyasi)", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const usta = await makeUser("INSTALLER");
     const type = await makeEquipment("Monoblok", { warehouseQty: 10 });
 
@@ -197,7 +197,7 @@ describe("assignEquipmentToClient (mijozga o'rnatish)", () => {
   });
 
   it("ombordan mijozga — qoldiq ayiriladi, manba WAREHOUSE deb yoziladi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const client = await makeClient();
     const type = await makeEquipment("Monoblok", { warehouseQty: 5 });
 
@@ -213,7 +213,7 @@ describe("assignEquipmentToClient (mijozga o'rnatish)", () => {
   });
 
   it("usta zaxirasidan mijozga — manba USTA deb yoziladi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const usta = await makeUser("INSTALLER");
     const client = await makeClient();
     const type = await makeEquipment("Monoblok", { warehouseQty: 5 });
@@ -236,7 +236,7 @@ describe("assignEquipmentToClient (mijozga o'rnatish)", () => {
   });
 
   it("manbada yetarli bo'lmasa — mijozga ham yozilmaydi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const client = await makeClient();
     const type = await makeEquipment("Monoblok", { warehouseQty: 1 });
 
@@ -248,7 +248,7 @@ describe("assignEquipmentToClient (mijozga o'rnatish)", () => {
   });
 
   it("ijara biriktirilgach mijozning equipmentMode RENTAL bo'ladi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const client = await makeClient();
     const type = await makeEquipment("Monoblok", { warehouseQty: 5 });
 
@@ -259,7 +259,7 @@ describe("assignEquipmentToClient (mijozga o'rnatish)", () => {
   });
 
   it("sotuvda bir martalik to'lov yoziladi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const client = await makeClient({ currency: "USD" });
     const type = await makeEquipment("Monoblok", { warehouseQty: 5, salePrice: 250 });
 
@@ -288,7 +288,7 @@ describe("scrapToBrak (brakka chiqarish)", () => {
   });
 
   it("ombordan brakka — qoldiq ko'chadi, yo'qolmaydi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const type = await makeEquipment("Monoblok", { warehouseQty: 5 });
 
     const res = await scrapToBrak(type.id, "WAREHOUSE", "WAREHOUSE", 2, "singan");
@@ -299,7 +299,7 @@ describe("scrapToBrak (brakka chiqarish)", () => {
   });
 
   it("izohsiz brakka chiqarib bo'lmaydi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const type = await makeEquipment("Monoblok", { warehouseQty: 5 });
 
     const res = await scrapToBrak(type.id, "WAREHOUSE", "WAREHOUSE", 1, "");
@@ -309,7 +309,7 @@ describe("scrapToBrak (brakka chiqarish)", () => {
   });
 
   it("yetarli bo'lmasa — o'zgarmaydi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const type = await makeEquipment("Monoblok", { warehouseQty: 1 });
 
     const res = await scrapToBrak(type.id, "WAREHOUSE", "WAREHOUSE", 5, "singan");
@@ -328,7 +328,7 @@ describe("clearInactiveClientEquipment (nofaol mijozlardagi yozuvni tozalash)", 
   });
 
   it("faqat NOFAOL mijozning yozuvini o'chiradi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const type = await makeEquipment("Monoblok", { warehouseQty: 10 });
     const faol = await makeClient({ status: "ACTIVE" });
     const ochirilgan = await makeClient({ status: "INACTIVE" });
@@ -350,7 +350,7 @@ describe("clearInactiveClientEquipment (nofaol mijozlardagi yozuvni tozalash)", 
   });
 
   it("OMBOR QOLDIG'IGA tegmaydi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const type = await makeEquipment("Monoblok", { warehouseQty: 4 });
     const ochirilgan = await makeClient({ status: "INACTIVE" });
     await db.clientEquipment.create({
@@ -364,7 +364,7 @@ describe("clearInactiveClientEquipment (nofaol mijozlardagi yozuvni tozalash)", 
   });
 
   it("mijozning equipmentMode'ini qayta hisoblaydi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const type = await makeEquipment("Monoblok");
     const ochirilgan = await makeClient({ status: "INACTIVE" });
     await db.client.update({ where: { id: ochirilgan.id }, data: { equipmentMode: "RENTAL" } });
@@ -393,7 +393,7 @@ describe("clearInactiveClientEquipment (nofaol mijozlardagi yozuvni tozalash)", 
   });
 
   it("tozalanadigan yozuv bo'lmasa — 0 qaytaradi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
 
     const res = await clearInactiveClientEquipment();
 

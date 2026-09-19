@@ -53,7 +53,7 @@ export type CommitState = {
 };
 
 async function requireAdmin() {
-  return guardRole(["ADMIN"]);
+  return guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
 }
 
 function stagingPath(token: string): string | null {

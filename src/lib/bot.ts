@@ -323,9 +323,10 @@ export async function startBot(): Promise<void> {
       .text("⬅️ Orqaga", "menu");
   }
 
-  /** Xizmat amallari faqat ADMIN uchun. */
+  /** Xizmat amallari faqat ADMIN/SUPER_ADMIN uchun. */
   function opsAllowed(ctx: Context): boolean {
-    return (ctx as Context & { actor?: Actor }).actor?.role === "ADMIN";
+    const role = (ctx as Context & { actor?: Actor }).actor?.role;
+    return role === "ADMIN" || role === "SUPER_ADMIN";
   }
 
   /** Audit muallifi — botda sessiya (cookie) yo'q, aktyorni aniq uzatamiz. */

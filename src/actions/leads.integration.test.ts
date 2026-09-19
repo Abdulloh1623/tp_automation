@@ -62,7 +62,7 @@ describe("saveLeadCell — xato natijadan o'tish avto-yozuvni tozalaydi", () => 
 
   it("boshliq ish boshlagan (biriktirilgan) muammo O'CHMAYDI", async () => {
     const op = await makeUser("OPERATOR");
-    const staff = await makeUser("MANAGER");
+    const staff = await makeUser("SUPER_ADMIN");
     await loginAs(op);
     const client = await makeClient({ assignedToId: op.id });
 

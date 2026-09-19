@@ -42,7 +42,7 @@ describe("resolveSuggestion — izoh ixtiyoriy", () => {
   });
 
   it("izoh berilsa saqlanadi", async () => {
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
     const s = await makeSuggestion((await makeClient()).id);
 
     const res = await resolveSuggestion(s.id, "  Keyingi versiyaga rejaga qo'shildi  ");
@@ -87,7 +87,7 @@ describe("confirmReturnCollected — izoh majburiy", () => {
 
   it("izoh saqlanadi, ariza sababiga tegilmaydi", async () => {
     const { req, type, usta } = await makeReturnRequest();
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
 
     const res = await confirmReturnCollected(req.id, "Printer shikastlangan holda qaytdi");
 
@@ -101,7 +101,7 @@ describe("confirmReturnCollected — izoh majburiy", () => {
 
   it("izohsiz yakunlab bo'lmaydi", async () => {
     const { req } = await makeReturnRequest();
-    await loginAs(await makeUser("MANAGER"));
+    await loginAs(await makeUser("SUPER_ADMIN"));
 
     const res = await confirmReturnCollected(req.id, "");
 
@@ -132,7 +132,7 @@ describe("resolveEscalation — izoh majburiy", () => {
   });
 
   it("izohsiz yopib bo'lmaydi", async () => {
-    const manager = await makeUser("MANAGER");
+    const manager = await makeUser("SUPER_ADMIN");
     const client = await makeClient();
     await db.client.update({ where: { id: client.id }, data: { stage: "ESCALATED" } });
     await loginAs(manager);

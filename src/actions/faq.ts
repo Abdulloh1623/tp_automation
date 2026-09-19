@@ -9,7 +9,7 @@ import { logAudit } from "@/lib/audit";
 import { saveFaqImage } from "@/lib/faq-docs";
 
 // Yaratish — istalgan xodim; tahrir/o'chirish — faqat ADMIN.
-const AUTHORS = ["ADMIN", "OPERATOR", "MANAGER"];
+const AUTHORS = ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT"];
 const ADMINS = ["ADMIN"];
 
 export type FaqState = { ok: boolean; error?: string };

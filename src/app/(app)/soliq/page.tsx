@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
-import { canViewAll, isManagerRole } from "@/lib/visibility";
+import { canViewAll, hasFullStaffAccess } from "@/lib/visibility";
 import { SoliqQueue, type SoliqQueueItem } from "@/components/soliq-queue";
 
 export const dynamic = "force-dynamic";
@@ -11,8 +11,8 @@ function docUrl(p: string | null): string | null {
 }
 
 export default async function SoliqPage() {
-  const session = await requireRole(["ADMIN", "MANAGER", "OPERATOR", "VIEWER"]);
-  const isManager = isManagerRole(session.role);
+  const session = await requireRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"]);
+  const isManager = hasFullStaffAccess(session.role);
 
   // Operator faqat o'zi yuborganlarni; boshliq va Kuzatuvchi (VIEWER) hammasini ko'radi.
   const where = canViewAll(session.role) ? {} : { byUserId: session.userId };

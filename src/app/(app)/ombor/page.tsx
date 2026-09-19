@@ -17,8 +17,8 @@ export default async function OmborPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const session = await requireRole(["ADMIN", "MANAGER", "VIEWER"]);
-  const isAdmin = session.role === "ADMIN";
+  const session = await requireRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER"]);
+  const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN" || session.role === "HEAD_OF_SUPPORT";
   const sp = await searchParams;
   const movType = sp.movType ?? "";
   const movReason = sp.movReason ?? "";

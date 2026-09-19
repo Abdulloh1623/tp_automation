@@ -25,7 +25,7 @@ export async function EscalationSection({
 }: {
   session: SessionPayload;
 }) {
-  const isManager = ["ADMIN", "MANAGER"].includes(session.role);
+  const isManager = ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"].includes(session.role);
   // TP xodim (OPERATOR) faqat o'ziga maxsus xodim qilib biriktirilgan
   // eskalatsiyalarni ko'radi; ADMIN/MANAGER esa barchasini (va biriktiradi).
   const scope = assignedStaffScope(
@@ -114,7 +114,7 @@ export async function EscalationSection({
       }),
       db.user.findMany({
         where: {
-          role: { in: ["ADMIN", "MANAGER", "OPERATOR"] },
+          role: { in: ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR"] },
           isActive: true,
         },
         select: { id: true, name: true },

@@ -253,7 +253,7 @@ const PROFILE_BIZNEX_TIMEOUT_MS = 2500;
 
 export async function ClientProfile({ id }: { id: string }) {
   const session = await requireSession();
-  const isAdmin = session.role === "ADMIN";
+  const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN" || session.role === "HEAD_OF_SUPPORT";
   // Usta (INSTALLER) — mijoz profilini FAQAT o'qish uchun ko'radi (ma'lumot,
   // qo'ng'iroq tarixi, uskunalar); to'lov/muammo/soliq/tahrirlash unga tegishli emas.
   const isInstaller = session.role === "INSTALLER";

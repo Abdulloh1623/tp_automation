@@ -4,7 +4,7 @@ import { parseRegions } from "@/lib/constants";
 import { ReferenceBoard, type UstaInfo, type PriceInfo } from "@/components/reference-board";
 
 export default async function MalumotnomaPage() {
-  await requireRole(["ADMIN", "MANAGER", "OPERATOR", "VIEWER"]);
+  await requireRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "OPERATOR", "VIEWER"]);
 
   const [ustalarFull, ustaStockRaw, typesRaw, warehouseRaw] = await Promise.all([
     db.user.findMany({

@@ -3,7 +3,7 @@ import { requireApiSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { readReceipt } from "@/lib/receipts";
 
-const STAFF = ["ADMIN", "OPERATOR", "MANAGER"];
+const STAFF = ["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT"];
 
 // Karta to'lovi tasdig'ini kutayotgan chek. To'lov hali yozilmagani uchun
 // `Payment` yo'q — fayl `PendingCardPayment.receiptPath` da turadi.

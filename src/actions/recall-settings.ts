@@ -25,7 +25,7 @@ export type SettingsState = { ok: boolean; error?: string };
  * o'zgarishlarning oldini oladi).
  */
 export async function saveRecallRules(raw: unknown): Promise<SettingsState> {
-  const g = await guardRole(["ADMIN"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return { ok: false, error: g.error };
 
   const rules: RecallRules = mergeRecallRules(raw);
@@ -54,7 +54,7 @@ export async function saveRecallRules(raw: unknown): Promise<SettingsState> {
 
 /** Kunlik yuklama chegaralari + eskalatsiya chegarasi. Faqat ADMIN. */
 export async function saveLoadPolicy(raw: unknown): Promise<SettingsState> {
-  const g = await guardRole(["ADMIN"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return { ok: false, error: g.error };
 
   const input = (raw ?? {}) as Record<string, unknown>;
@@ -86,6 +86,6 @@ export async function saveLoadPolicy(raw: unknown): Promise<SettingsState> {
 
 /** Joriy sozlamalar (klient formasi boshlang'ich holati uchun). */
 export async function readRecallSettings() {
-  await guardRole(["ADMIN"]);
+  await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   return getRecallSettings();
 }

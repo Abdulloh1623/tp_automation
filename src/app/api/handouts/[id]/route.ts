@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { readHandoutDoc } from "@/lib/handout-docs";
 
 // Faqat ombor/boshqaruv xodimi topshirish hujjatini ko'ra oladi.
-const MANAGERS = ["ADMIN", "MANAGER"];
+const MANAGERS = ["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"];
 
 // Himoyalangan topshirish hujjati: movement id bo'yicha signedDocUrl'ni o'qiydi.
 export async function GET(

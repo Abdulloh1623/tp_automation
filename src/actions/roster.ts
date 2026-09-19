@@ -25,7 +25,7 @@ export async function setDutyRoster(
   dateKey: string,
   entries: RosterEntryInput[],
 ): Promise<RosterState> {
-  const g = await guardRole(["ADMIN"]);
+  const g = await guardRole(["ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"]);
   if (!g.ok) return { ok: false, error: g.error };
 
   const date = tzDayStartFromInput(dateKey);

@@ -36,8 +36,8 @@ export default async function ClientsPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const session = await requireRole(["ADMIN", "OPERATOR", "MANAGER", "VIEWER", "INSTALLER"]);
-  const canManage = session.role === "ADMIN" || session.role === "MANAGER";
+  const session = await requireRole(["ADMIN", "OPERATOR", "SUPER_ADMIN", "HEAD_OF_SUPPORT", "VIEWER", "INSTALLER"]);
+  const canManage = session.role === "ADMIN" || session.role === "SUPER_ADMIN" || session.role === "HEAD_OF_SUPPORT";
   // Usta — ro'yxatni FAQAT o'qish uchun ko'radi (mijoz profilida qo'ng'iroq
   // tarixi + uskunalarni ko'rish kerak); yaratish/eksport/dublikat vositalari yo'q.
   const isInstaller = session.role === "INSTALLER";
@@ -97,7 +97,7 @@ export default async function ClientsPage({
   // (sahifa raqami cheklanadi), shuning uchun undan keyin ketadi.
   const [operators, total, dupGroups] = await Promise.all([
     db.user.findMany({
-      where: { role: { in: ["OPERATOR", "ADMIN", "MANAGER"] }, isActive: true },
+      where: { role: { in: ["OPERATOR", "ADMIN", "SUPER_ADMIN", "HEAD_OF_SUPPORT"] }, isActive: true },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

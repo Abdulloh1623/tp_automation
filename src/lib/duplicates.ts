@@ -14,6 +14,13 @@
 // Telefon yoki shartnoma bo'yicha ulangan guruh — "yuqori" ishonch; faqat nom
 // bo'yicha ulangan — "o'rta". Nom eng shovqinli signal, shuning uchun juda
 // umumiy (ko'p mijozga mos) yoki juda qisqa nomlar bo'yicha birlashtirmaymiz.
+//
+// "Dublikat emas" (DuplicateDismissal, src/actions/duplicates.ts): xodim
+// ikkita YOZUVni ko'rib chiqib, ular aslida bir xil mijoz EMAS deb topsa,
+// aynan shu JUFTLIKNI keyingi aniqlashdan chiqarib tashlaydi (edge-darajasida
+// — zanjirning qolgan qismiga tegmaydi: pastdagi "telefon va nom orqali
+// zanjir" holatida A-B rad etilsa, B-C hali ham alohida guruh sifatida
+// ko'rinishda davom etadi, chunki ular boshqa signal bilan bog'langan).
 
 /** Telefonning solishtirish kaliti: oxirgi 9 raqam ("998" prefiksisiz). */
 export function phoneDupKey(raw: string | null | undefined): string {
@@ -35,6 +42,11 @@ export function nameDupKey(raw: string | null | undefined): string {
   const s = (raw ?? "").trim().toLowerCase().replace(/\s+/g, " ");
   // Juda qisqa nom (masalan "kafe") shovqin — kamida 4 belgidan iborat bo'lsin.
   return s.length >= 4 ? s : "";
+}
+
+/** Ikki mijoz id'sidan barqaror (tartibga bog'liq bo'lmagan) juftlik kaliti. */
+export function pairKey(aId: string, bId: string): string {
+  return aId < bId ? `${aId}_${bId}` : `${bId}_${aId}`;
 }
 
 // Bitta nom shu sondan ortiq mijozga mos kelsa — u umumiy so'z (masalan
@@ -60,13 +72,28 @@ export type DupClientInput = {
 
 export type DupReason = "phone" | "contract" | "name";
 
+/** Bekor qilinishi (rad etilishi) kerak bo'lgan juftlik — DB qatoridan. */
+export type DismissedPair = { clientAId: string; clientBId: string };
+
+export type DupPair<T extends DupClientInput = DupClientInput> = {
+  /** Barqaror juftlik kaliti — dismiss action shuni ishlatadi. */
+  key: string;
+  a: T;
+  b: T;
+  reasons: DupReason[];
+};
+
 export type DupGroup<T extends DupClientInput = DupClientInput> = {
   /** Barqaror guruh kaliti (a'zolar id'laridan) — React key uchun. */
   key: string;
   reasons: DupReason[];
   confidence: "high" | "medium";
   clients: T[];
+  /** Guruh ichidagi to'g'ridan-to'g'ri bog'langan juftliklar — "dublikat emas" tugmasi shular ustida ishlaydi. */
+  pairs: DupPair<T>[];
 };
+
+const REASON_PRIORITY: DupReason[] = ["phone", "contract", "name"];
 
 // —— Union-Find (Disjoint Set) ——
 class UF {
@@ -102,17 +129,26 @@ function phoneKeysOf(c: DupClientInput): string[] {
   return [...keys];
 }
 
+type Edge = { a: string; b: string; reasons: Set<DupReason> };
+
 /**
  * Mijozlar ro'yxatidan bo'lishi mumkin bo'lgan dublikat guruhlarni topadi.
  * Faqat 2+ mijozdan iborat guruhlar qaytariladi. Guruhlar ichida mijozlar
  * yaratilgan sana bo'yicha (eskisi birinchi) tartiblanadi; guruhlar esa
  * ishonch (yuqori birinchi) va o'lcham bo'yicha.
+ *
+ * `dismissed` — oldin "dublikat emas" deb belgilangan juftliklar (edge
+ * darajasida chiqarib tashlanadi, boshqa signal bilan hali ham bog'liq
+ * bo'lsa, guruh shu bog'lanish orqali qayta hosil bo'lishi mumkin).
  */
 export function findDuplicateGroups<T extends DupClientInput>(
   clients: T[],
+  dismissed: DismissedPair[] = [],
 ): DupGroup<T>[] {
   const byId = new Map<string, T>();
   for (const c of clients) byId.set(c.id, c);
+
+  const dismissedKeys = new Set(dismissed.map((d) => pairKey(d.clientAId, d.clientBId)));
 
   // Har signal turi bo'yicha: kalit -> shu kalitga ega mijoz id'lari
   const byPhone = new Map<string, string[]>();
@@ -127,14 +163,33 @@ export function findDuplicateGroups<T extends DupClientInput>(
     if (nk) push(byName, nk, c.id);
   }
 
-  const uf = new UF();
-  const link = (ids: string[]) => {
-    for (let i = 1; i < ids.length; i++) uf.union(ids[0], ids[i]);
-  };
-  for (const ids of byPhone.values()) if (ids.length > 1) link(ids);
-  for (const ids of byContract.values()) if (ids.length > 1) link(ids);
+  // Har bir aniq kalit-guruh ichida BARCHA juftliklarga (to'liq graf) chek
+  // qo'yiladi — shu bilan "dublikat emas" aynan bitta juftlikni (edge'ni)
+  // chiqarib tashlaydi, qolgan a'zolar bir-biriga hamon bog'liq qoladi.
+  const edges = new Map<string, Edge>();
+  function addEdges(ids: string[], reason: DupReason): void {
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        const a = ids[i];
+        const b = ids[j];
+        const key = pairKey(a, b);
+        if (dismissedKeys.has(key)) continue;
+        let e = edges.get(key);
+        if (!e) {
+          e = { a, b, reasons: new Set() };
+          edges.set(key, e);
+        }
+        e.reasons.add(reason);
+      }
+    }
+  }
+  for (const ids of byPhone.values()) if (ids.length > 1) addEdges(ids, "phone");
+  for (const ids of byContract.values()) if (ids.length > 1) addEdges(ids, "contract");
   for (const [, ids] of byName)
-    if (ids.length > 1 && ids.length <= GENERIC_NAME_LIMIT) link(ids);
+    if (ids.length > 1 && ids.length <= GENERIC_NAME_LIMIT) addEdges(ids, "name");
+
+  const uf = new UF();
+  for (const e of edges.values()) uf.union(e.a, e.b);
 
   // Komponentlarni yig'ish
   const comps = new Map<string, T[]>();
@@ -147,20 +202,43 @@ export function findDuplicateGroups<T extends DupClientInput>(
   const groups: DupGroup<T>[] = [];
   for (const members of comps.values()) {
     if (members.length < 2) continue;
-    const reasons = reasonsFor(members);
-    if (reasons.length === 0) continue; // GENERIC_NAME sabab yolg'iz qolgan holat
+    const memberIds = new Set(members.map((m) => m.id));
+    const compEdges = [...edges.values()].filter((e) => memberIds.has(e.a));
+    if (compEdges.length === 0) continue; // yolg'iz qolgan holat (masalan GENERIC_NAME)
+
+    const reasonSet = new Set<DupReason>();
+    for (const e of compEdges) for (const r of e.reasons) reasonSet.add(r);
+    const reasons = REASON_PRIORITY.filter((r) => reasonSet.has(r));
     const confidence: DupGroup<T>["confidence"] =
-      reasons.includes("phone") || reasons.includes("contract")
-        ? "high"
-        : "medium";
-    const sorted = [...members].sort(
-      (a, b) => ts(a.createdAt) - ts(b.createdAt),
-    );
+      reasons.includes("phone") || reasons.includes("contract") ? "high" : "medium";
+
+    const sorted = [...members].sort((a, b) => ts(a.createdAt) - ts(b.createdAt));
+    const orderIndex = new Map(sorted.map((m, i) => [m.id, i]));
+
+    const pairs: DupPair<T>[] = compEdges
+      .map((e) => {
+        const aFirst = orderIndex.get(e.a)! <= orderIndex.get(e.b)!;
+        const aId = aFirst ? e.a : e.b;
+        const bId = aFirst ? e.b : e.a;
+        return {
+          key: pairKey(e.a, e.b),
+          a: byId.get(aId)!,
+          b: byId.get(bId)!,
+          reasons: REASON_PRIORITY.filter((r) => e.reasons.has(r)),
+        };
+      })
+      .sort(
+        (x, y) =>
+          orderIndex.get(x.a.id)! - orderIndex.get(y.a.id)! ||
+          orderIndex.get(x.b.id)! - orderIndex.get(y.b.id)!,
+      );
+
     groups.push({
       key: sorted.map((m) => m.id).join("_"),
       reasons,
       confidence,
       clients: sorted,
+      pairs,
     });
   }
 
@@ -171,34 +249,6 @@ export function findDuplicateGroups<T extends DupClientInput>(
       b.clients.length - a.clients.length,
   );
   return groups;
-}
-
-/** Guruh a'zolari qaysi signallar bo'yicha bog'langanini aniqlaydi. */
-function reasonsFor(members: DupClientInput[]): DupReason[] {
-  const reasons: DupReason[] = [];
-  if (sharesKey(members, (c) => phoneKeysOf(c))) reasons.push("phone");
-  if (sharesKey(members, (c) => keyList(contractDupKey(c.contractNumber))))
-    reasons.push("contract");
-  if (sharesKey(members, (c) => keyList(nameDupKey(c.restaurantName))))
-    reasons.push("name");
-  return reasons;
-}
-
-/** Guruh ichida 2+ a'zo bitta kalitni baham ko'radimi? */
-function sharesKey(
-  members: DupClientInput[],
-  keysOf: (c: DupClientInput) => string[],
-): boolean {
-  const seen = new Map<string, number>();
-  for (const m of members)
-    for (const k of new Set(keysOf(m)))
-      seen.set(k, (seen.get(k) ?? 0) + 1);
-  for (const n of seen.values()) if (n > 1) return true;
-  return false;
-}
-
-function keyList(k: string): string[] {
-  return k ? [k] : [];
 }
 
 function push(map: Map<string, string[]>, key: string, id: string): void {

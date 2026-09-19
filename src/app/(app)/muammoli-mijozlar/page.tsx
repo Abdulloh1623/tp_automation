@@ -7,10 +7,11 @@ import {
   loadPaymentProblems,
   loadRefusedButActive,
 } from "@/lib/problem-clients";
-import { loadDuplicateGroups } from "@/lib/duplicates-data";
+import { loadDuplicateGroups, loadDismissedDuplicates } from "@/lib/duplicates-data";
 import { IncompleteTable } from "@/components/incomplete-table";
 import { PaymentProblemList, type ProblemBucket } from "@/components/payment-problem-list";
 import { DuplicateGroups } from "@/components/duplicate-groups";
+import { DismissedDuplicatesList } from "@/components/dismissed-duplicates-list";
 import { RefusedActiveFix } from "@/components/refused-active-fix";
 
 // Uch bo'lim bitta manzilda: tanlov URL da turadi, ya'ni havolani ulashsa ham,
@@ -48,6 +49,10 @@ export default async function ProblemClientsPage({
     loadDuplicateGroups(),
     loadRefusedButActive(),
   ]);
+  // Faqat "dublikat" tabida va bekor qilish huquqi bo'lganlarga kerak —
+  // boshqa tablarda ortiqcha so'rov yubormaslik uchun shartli yuklanadi.
+  const dismissed =
+    tab === "dublikat" && canDelete ? await loadDismissedDuplicates() : [];
 
   const buckets: ProblemBucket[] = [
     {
@@ -166,10 +171,11 @@ export default async function ProblemClientsPage({
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Bir xil telefon, shartnoma yoki nomga ega, ehtimoliy takrorlangan yozuvlar.{" "}
             {canDelete
-              ? "Tekshirib, keraksiz nusxani \"O'chirish\" tugmasi bilan o'chiring — aslini qoldiring."
+              ? "Tekshirib, keraksiz nusxani \"O'chirish\" tugmasi bilan o'chiring — aslini qoldiring. Aslida boshqa-boshqa mijoz bo'lsa, \"Dublikat emas\" tugmasini bosing — o'sha juftlik boshqa chiqmaydi."
               : "Tekshirib, keraksiz nusxani boshliq/adminga o'chirtiring."}
           </p>
           <DuplicateGroups groups={dupGroups} canDelete={canDelete} />
+          {canDelete && <DismissedDuplicatesList rows={dismissed} />}
         </>
       )}
     </div>

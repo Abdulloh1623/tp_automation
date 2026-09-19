@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ClientLink } from "@/components/client-link";
 import { PhoneCopyButton } from "@/components/phone-copy";
 import { DuplicateDeleteButton } from "@/components/duplicate-delete-button";
+import { DismissDuplicateButton } from "@/components/dismiss-duplicate-button";
 import type { DupGroup, DupReason } from "@/lib/duplicates";
 import type { DupPageClient } from "@/lib/duplicates-data";
 import { CLIENT_STATUS, LEAD_STAGE } from "@/lib/constants";
@@ -168,6 +169,30 @@ export function DuplicateGroups({
                 </div>
               ))}
             </div>
+
+            {canDelete && g.pairs.length > 0 && (
+              <div className="space-y-1.5 border-t border-slate-100 pt-3 dark:border-slate-800">
+                <p className="text-xs font-medium text-slate-400">
+                  Aslida boshqa-boshqa mijozmi? Tekshirib, tegishli juftlikni belgilang:
+                </p>
+                {g.pairs.map((p) => (
+                  <div
+                    key={p.key}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-1.5 text-xs dark:bg-slate-800/60"
+                  >
+                    <span className="text-slate-600 dark:text-slate-300">
+                      {p.a.restaurantName || p.a.fullName || "—"}
+                      <span className="mx-1.5 text-slate-400">↔</span>
+                      {p.b.restaurantName || p.b.fullName || "—"}
+                      <span className="ml-2 text-slate-400">
+                        ({p.reasons.map((r) => REASON_LABEL[r]).join(", ")})
+                      </span>
+                    </span>
+                    <DismissDuplicateButton clientAId={p.a.id} clientBId={p.b.id} />
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       ))}

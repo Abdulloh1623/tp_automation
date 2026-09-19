@@ -30,6 +30,24 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.integration.test.ts"],
+    // XAVFSIZLIK: bu yuqoridagi `.env.test` yuklovchisidan KEYIN, ustidan
+    // yoziladi — lokal `.env`dagi HAQIQIY Telegram token/kanal ID'lari
+    // (dev qulayligi uchun saqlangan) test jarayoniga o'tib, test
+    // ma'lumotlarini (tasodifiy nom/sana) HAQIQIY "To'lov cheklari" kanaliga
+    // yuborib yuborgan edi (masalan `payments.integration.test.ts` har
+    // `recordPayment` chaqiruvida chek biriktiradi — Telegram mock
+    // QILINMAGAN). `telegram.ts` token yo'qligida o'zi "disabled"/"log"
+    // rejimga o'tadi, shuning uchun har bir test faylini alohida mock
+    // qilish shart emas.
+    env: {
+      TELEGRAM_BOT_TOKEN: "",
+      TELEGRAM_CHANNEL_ID: "",
+      TELEGRAM_PAYMENTS_CHANNEL_ID: "",
+      TELEGRAM_RECEIPTS_GROUP_ID: "",
+      TELEGRAM_BACKUP_CHANNEL_ID: "",
+      TELEGRAM_ERRORS_CHANNEL_ID: "",
+      TELEGRAM_ERRORS_CRITICAL_CHANNEL_ID: "",
+    },
     // Testlardan oldin bir marta: test bazasiga migratsiyalarni qo'llaydi
     // (sxema o'zgargach tp_test avtomatik yangilanadi — lokal DX).
     globalSetup: ["src/test/integration-global-setup.ts"],

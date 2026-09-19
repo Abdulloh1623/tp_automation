@@ -254,6 +254,8 @@ model Client {
   phones          ClientPhone[]
   pendingPayments PendingPayment[]         @relation("PendingPaymentClient")
   cardPayments    PendingCardPayment[]     @relation("CardPaymentClient")
+  dupDismissalsA  DuplicateDismissal[]     @relation("DupDismissalA")
+  dupDismissalsB  DuplicateDismissal[]     @relation("DupDismissalB")
 
   @@index([status])
   @@index([nextPaymentDate])
@@ -470,6 +472,26 @@ model Suggestion {
 
   @@index([status, createdAt])
   @@index([clientId])
+}
+
+// Dublikat guruhlarida (src/lib/duplicates.ts) "Bular dublikat emas" deb
+// belgilangan JUFTLIK — aniq shu ikkita mijozni bir-biriga qarshi keyingi
+// avtomatik aniqlashda qayta ko'rsatmaslik uchun. clientAId/clientBId
+// tartibi barqaror (kichikroq id birinchi) — normallashtirish `pairKey()`
+// da amalga oshadi, shu bilan @@unique ikki yo'nalishni ham qamraydi.
+// Ikkala mijozdan biri o'chirilsa (masalan dublikat sifatida) — yozuv ham
+// kaskad o'chadi, chunki endi mazmunsiz.
+model DuplicateDismissal {
+  id            String   @id @default(cuid())
+  clientAId     String
+  clientA       Client   @relation("DupDismissalA", fields: [clientAId], references: [id], onDelete: Cascade)
+  clientBId     String
+  clientB       Client   @relation("DupDismissalB", fields: [clientBId], references: [id], onDelete: Cascade)
+  dismissedById String? // belgilagan xodim (User.id — Suggestion kabi, relatsiyasiz)
+  createdAt     DateTime @default(now())
+
+  @@unique([clientAId, clientBId])
+  @@index([clientBId])
 }
 
 // --- Ombor (inventar) ---

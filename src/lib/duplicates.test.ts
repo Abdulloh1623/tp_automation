@@ -125,4 +125,64 @@ describe("findDuplicateGroups", () => {
     ]);
     expect(groups[0].clients[0].id).toBe("old");
   });
+
+  it("guruhda a'zolar orasidagi to'g'ridan-to'g'ri juftliklarni qaytaradi", () => {
+    const groups = findDuplicateGroups([
+      c({ id: "1", restaurantName: "Osh Markazi", phone: "90 111 22 33" }),
+      c({ id: "2", restaurantName: "Osh Markazi", phone: "90 444 55 66" }),
+    ]);
+    expect(groups[0].pairs).toHaveLength(1);
+    expect(groups[0].pairs[0].a.id).toBe("1");
+    expect(groups[0].pairs[0].b.id).toBe("2");
+    expect(groups[0].pairs[0].reasons).toEqual(["name"]);
+  });
+});
+
+describe("findDuplicateGroups — dublikat emas (dismissed juftlik)", () => {
+  it("rad etilgan juftlik boshqa guruh hosil qilmaydi", () => {
+    const clients = [
+      c({ id: "1", phone: "90 111 22 33" }),
+      c({ id: "2", phone: "90 111 22 33" }),
+    ];
+    const groups = findDuplicateGroups(clients, [{ clientAId: "1", clientBId: "2" }]);
+    expect(groups).toHaveLength(0);
+  });
+
+  it("juftlik tartibi (A/B) farqi qilmaydi — teskari tartibda ham rad etiladi", () => {
+    const clients = [
+      c({ id: "1", phone: "90 111 22 33" }),
+      c({ id: "2", phone: "90 111 22 33" }),
+    ];
+    const groups = findDuplicateGroups(clients, [{ clientAId: "2", clientBId: "1" }]);
+    expect(groups).toHaveLength(0);
+  });
+
+  it("zanjirda faqat rad etilgan juftlik chiqadi — qolgan bog'lanish saqlanadi", () => {
+    // 1-2 nom orqali, 2-3 telefon orqali bog'langan (mavjud "zanjir" testi bilan bir xil holat).
+    const clients = [
+      c({ id: "1", restaurantName: "Osh Markazi", phone: "90 111 22 33" }),
+      c({ id: "2", restaurantName: "Osh Markazi", phone: "90 444 55 66" }),
+      c({ id: "3", restaurantName: "Boshqa Joy", phone: "90 444 55 66" }),
+    ];
+    // 1-2 juftligi "dublikat emas" deb belgilangan.
+    const groups = findDuplicateGroups(clients, [{ clientAId: "1", clientBId: "2" }]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].clients.map((x) => x.id).sort()).toEqual(["2", "3"]);
+    expect(groups[0].reasons).toEqual(["phone"]);
+  });
+
+  it("faqat bitta sababi bo'lgan juftlik rad etilsa, boshqa sabab bilan bog'liq bo'lmasa butunlay ajraladi", () => {
+    const clients = [
+      c({ id: "1", contractNumber: "AB130326158", phone: "90 111 22 33" }),
+      c({ id: "2", contractNumber: "AB130326158", phone: "90 222 33 44" }),
+      c({ id: "3", contractNumber: "AB130326158", phone: "90 333 44 55" }),
+    ];
+    // 1-2 va 1-3 rad etiladi, 2-3 hali ham shartnoma bo'yicha bog'langan.
+    const groups = findDuplicateGroups(clients, [
+      { clientAId: "1", clientBId: "2" },
+      { clientAId: "1", clientBId: "3" },
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].clients.map((x) => x.id).sort()).toEqual(["2", "3"]);
+  });
 });

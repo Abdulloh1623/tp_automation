@@ -268,17 +268,28 @@ describe("deactivateRefusedClients (otkaz, lekin hali faol)", () => {
     expect(after!.deactivatedAt?.toISOString()).toBe(old.toISOString());
   });
 
-  it("OPERATOR va MANAGER qila olmaydi", async () => {
-    for (const role of ["OPERATOR", "SUPER_ADMIN"] as const) {
+  it("OPERATOR qila olmaydi", async () => {
+    await loginAs(await makeUser("OPERATOR"));
+    const c = await refusedActive();
+
+    const res = await deactivateRefusedClients();
+
+    expect(res.ok).toBe(false);
+    const after = await db.client.findUnique({ where: { id: c.id } });
+    expect(after!.status).toBe("ACTIVE");
+  });
+
+  it("SUPER_ADMIN va HEAD_OF_SUPPORT ham tuzata oladi", async () => {
+    for (const role of ["SUPER_ADMIN", "HEAD_OF_SUPPORT"] as const) {
       await resetDb();
       await loginAs(await makeUser(role));
       const c = await refusedActive();
 
       const res = await deactivateRefusedClients();
 
-      expect(res.ok, `rol ${role}`).toBe(false);
+      expect(res.ok, `rol ${role}`).toBe(true);
       const after = await db.client.findUnique({ where: { id: c.id } });
-      expect(after!.status).toBe("ACTIVE");
+      expect(after!.status, `rol ${role}`).toBe("INACTIVE");
     }
   });
 

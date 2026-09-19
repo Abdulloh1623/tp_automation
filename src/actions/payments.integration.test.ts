@@ -256,16 +256,30 @@ describe("rejectAllPendingPayments (navbatni ommaviy tozalash)", () => {
     expect(await db.payment.count()).toBe(0);
   });
 
-  it("OPERATOR va MANAGER qila olmaydi", async () => {
-    for (const role of ["OPERATOR", "SUPER_ADMIN"] as const) {
+  it("OPERATOR qila olmaydi", async () => {
+    await loginAs(await makeUser("OPERATOR"));
+    await makePending(1);
+
+    const res = await rejectAllPendingPayments();
+
+    expect(res.error).toBeTruthy();
+    expect(await db.pendingPayment.count({ where: { status: "PENDING" } })).toBe(1);
+  });
+
+  it("SUPER_ADMIN va HEAD_OF_SUPPORT ham rad eta oladi", async () => {
+    for (const role of ["SUPER_ADMIN", "HEAD_OF_SUPPORT"] as const) {
       await resetDb();
       await loginAs(await makeUser(role));
       await makePending(1);
 
       const res = await rejectAllPendingPayments();
 
-      expect(res.error, `rol ${role}`).toBeTruthy();
-      expect(await db.pendingPayment.count({ where: { status: "PENDING" } })).toBe(1);
+      expect(res.error, `rol ${role}`).toBeUndefined();
+      expect(res.rejected, `rol ${role}`).toBe(1);
+      expect(
+        await db.pendingPayment.count({ where: { status: "PENDING" } }),
+        `rol ${role}`,
+      ).toBe(0);
     }
   });
 
